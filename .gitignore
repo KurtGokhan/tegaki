@@ -5,6 +5,7 @@ package-lock.json
 # output
 out
 dist
+output
 *.tgz
 
 # code coverage

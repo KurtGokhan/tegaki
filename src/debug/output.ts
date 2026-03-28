@@ -1,0 +1,135 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import type { RasterResult } from '../processing/rasterize.ts';
+import type { Point, Stroke } from '../types.ts';
+import { bitmapToPNG } from './png.ts';
+
+const STROKE_COLORS = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990'];
+
+function charToFilename(char: string): string {
+  const code = char.codePointAt(0)!;
+  // Use readable names for alphanumeric, hex code for symbols
+  if (/[a-zA-Z0-9]/.test(char)) {
+    return char.charCodeAt(0) >= 65 && char.charCodeAt(0) <= 90 ? `upper_${char}` : char;
+  }
+  return `U+${code.toString(16).padStart(4, '0')}`;
+}
+
+function polylinesToSVG(polylines: Point[][], width: number, height: number, title: string, strokeWidth = 1): string {
+  const paths = polylines
+    .map((pl, i) => {
+      const color = STROKE_COLORS[i % STROKE_COLORS.length];
+      const d = pl.map((p, j) => `${j === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+      return `  <path d="${d}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    })
+    .join('\n');
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width * 2}" height="${height * 2}">
+  <title>${title}</title>
+  <rect width="${width}" height="${height}" fill="white"/>
+${paths}
+</svg>`;
+}
+
+function strokesAnimationSVG(strokes: Stroke[], width: number, height: number, title: string): string {
+  const totalDuration = 2; // seconds for full animation
+  const pauseBetween = 0.3; // pause between strokes
+  const paths: string[] = [];
+  let timeOffset = 0;
+
+  for (let i = 0; i < strokes.length; i++) {
+    const stroke = strokes[i]!;
+    const color = STROKE_COLORS[i % STROKE_COLORS.length];
+    const d = stroke.points.map((p, j) => `${j === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+
+    // Compute path length for dash animation
+    let len = 0;
+    for (let j = 1; j < stroke.points.length; j++) {
+      const dx = stroke.points[j]!.x - stroke.points[j - 1]!.x;
+      const dy = stroke.points[j]!.y - stroke.points[j - 1]!.y;
+      len += Math.sqrt(dx * dx + dy * dy);
+    }
+
+    const avgWidth = stroke.points.reduce((s, p) => s + p.width, 0) / stroke.points.length;
+    const strokeDuration = totalDuration / strokes.length;
+    const begin = `${timeOffset.toFixed(2)}s`;
+
+    paths.push(`  <path d="${d}" fill="none" stroke="${color}" stroke-width="${Math.max(avgWidth, 1).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="${len.toFixed(0)}" stroke-dashoffset="${len.toFixed(0)}">
+    <animate attributeName="stroke-dashoffset" from="${len.toFixed(0)}" to="0" dur="${strokeDuration.toFixed(2)}s" begin="${begin}" fill="freeze"/>
+  </path>`);
+
+    timeOffset += strokeDuration + pauseBetween;
+  }
+
+  // Add stroke order labels
+  const labels: string[] = [];
+  for (let i = 0; i < strokes.length; i++) {
+    const stroke = strokes[i]!;
+    if (stroke.points.length === 0) continue;
+    const start = stroke.points[0]!;
+    labels.push(
+      `  <circle cx="${start.x.toFixed(1)}" cy="${start.y.toFixed(1)}" r="4" fill="${STROKE_COLORS[i % STROKE_COLORS.length]}" opacity="0.7"/>`,
+    );
+    labels.push(
+      `  <text x="${(start.x + 5).toFixed(1)}" y="${(start.y - 5).toFixed(1)}" font-size="8" fill="${STROKE_COLORS[i % STROKE_COLORS.length]}" font-family="sans-serif">${i + 1}</text>`,
+    );
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width * 2}" height="${height * 2}">
+  <title>${title}</title>
+  <rect width="${width}" height="${height}" fill="white"/>
+${paths.join('\n')}
+${labels.join('\n')}
+</svg>`;
+}
+
+export async function writeDebugOutput(
+  debugDir: string,
+  char: string,
+  raster: RasterResult,
+  skeletonBitmap: Uint8Array,
+  polylines: Point[][],
+  strokes: Stroke[],
+): Promise<void> {
+  const name = charToFilename(char);
+  const glyphDir = join(debugDir, name);
+  mkdirSync(glyphDir, { recursive: true });
+
+  const { width, height } = raster;
+
+  // 1. Rasterized bitmap
+  await Bun.write(join(glyphDir, '1-bitmap.png'), bitmapToPNG(raster.bitmap, width, height));
+
+  // 2. Skeleton bitmap
+  await Bun.write(join(glyphDir, '2-skeleton.png'), bitmapToPNG(skeletonBitmap, width, height));
+
+  // 3. Overlay: skeleton on top of faded bitmap
+  const overlayBitmap = new Uint8Array(width * height);
+  for (let i = 0; i < overlayBitmap.length; i++) {
+    overlayBitmap[i] = raster.bitmap[i]! || skeletonBitmap[i]! ? 1 : 0;
+  }
+  const overlaySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width * 2}" height="${height * 2}">
+  <title>${char} - bitmap + skeleton overlay</title>
+  <rect width="${width}" height="${height}" fill="white"/>
+${Array.from({ length: height }, (_, y) =>
+  Array.from({ length: width }, (_, x) => {
+    const idx = y * width + x;
+    if (skeletonBitmap[idx]) return `  <rect x="${x}" y="${y}" width="1" height="1" fill="red"/>`;
+    if (raster.bitmap[idx]) return `  <rect x="${x}" y="${y}" width="1" height="1" fill="#ddd"/>`;
+    return '';
+  })
+    .filter(Boolean)
+    .join('\n'),
+)
+  .filter(Boolean)
+  .join('\n')}
+</svg>`;
+  await Bun.write(join(glyphDir, '3-overlay.svg'), overlaySvg);
+
+  // 4. Traced polylines
+  await Bun.write(join(glyphDir, '4-trace.svg'), polylinesToSVG(polylines, width, height, `${char} - traced polylines`, 1.5));
+
+  // 5. Animated strokes
+  await Bun.write(join(glyphDir, '5-animation.svg'), strokesAnimationSVG(strokes, width, height, `${char} - stroke animation`));
+}
