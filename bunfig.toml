@@ -1,6 +1,5 @@
 [run]
 bun = true
-silent = true
 
 [install]
 linker = "isolated"

@@ -60,8 +60,6 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact: dist-linux
-          - os: macos-latest
-            artifact: dist-macos
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read

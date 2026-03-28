@@ -1,12 +1,12 @@
 {
-  "name": "padrone-boilerplate",
+  "name": "handy-text",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Boilerplate for new CLI projects with Padrone",
+  "description": "Create hand-written text animations",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/KurtGokhan/padrone-boilerplate.git"
+    "url": "git+ssh://git@github.com/KurtGokhan/handy-text.git"
   },
   "bin": {
     "myapp": "./index.ts"
@@ -32,15 +32,15 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "padrone": "^1.0.0",
+    "padrone": "^1.6.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.6",
-    "@types/bun": "^1.3.10",
+    "@biomejs/biome": "^2.4.9",
+    "@types/bun": "^1.3.11",
     "husky": "^9.1.7",
-    "lint-staged": "^16.3.3",
-    "typescript": "^6.0.0-beta"
+    "lint-staged": "^16.4.0",
+    "typescript": "^6.0.2"
   },
   "lint-staged": {
     "*": [

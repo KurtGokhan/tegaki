@@ -1,9 +1,9 @@
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 
-export const program = createPadrone('myapp')
+export const program = createPadrone('handy-text')
   .configure({
-    description: 'A CLI built with Padrone',
+    description: 'Handy Text CLI',
     version: '0.1.0',
   })
   .action(() => {
@@ -12,17 +12,15 @@ export const program = createPadrone('myapp')
   .command('hello', (c) =>
     c
       .configure({ title: 'Print a greeting message' })
-      .options(
+      .arguments(
         z.object({
-          name: z.string().optional().default('World').describe('Name to greet'),
+          name: z.string().optional(),
         }),
         { positional: ['name'] },
       )
-      .action((options) => {
-        console.log(`Hello, ${options.name}!`);
+      .action((args) => {
+        console.log(`Hello, ${args.name}!`);
       }),
   );
 
-if (import.meta.main) {
-  await program.cli();
-}
+if (import.meta.main) await program.cli().drain();

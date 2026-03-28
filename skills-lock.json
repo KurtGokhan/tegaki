@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "padrone": {
+      "source": "KurtGokhan/padrone",
+      "sourceType": "github",
+      "computedHash": "ed1c0bac383e234f1a8666003bc56af0f46c2140c49e37ed7d7832232a4c10c2"
+    }
+  }
+}

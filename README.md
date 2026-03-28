@@ -1,15 +1,6 @@
-# Padrone Boilerplate
+# Handy Text
 
-Boilerplate for new CLI projects built with [Padrone](https://github.com/KurtGokhan/padrone), TypeScript, and Bun.
-
-## Features
-
-- **[Padrone](https://github.com/KurtGokhan/padrone)** – CLI framework with Zod schema-based argument parsing
-- **[TypeScript](https://www.typescriptlang.org/)** – Type-safe development
-- **[Bun](https://bun.sh/)** – Fast JavaScript runtime and package manager
-- **[Biome](https://biomejs.dev/)** – Linter and formatter
-- **[Husky](https://typicode.github.io/husky/)** – Pre-commit hooks via lint-staged
-- **GitHub Actions** – CI workflow
+Generate hand-written text animations with ease. This CLI tool allows you to create stunning text animations that mimic the look of hand-written notes, perfect for videos, presentations, and social media content.
 
 ## Getting Started
 
