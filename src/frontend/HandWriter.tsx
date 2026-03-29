@@ -1,9 +1,7 @@
 import { layoutWithLines, prepareWithSegments } from '@chenglou/pretext';
-import * as opentype from 'opentype.js';
 import { type ComponentProps, type CSSProperties, type ReactElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { twJoin } from 'tailwind-merge';
-import fontUrl from '#.cache/fonts/caveat.ttf' with { type: 'url' };
-import { glyphs, glyphTimings } from './glyphs.ts';
+import type { FontBundle } from '../types.ts';
 
 const GLYPH_GAP = 0.1;
 
@@ -19,13 +17,13 @@ export interface Timeline {
   totalDuration: number;
 }
 
-export function computeTimeline(text: string): Timeline {
+export function computeTimeline(text: string, font: FontBundle): Timeline {
   const chars = text.split('');
   const entries: TimelineEntry[] = [];
   let offset = 0;
   for (const char of chars) {
-    const hasSvg = char in glyphs;
-    const duration = hasSvg ? (glyphTimings[char] ?? 1) : 0;
+    const hasSvg = char in font.glyphs;
+    const duration = hasSvg ? (font.glyphTimings[char] ?? 1) : 0;
     entries.push({ char, offset, duration, hasSvg });
     offset += duration;
     if (hasSvg) offset += GLYPH_GAP;
@@ -130,38 +128,14 @@ function computeTextLayout(text: string, fontFamily: string, fontSize: number, m
   return { lines, charWidths, kernings, intrinsicWidth };
 }
 
-export function Handwriter({ text, time, ...props }: { text: string; time: number } & ComponentProps<'div'>) {
-  const [fontFamily, setFontFamily] = useState<string | null>(null);
+export function Handwriter({ text, time, font, ...props }: { text: string; time: number; font: FontBundle } & ComponentProps<'div'>) {
+  const fontFamily = font.family;
   const rootRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [fontSize, setFontSize] = useState(0);
 
-  const timeline = useMemo(() => computeTimeline(text), [text]);
+  const timeline = useMemo(() => computeTimeline(text, font), [text, font]);
   const svgRefs = useRef(new Map<number, SVGSVGElement>());
-
-  // Load font: extract family name from the .ttf, register as FontFace
-  useEffect(() => {
-    opentype.load(fontUrl, (err, font) => {
-      if (err) {
-        console.error('Font could not be loaded', err);
-        return;
-      }
-      if (!font) return;
-
-      const family = font.names.fontFamily?.en ?? 'HandwriterFont';
-
-      if (typeof document !== 'undefined' && 'FontFace' in window) {
-        const fontFace = new FontFace(family, `url(${fontUrl})`);
-        fontFace
-          .load()
-          .then((loaded) => {
-            document.fonts.add(loaded);
-            setFontFamily(family);
-          })
-          .catch((e) => console.error('Browser font load failed', e));
-      }
-    });
-  }, []);
 
   // Observe container size for line wrapping
   useEffect(() => {
@@ -199,7 +173,7 @@ export function Handwriter({ text, time, ...props }: { text: string; time: numbe
   const renderGlyph = (charIdx: number) => {
     const char = characters[charIdx]!;
     const entry = timeline.entries[charIdx]!;
-    const GlyphSvg = glyphs[char as keyof typeof glyphs] as any;
+    const GlyphSvg = font.glyphs[char] as any;
     const width = layout?.charWidths[charIdx] ?? 1;
     const kerning = layout?.kernings[charIdx];
 
@@ -230,7 +204,7 @@ export function Handwriter({ text, time, ...props }: { text: string; time: numbe
       );
     } else {
       const isVisible = time >= entry.offset;
-      content = <span style={{ fontFamily: fontFamily ?? undefined, visibility: isVisible ? 'visible' : 'hidden' }}>{char}</span>;
+      content = <span style={{ fontFamily, visibility: isVisible ? 'visible' : 'hidden' }}>{char}</span>;
     }
 
     return (
@@ -267,8 +241,8 @@ export function Handwriter({ text, time, ...props }: { text: string; time: numbe
       <div className="[grid-area:1/1] absolute inset-0 pointer-events-none">{lineElements}</div>
 
       <div
-        className="[grid-area:1/1] select-auto text-transparent whitespace-pre-wrap wrap-break-word pr-[1px]"
-        style={{ fontFamily: fontFamily ?? undefined }}
+        className="[grid-area:1/1] select-auto [-webkit-text-fill-color:transparent] whitespace-pre-wrap wrap-break-word pr-[1px]"
+        style={{ fontFamily }}
       >
         {text}
       </div>

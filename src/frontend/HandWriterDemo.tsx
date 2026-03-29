@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import font from '#src/font.ts';
 import { computeTimeline, Handwriter } from './HandWriter.tsx';
 
 export function HandwriterDemo() {
@@ -7,7 +8,7 @@ export function HandwriterDemo() {
   const [playing, setPlaying] = useState(true);
   const [displayTime, setDisplayTime] = useState(0);
 
-  const timeline = computeTimeline(text);
+  const timeline = computeTimeline(text, font);
   const { totalDuration } = timeline;
 
   const timeRef = useRef(0);
@@ -76,7 +77,7 @@ export function HandwriterDemo() {
 
   const togglePlay = useCallback(() => {
     setPlaying((p) => {
-      if (!p && timeRef.current >= computeTimeline(text).totalDuration) {
+      if (!p && timeRef.current >= computeTimeline(text, font).totalDuration) {
         timeRef.current = 0;
         setDisplayTime(0);
       }
@@ -105,7 +106,7 @@ export function HandwriterDemo() {
         <span className="text-sm tabular-nums">{totalDuration.toFixed(2)}s</span>
       </div>
 
-      <Handwriter className="text-3xl w-80 border border-gray-300 rounded p-4" text={text} time={displayTime} />
+      <Handwriter className="text-3xl w-80 border border-gray-300 rounded p-4" text={text} time={displayTime} font={font} />
     </div>
   );
 }

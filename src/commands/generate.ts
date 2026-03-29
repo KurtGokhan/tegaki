@@ -1,5 +1,5 @@
-import { mkdirSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { basename, join, relative } from 'node:path';
 import { transform as svgrTransform } from '@svgr/core';
 import { padroneProgress } from 'padrone';
 import * as z from 'zod/v4';
@@ -67,7 +67,7 @@ export const generateCommand = (c: any) =>
     .arguments(
       z.object({
         family: z.string().default(DEFAULT_FONT_FAMILY).describe('Google Fonts family name'),
-        output: z.string().optional().describe('Output JSON file path').meta({ flags: 'o' }),
+        output: z.string().optional().describe('Output folder path for the font bundle').meta({ flags: 'o' }),
         resolution: z.number().default(DEFAULT_RESOLUTION).describe('Bitmap resolution for skeletonization').meta({ flags: 'r' }),
         chars: z.string().default(DEFAULT_CHARS).describe('Characters to process').meta({ flags: 'c' }),
         force: z.boolean().default(false).describe('Re-download font even if cached').meta({ flags: 'f' }),
@@ -81,8 +81,11 @@ export const generateCommand = (c: any) =>
     )
     .action(async (args: any, ctx: any) => {
       const progress = ctx.context.progress;
-      const outputPath = args.output ?? `output/${args.family.toLowerCase().replace(/\s+/g, '-')}.json`;
-      const debugDir = args.debug ? `${dirname(outputPath)}/debug` : null;
+      const outputDir = args.output ?? `output/${args.family.toLowerCase().replace(/\s+/g, '-')}`;
+      const jsonPath = join(outputDir, 'font.json');
+      const svgDir = join(outputDir, 'svg');
+      const glyphsModulePath = join(outputDir, 'glyphs.ts');
+      const debugDir = args.debug ? join(outputDir, 'debug') : null;
 
       progress.update(`Downloading font "${args.family}"...`);
       const fontPath = await downloadFont(args.family, { force: args.force });
@@ -183,12 +186,14 @@ export const generateCommand = (c: any) =>
         progress.update({ message: `Processing glyph "${char}"`, progress: processed / chars.length });
       }
 
-      mkdirSync(dirname(outputPath), { recursive: true });
-      await Bun.write(outputPath, JSON.stringify(output, null, 2));
+      mkdirSync(svgDir, { recursive: true });
+      await Bun.write(jsonPath, JSON.stringify(output, null, 2));
+
+      // Copy font file into the bundle
+      const bundledFontName = basename(fontPath);
+      copyFileSync(fontPath, join(outputDir, bundledFontName));
 
       // Write animated SVGs and SVGR-transformed TSX components for each glyph
-      const svgDir = join(dirname(outputPath), 'svg');
-      mkdirSync(svgDir, { recursive: true });
       const glyphEntries: { char: string; basename: string; totalAnimationDuration: number }[] = [];
       for (const glyph of Object.values(output.glyphs)) {
         const basename = charToFilename(glyph.char);
@@ -206,47 +211,70 @@ export const generateCommand = (c: any) =>
         glyphEntries.push({ char: glyph.char, basename, totalAnimationDuration: glyph.totalAnimationDuration });
       }
 
-      // Generate glyphs.ts with explicit imports for the frontend
-      const glyphsTs = generateGlyphsModule(glyphEntries, svgDir);
-      await Bun.write('src/frontend/glyphs.ts', glyphsTs);
+      // Generate glyphs.ts index module inside the bundle
+      const glyphsTs = generateGlyphsModule(glyphEntries, svgDir, outputDir, bundledFontName, parsed.family);
+      await Bun.write(glyphsModulePath, glyphsTs);
 
-      progress.succeed(`Processed ${processed} glyphs (${skipped} skipped). Output: ${outputPath}`);
+      progress.succeed(`Processed ${processed} glyphs (${skipped} skipped). Output: ${outputDir}`);
 
-      return { outputPath, processed, skipped };
+      return { outputDir, processed, skipped };
     });
 
-const GLYPHS_TS_DIR = 'src/frontend';
-
-function generateGlyphsModule(entries: { char: string; basename: string; totalAnimationDuration: number }[], svgDir: string): string {
-  const relDir = relative(GLYPHS_TS_DIR, svgDir).replaceAll('\\', '/');
+function generateGlyphsModule(
+  entries: { char: string; basename: string; totalAnimationDuration: number }[],
+  svgDir: string,
+  outputDir: string,
+  fontFileName: string,
+  fontFamily: string,
+): string {
+  let relDir = relative(outputDir, svgDir).replaceAll('\\', '/') || '.';
+  if (!relDir.startsWith('.')) relDir = `./${relDir}`;
 
   const imports: string[] = [];
   const mapEntries: string[] = [];
   const timingEntries: string[] = [];
 
   for (let i = 0; i < entries.length; i++) {
-    const { char, basename, totalAnimationDuration } = entries[i]!;
+    const { char, basename: base, totalAnimationDuration } = entries[i]!;
     const varName = `_${i}`;
-    imports.push(`import ${varName} from '${relDir}/${basename}.tsx';`);
+    imports.push(`import ${varName} from '${relDir}/${base}.tsx';`);
 
     const escaped = char === '\\' ? '\\\\' : char === "'" ? "\\'" : char;
     mapEntries.push(`  '${escaped}': ${varName},`);
     timingEntries.push(`  '${escaped}': ${totalAnimationDuration},`);
   }
 
-  return `// Auto-generated by the generate command. Do not edit manually.
-import type { FC, SVGProps } from 'react';
+  let relTypes = relative(outputDir, 'src/types.ts').replaceAll('\\', '/');
+  if (!relTypes.startsWith('.')) relTypes = `./${relTypes}`;
 
-type SvgComponent = FC<SVGProps<SVGSVGElement>>;
+  return `// Auto-generated by the generate command. Do not edit manually.
+import type { FontBundle } from '${relTypes}';
+
+import fontUrl from './${fontFileName}' with { type: 'url' };
 
 ${imports.join('\n')}
 
-export const glyphs: Record<string, SvgComponent> = {
+let registered: Promise<void> | null = null;
+
+const bundle: FontBundle = {
+  family: '${fontFamily.replace(/'/g, "\\'")}',
+  fontUrl,
+  glyphs: {
 ${mapEntries.join('\n')}
+  },
+  glyphTimings: {
+${timingEntries.join('\n')}
+  },
+  registerFontFace() {
+    if (!registered) {
+      registered = new FontFace(bundle.family, \`url(\${fontUrl})\`)
+        .load()
+        .then((loaded) => { document.fonts.add(loaded); });
+    }
+    return registered;
+  },
 };
 
-export const glyphTimings: Record<string, number> = {
-${timingEntries.join('\n')}
-};
+export default bundle;
 `;
 }

@@ -46,6 +46,14 @@ export interface FontOutput {
   glyphs: Record<string, GlyphData>;
 }
 
+export interface FontBundle {
+  family: string;
+  fontUrl: string;
+  glyphs: Record<string, import('react').FC<import('react').SVGProps<SVGSVGElement>>>;
+  glyphTimings: Record<string, number>;
+  registerFontFace: () => Promise<void>;
+}
+
 export interface PathCommand {
   type: 'M' | 'L' | 'Q' | 'C' | 'Z';
   x: number;

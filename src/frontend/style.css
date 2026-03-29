@@ -1,17 +1,5 @@
 @import "tailwindcss";
 
-@font-face {
-  font-family: "Caveat";
-  src: url("../../.cache/fonts/caveat.ttf") format("truetype");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-.text-transparent::selection {
-  color: transparent;
-}
-
 .ruled-lines {
   background-image: repeating-linear-gradient(
     transparent,
@@ -20,4 +8,7 @@
     rgba(150, 152, 160, 0.25) 1lh
   );
   background-size: 100% 1lh;
+  background-attachment: local;
+  scrollbar-gutter: stable;
+  scrollbar-color: rgba(150, 152, 160, 0.25) transparent;
 }

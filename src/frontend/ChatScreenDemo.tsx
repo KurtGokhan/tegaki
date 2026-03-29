@@ -1,4 +1,5 @@
 import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
+import type { FontBundle } from '../types.ts';
 import { computeTimeline, Handwriter } from './HandWriter.tsx';
 
 type Message = {
@@ -9,12 +10,17 @@ type Message = {
 const DEFAULT_SPEED = 4;
 const CATCH_UP_BASE = 0;
 
-function StreamingHandwriter({ text, speed = DEFAULT_SPEED, ...props }: { text: string; speed?: number } & ComponentProps<'div'>) {
+function StreamingHandwriter({
+  text,
+  font,
+  speed = DEFAULT_SPEED,
+  ...props
+}: { text: string; font: FontBundle; speed?: number } & ComponentProps<'div'>) {
   const [displayTime, setDisplayTime] = useState(0);
   const timeRef = useRef(0);
   const durationRef = useRef(0);
 
-  const { totalDuration } = computeTimeline(text);
+  const { totalDuration } = computeTimeline(text, font);
   durationRef.current = totalDuration;
 
   // Single rAF loop that runs for the lifetime of the component
@@ -45,10 +51,10 @@ function StreamingHandwriter({ text, speed = DEFAULT_SPEED, ...props }: { text: 
     return () => cancelAnimationFrame(raf);
   }, [speed]);
 
-  return <Handwriter text={text} time={displayTime} {...props} />;
+  return <Handwriter text={text} time={displayTime} font={font} {...props} />;
 }
 
-export function ChatScreenDemo() {
+export function ChatScreenDemo({ font }: { font: FontBundle }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('Write a haiku about otters');
   const [loading, setLoading] = useState(false);
@@ -143,7 +149,7 @@ export function ChatScreenDemo() {
       className="flex flex-col h-dvh w-full"
       style={{
         background: 'linear-gradient(170deg, #f0f1f3 0%, #e8e9ec 40%, #e3e4e7 100%)',
-        fontFamily: 'Caveat',
+        fontFamily: font.family,
       }}
     >
       {/* Header */}
@@ -181,6 +187,7 @@ export function ChatScreenDemo() {
               {msg.role === 'assistant' ? (
                 <StreamingHandwriter
                   className="max-w-[85%] md:max-w-[75%] text-lg md:text-base leading-[inherit]"
+                  font={font}
                   text={msg.content}
                   style={{
                     color: '#151820',
@@ -194,7 +201,6 @@ export function ChatScreenDemo() {
                 <div
                   className="max-w-[85%] md:max-w-[75%] text-lg md:text-base leading-[inherit] whitespace-pre-wrap italic"
                   style={{
-                    fontFamily: 'Caveat',
                     color: '#1e2030',
                     background: 'linear-gradient(135deg, rgba(228, 229, 234, 0.60) 0%, rgba(222, 223, 228, 0.40) 100%)',
                     borderRight: '2px solid rgba(80, 82, 95, 0.2)',
@@ -252,7 +258,6 @@ export function ChatScreenDemo() {
                 background: 'rgba(252, 252, 253, 0.85)',
                 border: 'none',
                 color: '#151820',
-                fontFamily: 'Caveat',
                 fontStyle: 'italic',
                 boxShadow: '1px 2px 6px rgba(80, 82, 90, 0.1)',
                 filter: 'url(#paper-rough)',

@@ -496,12 +496,27 @@ export function traceAndSimplify(
   // Compute spur length threshold: proportional to bitmap size, but capped so tiny glyphs aren't fully erased
   const effectiveSpurMin = spurMinLength ?? Math.min(Math.round(Math.max(width, height) * SPUR_LENGTH_RATIO), 10);
 
-  // Prune short spurs, but never prune everything
-  let pruned = smoothed.filter((p) => pathLength(p) >= effectiveSpurMin);
-  if (pruned.length === 0 && smoothed.length > 0) {
-    // Keep the longest polyline if all would be pruned
-    pruned = [smoothed.reduce((a, b) => (pathLength(a) >= pathLength(b) ? a : b))];
-  }
+  // Prune short spurs, but preserve isolated short components (e.g. dots in "i", "j").
+  // A true spur is a short branch connected to a longer stroke. An isolated component
+  // whose endpoints aren't near any other polyline is a legitimate feature.
+  const pruned = smoothed.filter((p) => {
+    if (pathLength(p) >= effectiveSpurMin) return true;
+    // Keep this short polyline if it's isolated (not connected to any other polyline)
+    const pStart = p[0]!;
+    const pEnd = p[p.length - 1]!;
+    const isConnected = smoothed.some((other) => {
+      if (other === p) return false;
+      const oStart = other[0]!;
+      const oEnd = other[other.length - 1]!;
+      return (
+        dist(pStart, oStart) < mergeThreshold ||
+        dist(pStart, oEnd) < mergeThreshold ||
+        dist(pEnd, oStart) < mergeThreshold ||
+        dist(pEnd, oEnd) < mergeThreshold
+      );
+    });
+    return !isConnected;
+  });
 
   // Simplify with RDP
   return pruned.map((p) => rdpSimplify(p, rdpTolerance));
