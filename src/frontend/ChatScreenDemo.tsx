@@ -1,6 +1,6 @@
 import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
+import { computeTimeline, Tegaki } from '../lib/TegakiRenderer.tsx';
 import type { FontBundle } from '../types.ts';
-import { computeTimeline, Handwriter } from './HandWriter.tsx';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -10,7 +10,7 @@ type Message = {
 const DEFAULT_SPEED = 4;
 const CATCH_UP_BASE = 0;
 
-function StreamingHandwriter({
+function StreamingTegaki({
   text,
   font,
   speed = DEFAULT_SPEED,
@@ -51,7 +51,7 @@ function StreamingHandwriter({
     return () => cancelAnimationFrame(raf);
   }, [speed]);
 
-  return <Handwriter text={text} time={displayTime} font={font} {...props} />;
+  return <Tegaki text={text} time={displayTime} font={font} {...props} />;
 }
 
 export function ChatScreenDemo({ font }: { font: FontBundle }) {
@@ -185,7 +185,7 @@ export function ChatScreenDemo({ font }: { font: FontBundle }) {
           {messages.map((msg, i) => (
             <div key={`${msg.role}-${i}`} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'assistant' ? (
-                <StreamingHandwriter
+                <StreamingTegaki
                   className="max-w-[85%] md:max-w-[75%] text-lg md:text-base leading-[inherit]"
                   font={font}
                   text={msg.content}

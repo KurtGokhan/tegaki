@@ -281,7 +281,7 @@ ${timingEntries.join('\n')}
     }
     return registered;
   },
-};
+} as const;
 
 export default bundle;
 `;

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import font from '#src/font.ts';
-import { computeTimeline, Handwriter } from './HandWriter.tsx';
+import { computeTimeline, Tegaki } from '../lib/TegakiRenderer.tsx';
 
-export function HandwriterDemo() {
+export function TegakiDemo() {
   const [text, setText] = useState('');
   const [speed, setSpeed] = useState(1);
   const [playing, setPlaying] = useState(true);
@@ -106,7 +106,7 @@ export function HandwriterDemo() {
         <span className="text-sm tabular-nums">{totalDuration.toFixed(2)}s</span>
       </div>
 
-      <Handwriter className="text-3xl w-80 border border-gray-300 rounded p-4" text={text} time={displayTime} font={font} />
+      <Tegaki className="text-3xl w-80 border border-gray-300 rounded p-4" text={text} time={displayTime} font={font} />
     </div>
   );
 }

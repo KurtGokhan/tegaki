@@ -1,9 +1,9 @@
 import { zipSync } from 'fflate';
 import { forwardRef, type SVGProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_CHARS, EXAMPLE_FONTS } from '../constants.ts';
+import { computeTimeline, Tegaki } from '../lib/TegakiRenderer.tsx';
 import { charToFilename, glyphToAnimatedSVG } from '../processing/animated-svg.ts';
 import type { FontBundle, FontOutput, LineCap } from '../types.ts';
-import { computeTimeline, Handwriter } from './HandWriter.tsx';
 import {
   type BrowserSkeletonMethod,
   DEFAULT_OPTIONS,
@@ -1270,7 +1270,7 @@ function TextPreview({
       <div className="flex-1 flex items-start justify-center p-8 overflow-auto">
         {!fontInfo && <p className="text-gray-400">Load a font to get started</p>}
         {fontInfo && !fontReady && <p className="text-gray-500">Loading font...</p>}
-        {fontBundle && fontReady && <Handwriter className="text-5xl w-full max-w-2xl" text={text} time={displayTime} font={fontBundle} />}
+        {fontBundle && fontReady && <Tegaki className="text-5xl w-full max-w-2xl" text={text} time={displayTime} font={fontBundle} />}
       </div>
 
       {/* Playback controls */}
@@ -1510,7 +1510,7 @@ ${timingEntries.join('\n')}
     }
     return registered;
   },
-};
+} as const;
 
 export default bundle;
 `;

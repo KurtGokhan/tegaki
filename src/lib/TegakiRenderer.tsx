@@ -128,7 +128,7 @@ function computeTextLayout(text: string, fontFamily: string, fontSize: number, m
   return { lines, charWidths, kernings, intrinsicWidth };
 }
 
-export function Handwriter({ text, time, font, ...props }: { text: string; time: number; font: FontBundle } & ComponentProps<'div'>) {
+export function Tegaki({ text, time, font, ...props }: { text: string; time: number; font: FontBundle } & ComponentProps<'div'>) {
   const fontFamily = font.family;
   const rootRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);

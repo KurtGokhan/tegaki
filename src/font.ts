@@ -1,4 +1,4 @@
-import font from '#output/fira-sans/glyphs.ts';
+import font from '#output/space-grotesk/glyphs.ts';
 
 await font.registerFontFace();
 
