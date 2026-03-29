@@ -6,7 +6,7 @@ import { bitmapToPNG } from './png.ts';
 
 const STROKE_COLORS = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990'];
 
-function charToFilename(char: string): string {
+export function charToFilename(char: string): string {
   const code = char.codePointAt(0)!;
   // Use readable names for alphanumeric, hex code for symbols
   if (/[a-zA-Z0-9]/.test(char)) {
@@ -134,4 +134,68 @@ ${Array.from({ length: height }, (_, y) =>
 
   // 5. Animated strokes
   await Bun.write(join(glyphDir, '5-animation.svg'), strokesAnimationSVG(strokes, width, height, `${char} - stroke animation`));
+}
+
+/**
+ * Generate a clean animated SVG for a glyph using font-unit coordinates.
+ * Strokes are colored with currentColor and animated via stroke-dashoffset.
+ * No debug labels, backgrounds, or overlay information.
+ */
+export function glyphToAnimatedSVG(
+  strokes: { points: { x: number; y: number; t: number; width: number }[]; length: number }[],
+  totalLength: number,
+): string {
+  const drawingDuration = 2;
+  const pauseBetween = 0.15;
+
+  // Compute viewBox from actual stroke points + half stroke width as padding
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let maxWidth = 0;
+  for (const stroke of strokes) {
+    for (const p of stroke.points) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+      if (p.width > maxWidth) maxWidth = p.width;
+    }
+  }
+  const pad = maxWidth / 2;
+  const vx = minX - pad;
+  const vy = minY - pad;
+  const vw = maxX - minX + maxWidth;
+  const vh = maxY - minY + maxWidth;
+
+  const elements: string[] = [];
+  let timeOffset = 0;
+
+  for (const stroke of strokes) {
+    const d = stroke.points.map((p, j) => `${j === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+    let pathLen = 0;
+    for (let j = 1; j < stroke.points.length; j++) {
+      const dx = stroke.points[j]!.x - stroke.points[j - 1]!.x;
+      const dy = stroke.points[j]!.y - stroke.points[j - 1]!.y;
+      pathLen += Math.sqrt(dx * dx + dy * dy);
+    }
+
+    const avgWidth = stroke.points.reduce((s, p) => s + p.width, 0) / stroke.points.length;
+    const strokeDuration = totalLength > 0 ? Math.max((stroke.length / totalLength) * drawingDuration, 0.05) : 0.1;
+    const begin = `${timeOffset.toFixed(3)}s`;
+
+    elements.push(`  <path d="${d}" fill="none" stroke="currentColor" stroke-width="${Math.max(avgWidth, 0.5).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="${pathLen.toFixed(1)}" stroke-dashoffset="${pathLen.toFixed(1)}" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="${begin}" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="${pathLen.toFixed(1)}" to="0" dur="${strokeDuration.toFixed(3)}s" begin="${begin}" fill="freeze"/>
+  </path>`);
+
+    timeOffset += strokeDuration + pauseBetween;
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${vw} ${vh}">
+${elements.join('\n')}
+</svg>`;
 }

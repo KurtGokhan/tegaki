@@ -118,23 +118,38 @@ export const DISTANCE_TRANSFORM_METHOD: 'euclidean' | 'chamfer' = 'chamfer';
  *   boundary inward (sorted by distance transform), so the skeleton lies on
  *   the true medial axis. Produces more geometrically centered skeletons but
  *   may be noisier at thin features.
- * 'lee' = Lee's thinning algorithm (Lee, Kashyap & Chu, 1994). Uses a
- *   precomputed lookup table with 8 directional sub-iterations per pass.
- *   Less directional bias than Zhang-Suen's 2 sub-iterations, can produce
- *   cleaner junctions and more symmetric skeletons.
- * 'thin' = Morphological thinning. Similar to skeletonization but with
- *   configurable iteration count (THIN_MAX_ITERATIONS) for partial thinning,
- *   producing relatively thicker skeletons. Useful when you want to preserve
- *   more of the original stroke width.
+ * 'lee' = Lee's thinning algorithm (Lee, Kashyap & Chu, 1994). TypeScript
+ *   implementation using a precomputed lookup table with 8 directional
+ *   sub-iterations per pass. Less directional bias than Zhang-Suen.
+ * 'thin' = Morphological thinning (TypeScript). Configurable iteration count
+ *   (THIN_MAX_ITERATIONS) for partial thinning, producing thicker skeletons.
  * 'voronoi' = Voronoi-based medial axis. Computes Voronoi diagram of boundary
  *   points and keeps edges inside the shape. Bypasses rasterization entirely,
  *   works directly from outline geometry. Produces sub-pixel accurate medial
  *   axis but may have more edges at junctions.
  *
+ * scikit-image variants (require `uv` and Python 3):
+ * 'skimage-zhang' = scikit-image's Zhang method (skeletonize default).
+ * 'skimage-lee' = scikit-image's Lee method (skeletonize method='lee').
+ * 'skimage-medial-axis' = scikit-image's medial_axis function.
+ * 'skimage-thin' = scikit-image's thin function with THIN_MAX_ITERATIONS.
+ *
  * All methods preserve topology and connectivity. Differences are subtle and
  * font/glyph-dependent — try each to see which works better for your use case.
  */
-export const SKELETON_METHOD: 'zhang-suen' | 'guo-hall' | 'medial-axis' | 'lee' | 'thin' | 'voronoi' = 'zhang-suen';
+export type SkeletonMethod =
+  | 'zhang-suen'
+  | 'guo-hall'
+  | 'medial-axis'
+  | 'lee'
+  | 'thin'
+  | 'voronoi'
+  | 'skimage-zhang'
+  | 'skimage-lee'
+  | 'skimage-medial-axis'
+  | 'skimage-thin';
+
+export const SKELETON_METHOD: SkeletonMethod = 'zhang-suen';
 
 /**
  * Sampling interval for Voronoi medial axis (in bitmap-space pixels).

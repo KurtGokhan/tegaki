@@ -51,6 +51,7 @@
         }
       },
       "suspicious": {
+        "noArrayIndexKey": "off",
         "noAssignInExpressions": "off",
         "noConfusingVoidType": "off",
         "noExplicitAny": "off"

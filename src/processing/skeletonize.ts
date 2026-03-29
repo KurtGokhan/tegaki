@@ -1,4 +1,5 @@
 import { JUNCTION_CLEANUP_MAX_ITERATIONS, SKELETON_METHOD, THIN_MAX_ITERATIONS } from '../constants.ts';
+import { skimageSkeletonize } from './skimage-bridge.ts';
 import { computeInverseDistanceTransform } from './width.ts';
 
 // 8-connected neighbor offsets
@@ -25,24 +26,36 @@ function degree(x: number, y: number, skel: Uint8Array, w: number, h: number): n
  * single pixel with the highest distance transform value (closest to the
  * true medial axis), then reconnects the arms.
  */
-export function skeletonize(bitmap: Uint8Array, width: number, height: number): Uint8Array {
+export async function skeletonize(bitmap: Uint8Array, width: number, height: number): Promise<Uint8Array> {
   const dt = computeInverseDistanceTransform(bitmap, width, height);
 
   if (SKELETON_METHOD === 'medial-axis') {
-    // Distance-ordered thinning produces medial axis directly — no junction cleanup needed
-    // since pixels are removed boundary-inward and the skeleton naturally follows the DT ridges.
     return medialAxisThin(bitmap, dt, width, height);
   }
 
+  // scikit-image backed methods — delegate to Python subprocess
+  if (SKELETON_METHOD.startsWith('skimage-')) {
+    const skimageMethod = SKELETON_METHOD.replace('skimage-', '') as 'zhang' | 'lee' | 'medial-axis' | 'thin';
+    const skeleton = await skimageSkeletonize(
+      bitmap,
+      width,
+      height,
+      skimageMethod,
+      skimageMethod === 'thin' ? THIN_MAX_ITERATIONS : undefined,
+    );
+    return cleanJunctionClusters(skeleton, dt, width, height, zhangSuenThin);
+  }
+
+  // TypeScript implementations
   const thinFns: Record<string, ThinFn> = {
     'zhang-suen': zhangSuenThin,
     'guo-hall': guoHallThin,
     lee: leeThin,
     thin: (bmp, w, h) => morphologicalThin(bmp, w, h, THIN_MAX_ITERATIONS),
   };
-  const thin = thinFns[SKELETON_METHOD] ?? zhangSuenThin;
-  const skeleton = thin(bitmap, width, height);
-  return cleanJunctionClusters(skeleton, dt, width, height, thin);
+  const thinFn = thinFns[SKELETON_METHOD] ?? zhangSuenThin;
+  const skeleton = thinFn(bitmap, width, height);
+  return cleanJunctionClusters(skeleton, dt, width, height, thinFn);
 }
 
 /**
@@ -420,6 +433,18 @@ function encodeNeighborhood(x: number, y: number, bitmap: Uint8Array, width: num
 // Precompute once at module level
 const REMOVAL_LUT = buildRemovalLUT();
 
+// 8 border directions for Lee/morphological thinning
+const BORDER_DIRS = [
+  { dx: 0, dy: -1 }, // N
+  { dx: 1, dy: -1 }, // NE
+  { dx: 1, dy: 0 }, // E
+  { dx: 1, dy: 1 }, // SE
+  { dx: 0, dy: 1 }, // S
+  { dx: -1, dy: 1 }, // SW
+  { dx: -1, dy: 0 }, // W
+  { dx: -1, dy: -1 }, // NW
+];
+
 /**
  * Lee's thinning algorithm adapted for 2D (Lee, Kashyap & Chu, 1994).
  *
@@ -434,24 +459,11 @@ const REMOVAL_LUT = buildRemovalLUT();
 export function leeThin(bitmap: Uint8Array, width: number, height: number): Uint8Array {
   const result = new Uint8Array(bitmap);
 
-  // 8 border directions: a pixel is a border pixel for direction (dx,dy)
-  // if the neighbor at (x+dx, y+dy) is background.
-  const borderDirs = [
-    { dx: 0, dy: -1 }, // N
-    { dx: 1, dy: -1 }, // NE
-    { dx: 1, dy: 0 }, // E
-    { dx: 1, dy: 1 }, // SE
-    { dx: 0, dy: 1 }, // S
-    { dx: -1, dy: 1 }, // SW
-    { dx: -1, dy: 0 }, // W
-    { dx: -1, dy: -1 }, // NW
-  ];
-
   let changed = true;
   while (changed) {
     changed = false;
 
-    for (const dir of borderDirs) {
+    for (const dir of BORDER_DIRS) {
       const toDelete: number[] = [];
 
       for (let y = 1; y < height - 1; y++) {
@@ -484,31 +496,19 @@ export function leeThin(bitmap: Uint8Array, width: number, height: number): Uint
 /**
  * Morphological thinning with configurable iteration count.
  *
- * Uses the same topology-preserving LUT as Lee's method but applies all
- * 8 directional sub-iterations per pass with a maximum iteration limit.
- * Lower maxIterations produces thicker skeletons that preserve more of the
- * original stroke width — useful when full skeletonization is too aggressive.
+ * Uses the same topology-preserving LUT as Lee's method but with a maximum
+ * iteration limit. Lower maxIterations produces thicker skeletons that preserve
+ * more of the original stroke width.
  *
  * With maxIterations = Infinity this is equivalent to full Lee thinning.
  */
 export function morphologicalThin(bitmap: Uint8Array, width: number, height: number, maxIterations: number): Uint8Array {
   const result = new Uint8Array(bitmap);
 
-  const borderDirs = [
-    { dx: 0, dy: -1 },
-    { dx: 1, dy: -1 },
-    { dx: 1, dy: 0 },
-    { dx: 1, dy: 1 },
-    { dx: 0, dy: 1 },
-    { dx: -1, dy: 1 },
-    { dx: -1, dy: 0 },
-    { dx: -1, dy: -1 },
-  ];
-
   for (let iter = 0; iter < maxIterations; iter++) {
     let changed = false;
 
-    for (const dir of borderDirs) {
+    for (const dir of BORDER_DIRS) {
       const toDelete: number[] = [];
 
       for (let y = 1; y < height - 1; y++) {
