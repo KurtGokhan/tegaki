@@ -9,7 +9,7 @@
     "url": "git+ssh://git@github.com/KurtGokhan/tegaki.git"
   },
   "bin": {
-    "myapp": "./index.ts"
+    "tegaki": "./dist/cli/index.js"
   },
   "imports": {
     "#*": "./*"
@@ -20,11 +20,18 @@
     "email": "krtgkn@gmail.com",
     "url": "https://gkurt.com"
   },
+  "files": [
+    "dist/",
+    "media/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "start": "bun src/cli/index.ts",
     "dev": "bun serve",
     "serve": "bun --watch src/server.ts",
-    "compile": "bun build --compile --minify --outfile dist/myapp src/cli/index.ts",
+    "compile": "bun build --compile --minify --outfile dist src/cli/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "biome lint",

@@ -1,4 +1,18 @@
-# Tegaki
+<p align="center">
+  <img src="media/tegaki.svg" alt="Tegaki Logo" width="200" height="200" />
+</p>
+
+<p align="center">
+  <strong>CLI tool and React component for rendering handwriting animations</strong>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/tegaki"><img src="https://img.shields.io/npm/v/tegaki.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/tegaki"><img src="https://img.shields.io/npm/dm/tegaki.svg" alt="npm downloads"></a>
+  <a href="https://github.com/KurtGokhan/tegaki/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/tegaki.svg" alt="license"></a>
+</p>
+
+---
 
 CLI tool that generates glyph data for handwriting animation. It downloads fonts from Google Fonts, extracts glyph outlines, computes single-stroke skeletons, and determines natural stroke order for animation.
 
@@ -6,16 +20,16 @@ CLI tool that generates glyph data for handwriting animation. It downloads fonts
 
 ```bash
 # Install dependencies
-bun install
+bun install tegaki
 
 # Generate glyph data (defaults to Caveat font)
-bun start generate
+tegaki generate
 
 # Specify a font
-bun start generate "Roboto"
+tegaki generate "Roboto"
 
 # Custom output path and resolution
-bun start generate "Caveat" -o output/caveat.json -r 300
+tegaki generate "Caveat" -o output/caveat.json -r 300
 ```
 
 ## Usage
@@ -72,7 +86,9 @@ Each stroke point includes:
 7. **Compute stroke width** via distance transform
 8. **Order strokes** heuristically (top-to-bottom, left-to-right)
 
-## Scripts
+## Contributing
+
+### Scripts
 
 | Script              | Description                      |
 | ------------------- | -------------------------------- |
@@ -82,3 +98,4 @@ Each stroke point includes:
 | `bun check`     | Biome lint + format check        |
 | `bun fix`       | Biome auto-fix                   |
 | `bun test`      | Run tests                        |
+| `bun checks`    | Run all checks                   |

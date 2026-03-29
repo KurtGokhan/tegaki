@@ -4,7 +4,24 @@ export const DEFAULT_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx
 
 export const DEFAULT_FONT_FAMILY = 'Caveat';
 
-export const EXAMPLE_FONTS = ['Caveat', 'Italianno', 'Tangerine', 'Nothing You Could Do', 'Emblema One', 'Fira Sans', 'Space Grotesk'];
+export const EXAMPLE_FONTS = [
+  'Caveat',
+  'Italianno',
+  'Tangerine',
+  'Nothing You Could Do',
+  'Emblema One',
+  'Fira Sans',
+  'Inter',
+  'Roboto',
+  'Open Sans',
+  'Lato',
+  'Montserrat',
+  'Oswald',
+  'Raleway',
+  'Merriweather',
+  'Playfair Display',
+  'Source Code Pro',
+];
 
 export const CACHE_DIR = '.cache/fonts';
 
