@@ -170,7 +170,7 @@ export function orderStrokes(
         return { x: p.x, y: p.y, t, width };
       });
 
-      strokes.push({ points, order: order++, length: totalLen });
+      strokes.push({ points, order: order++, length: totalLen, animationDuration: 0, delay: 0 });
     }
   }
 

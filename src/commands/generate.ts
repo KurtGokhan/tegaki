@@ -3,7 +3,15 @@ import { dirname, join, relative } from 'node:path';
 import { transform as svgrTransform } from '@svgr/core';
 import { padroneProgress } from 'padrone';
 import * as z from 'zod/v4';
-import { DEFAULT_CHARS, DEFAULT_FONT_FAMILY, DEFAULT_RESOLUTION, SKELETON_METHOD, VORONOI_SAMPLING_INTERVAL } from '../constants.ts';
+import {
+  DEFAULT_CHARS,
+  DEFAULT_FONT_FAMILY,
+  DEFAULT_RESOLUTION,
+  DRAWING_SPEED,
+  SKELETON_METHOD,
+  STROKE_PAUSE,
+  VORONOI_SAMPLING_INTERVAL,
+} from '../constants.ts';
 import { charToFilename, glyphToAnimatedSVG, writeDebugOutput } from '../debug/output.ts';
 import { downloadFont } from '../font/download.ts';
 import { extractGlyph, loadFont } from '../font/parse.ts';
@@ -136,18 +144,28 @@ export const generateCommand = (c: any) =>
         const skeletonFontUnits = polylines.map((pl) => transformPointsToFontUnits(pl, raster.transform));
 
         const scale = raster.transform.scaleX;
-        const strokesFontUnits = strokes.map((s) => ({
-          ...s,
-          length: Math.round((s.length / scale) * 100) / 100,
-          points: s.points.map((p) => ({
-            x: Math.round((p.x / raster.transform.scaleX + raster.transform.offsetX) * 100) / 100,
-            y: Math.round((p.y / raster.transform.scaleY + raster.transform.offsetY) * 100) / 100,
-            t: Math.round(p.t * 1000) / 1000,
-            width: Math.round((p.width / scale) * 100) / 100,
-          })),
-        }));
+        let timeOffset = 0;
+        const strokesFontUnits = strokes.map((s, i) => {
+          const length = Math.round((s.length / scale) * 100) / 100;
+          const animationDuration = Math.round((length / DRAWING_SPEED) * 1000) / 1000;
+          const delay = Math.round(timeOffset * 1000) / 1000;
+          timeOffset += animationDuration + (i < strokes.length - 1 ? STROKE_PAUSE : 0);
+          return {
+            ...s,
+            length,
+            animationDuration,
+            delay,
+            points: s.points.map((p) => ({
+              x: Math.round((p.x / raster.transform.scaleX + raster.transform.offsetX) * 100) / 100,
+              y: Math.round((p.y / raster.transform.scaleY + raster.transform.offsetY) * 100) / 100,
+              t: Math.round(p.t * 1000) / 1000,
+              width: Math.round((p.width / scale) * 100) / 100,
+            })),
+          };
+        });
 
         const totalLength = strokesFontUnits.reduce((sum, s) => sum + s.length, 0);
+        const totalAnimationDuration = Math.round(timeOffset * 1000) / 1000;
 
         output.glyphs[char] = {
           char: rawGlyph.char,
@@ -158,6 +176,7 @@ export const generateCommand = (c: any) =>
           skeleton: skeletonFontUnits,
           strokes: strokesFontUnits,
           totalLength: Math.round(totalLength * 100) / 100,
+          totalAnimationDuration: Math.round(totalAnimationDuration * 1000) / 1000,
         };
 
         processed++;
@@ -170,10 +189,10 @@ export const generateCommand = (c: any) =>
       // Write animated SVGs and SVGR-transformed TSX components for each glyph
       const svgDir = join(dirname(outputPath), 'svg');
       mkdirSync(svgDir, { recursive: true });
-      const glyphEntries: { char: string; basename: string }[] = [];
+      const glyphEntries: { char: string; basename: string; totalAnimationDuration: number }[] = [];
       for (const glyph of Object.values(output.glyphs)) {
         const basename = charToFilename(glyph.char);
-        const svg = glyphToAnimatedSVG(glyph.strokes, glyph.totalLength);
+        const svg = glyphToAnimatedSVG(glyph.strokes, glyph.advanceWidth, parsed.ascender, parsed.descender);
         await Bun.write(join(svgDir, `${basename}.svg`), svg);
 
         const tsx = await svgrTransform(svg, {
@@ -184,7 +203,7 @@ export const generateCommand = (c: any) =>
         });
         await Bun.write(join(svgDir, `${basename}.tsx`), tsx);
 
-        glyphEntries.push({ char: glyph.char, basename });
+        glyphEntries.push({ char: glyph.char, basename, totalAnimationDuration: glyph.totalAnimationDuration });
       }
 
       // Generate glyphs.ts with explicit imports for the frontend
@@ -198,19 +217,21 @@ export const generateCommand = (c: any) =>
 
 const GLYPHS_TS_DIR = 'src/frontend';
 
-function generateGlyphsModule(entries: { char: string; basename: string }[], svgDir: string): string {
+function generateGlyphsModule(entries: { char: string; basename: string; totalAnimationDuration: number }[], svgDir: string): string {
   const relDir = relative(GLYPHS_TS_DIR, svgDir).replaceAll('\\', '/');
 
   const imports: string[] = [];
   const mapEntries: string[] = [];
+  const timingEntries: string[] = [];
 
   for (let i = 0; i < entries.length; i++) {
-    const { char, basename } = entries[i]!;
+    const { char, basename, totalAnimationDuration } = entries[i]!;
     const varName = `_${i}`;
     imports.push(`import ${varName} from '${relDir}/${basename}.tsx';`);
 
     const escaped = char === '\\' ? '\\\\' : char === "'" ? "\\'" : char;
     mapEntries.push(`  '${escaped}': ${varName},`);
+    timingEntries.push(`  '${escaped}': ${totalAnimationDuration},`);
   }
 
   return `// Auto-generated by the generate command. Do not edit manually.
@@ -222,6 +243,10 @@ ${imports.join('\n')}
 
 export const glyphs: Record<string, SvgComponent> = {
 ${mapEntries.join('\n')}
+};
+
+export const glyphTimings: Record<string, number> = {
+${timingEntries.join('\n')}
 };
 `;
 }

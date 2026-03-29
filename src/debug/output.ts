@@ -142,35 +142,20 @@ ${Array.from({ length: height }, (_, y) =>
  * No debug labels, backgrounds, or overlay information.
  */
 export function glyphToAnimatedSVG(
-  strokes: { points: { x: number; y: number; t: number; width: number }[]; length: number }[],
-  totalLength: number,
+  strokes: { points: { x: number; y: number; t: number; width: number }[]; animationDuration: number; delay: number }[],
+  advanceWidth: number,
+  ascender: number,
+  descender: number,
 ): string {
-  const drawingDuration = 2;
-  const pauseBetween = 0.15;
-
-  // Compute viewBox from actual stroke points + half stroke width as padding
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  let maxWidth = 0;
-  for (const stroke of strokes) {
-    for (const p of stroke.points) {
-      if (p.x < minX) minX = p.x;
-      if (p.y < minY) minY = p.y;
-      if (p.x > maxX) maxX = p.x;
-      if (p.y > maxY) maxY = p.y;
-      if (p.width > maxWidth) maxWidth = p.width;
-    }
-  }
-  const pad = maxWidth / 2;
-  const vx = minX - pad;
-  const vy = minY - pad;
-  const vw = maxX - minX + maxWidth;
-  const vh = maxY - minY + maxWidth;
+  // Uniform viewBox: baseline at y=0, full em-height, glyph's advanceWidth
+  // In the pipeline's coordinate system y is negated (screen coords), so
+  // ascender maps to negative y and descender to positive y.
+  const vx = 0;
+  const vy = -ascender;
+  const vw = advanceWidth;
+  const vh = ascender - descender;
 
   const elements: string[] = [];
-  let timeOffset = 0;
 
   for (const stroke of strokes) {
     const d = stroke.points.map((p, j) => `${j === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
@@ -183,16 +168,13 @@ export function glyphToAnimatedSVG(
     }
 
     const avgWidth = stroke.points.reduce((s, p) => s + p.width, 0) / stroke.points.length;
-    const strokeDuration = totalLength > 0 ? Math.max((stroke.length / totalLength) * drawingDuration, 0.05) : 0.1;
-    const begin = `${timeOffset.toFixed(3)}s`;
+    const begin = `${stroke.delay.toFixed(3)}s`;
 
     elements.push(`  <path d="${d}" fill="none" stroke="currentColor" stroke-width="${Math.max(avgWidth, 0.5).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"
     stroke-dasharray="${pathLen.toFixed(1)}" stroke-dashoffset="${pathLen.toFixed(1)}" opacity="0">
     <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="${begin}" fill="freeze"/>
-    <animate attributeName="stroke-dashoffset" from="${pathLen.toFixed(1)}" to="0" dur="${strokeDuration.toFixed(3)}s" begin="${begin}" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="${pathLen.toFixed(1)}" to="0" dur="${stroke.animationDuration.toFixed(3)}s" begin="${begin}" fill="freeze"/>
   </path>`);
-
-    timeOffset += strokeDuration + pauseBetween;
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="${vx} ${vy} ${vw} ${vh}">

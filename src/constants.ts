@@ -169,3 +169,15 @@ export const VORONOI_SAMPLING_INTERVAL = 2;
  * Only used when SKELETON_METHOD = 'thin'.
  */
 export const THIN_MAX_ITERATIONS = 25;
+
+/**
+ * Drawing speed in font units per second, used to compute animation durations.
+ * Each stroke's animationDuration = length / DRAWING_SPEED.
+ * Lower = slower drawing, higher = faster drawing.
+ */
+export const DRAWING_SPEED = 1500;
+
+/**
+ * Pause duration in seconds between consecutive strokes during animation.
+ */
+export const STROKE_PAUSE = 0.15;

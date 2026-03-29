@@ -19,6 +19,8 @@ export interface Stroke {
   points: TimedPoint[];
   order: number;
   length: number;
+  animationDuration: number;
+  delay: number;
 }
 
 export interface GlyphData {
@@ -30,6 +32,7 @@ export interface GlyphData {
   skeleton: Point[][];
   strokes: Stroke[];
   totalLength: number;
+  totalAnimationDuration: number;
 }
 
 export interface FontOutput {
