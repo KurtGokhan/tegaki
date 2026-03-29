@@ -143,14 +143,14 @@ export function Handwriter({ text, ...props }: { text: string } & ComponentProps
     }
 
     return (
-      <span className="h-lh row center" style={style} key={index}>
+      <span className="h-lh flex flex-row items-center justify-center" style={style} key={index}>
         {content}
       </span>
     );
   });
 
   return (
-    <div {...props} className={twJoin('row relative', props.className)}>
+    <div {...props} className={twJoin('flex flex-row relative', props.className)}>
       {glyphElements}
 
       <div className="select-auto text-transparent absolute inset-0 selectable whitespace-nowrap">{text}</div>
