@@ -49,15 +49,6 @@ export interface FontOutput {
   glyphs: Record<string, GlyphData>;
 }
 
-export interface FontBundle {
-  family: string;
-  lineCap: LineCap;
-  fontUrl: string;
-  glyphs: Record<string, import('react').FC<import('react').SVGProps<SVGSVGElement>>>;
-  glyphTimings: Record<string, number>;
-  registerFontFace: () => Promise<void>;
-}
-
 export interface PathCommand {
   type: 'M' | 'L' | 'Q' | 'C' | 'Z';
   x: number;
@@ -66,4 +57,13 @@ export interface PathCommand {
   y1?: number;
   x2?: number;
   y2?: number;
+}
+
+export interface TegakiBundle {
+  family: string;
+  lineCap: LineCap;
+  fontUrl: string;
+  glyphs: Record<string, import('react').FC<import('react').SVGProps<SVGSVGElement>>>;
+  glyphTimings: Record<string, number>;
+  registerFontFace: () => Promise<void>;
 }

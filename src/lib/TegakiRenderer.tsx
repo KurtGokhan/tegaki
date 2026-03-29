@@ -1,7 +1,7 @@
 import { layoutWithLines, prepareWithSegments } from '@chenglou/pretext';
 import { type ComponentProps, type CSSProperties, type ReactElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { twJoin } from 'tailwind-merge';
-import type { FontBundle } from '../types.ts';
+import type { TegakiBundle } from '../types.ts';
 
 const GLYPH_GAP = 0.1;
 
@@ -17,7 +17,7 @@ export interface Timeline {
   totalDuration: number;
 }
 
-export function computeTimeline(text: string, font: FontBundle): Timeline {
+export function computeTimeline(text: string, font: TegakiBundle): Timeline {
   const chars = text.split('');
   const entries: TimelineEntry[] = [];
   let offset = 0;
@@ -128,7 +128,7 @@ function computeTextLayout(text: string, fontFamily: string, fontSize: number, m
   return { lines, charWidths, kernings, intrinsicWidth };
 }
 
-export function Tegaki({ text, time, font, ...props }: { text: string; time: number; font: FontBundle } & ComponentProps<'div'>) {
+export function Tegaki({ text, time, font, ...props }: { text: string; time: number; font: TegakiBundle } & ComponentProps<'div'>) {
   const fontFamily = font.family;
   const rootRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);

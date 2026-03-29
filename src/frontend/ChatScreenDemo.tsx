@@ -1,6 +1,6 @@
 import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import { computeTimeline, Tegaki } from '../lib/TegakiRenderer.tsx';
-import type { FontBundle } from '../types.ts';
+import type { TegakiBundle } from '../types.ts';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -15,7 +15,7 @@ function StreamingTegaki({
   font,
   speed = DEFAULT_SPEED,
   ...props
-}: { text: string; font: FontBundle; speed?: number } & ComponentProps<'div'>) {
+}: { text: string; font: TegakiBundle; speed?: number } & ComponentProps<'div'>) {
   const [displayTime, setDisplayTime] = useState(0);
   const timeRef = useRef(0);
   const durationRef = useRef(0);
@@ -54,7 +54,7 @@ function StreamingTegaki({
   return <Tegaki text={text} time={displayTime} font={font} {...props} />;
 }
 
-export function ChatScreenDemo({ font }: { font: FontBundle }) {
+export function ChatScreenDemo({ font }: { font: TegakiBundle }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('Write a haiku about otters');
   const [loading, setLoading] = useState(false);

@@ -21,10 +21,10 @@
     "url": "https://gkurt.com"
   },
   "scripts": {
-    "start": "bun src/index.ts",
+    "start": "bun src/cli/index.ts",
     "dev": "bun serve",
     "serve": "bun --watch src/server.ts",
-    "compile": "bun build --compile --minify --outfile dist/myapp src/index.ts",
+    "compile": "bun build --compile --minify --outfile dist/myapp src/cli/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "biome lint",

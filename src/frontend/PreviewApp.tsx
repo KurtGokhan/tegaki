@@ -3,7 +3,7 @@ import { forwardRef, type SVGProps, useCallback, useEffect, useMemo, useRef, use
 import { DEFAULT_CHARS, EXAMPLE_FONTS } from '../constants.ts';
 import { computeTimeline, Tegaki } from '../lib/TegakiRenderer.tsx';
 import { charToFilename, glyphToAnimatedSVG } from '../processing/animated-svg.ts';
-import type { FontBundle, FontOutput, LineCap } from '../types.ts';
+import type { FontOutput, LineCap, TegakiBundle } from '../types.ts';
 import {
   type BrowserSkeletonMethod,
   DEFAULT_OPTIONS,
@@ -1205,7 +1205,7 @@ function TextPreview({
       glyphs,
       glyphTimings,
       registerFontFace: async () => {},
-    } satisfies FontBundle;
+    } satisfies TegakiBundle;
   }, [fontInfo, fontUrl, text, options, resultsCache]);
 
   const timeline = useMemo(() => (fontBundle ? computeTimeline(text, fontBundle) : { entries: [], totalDuration: 0 }), [text, fontBundle]);
