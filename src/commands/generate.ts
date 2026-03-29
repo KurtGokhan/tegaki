@@ -161,7 +161,7 @@ export const generateCommand = (c: any) =>
         let timeOffset = 0;
         const strokesFontUnits = strokes.map((s, i) => {
           const length = Math.round((s.length / scale) * 100) / 100;
-          const animationDuration = Math.round((length / DRAWING_SPEED) * 1000) / 1000;
+          const animationDuration = Math.max(Math.round((length / DRAWING_SPEED) * 1000) / 1000, 0.001);
           const delay = Math.round(timeOffset * 1000) / 1000;
           timeOffset += animationDuration + (i < strokes.length - 1 ? STROKE_PAUSE : 0);
           return {

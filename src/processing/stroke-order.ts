@@ -174,5 +174,20 @@ export function orderStrokes(
     }
   }
 
+  // Single-point strokes (dots) get their width from the distance transform which
+  // represents the blob's inscribed radius, not the pen width. Replace with the
+  // average width of other strokes so dots match the visual weight of the glyph.
+  const multiPointStrokes = strokes.filter((s) => s.points.length > 1);
+  if (multiPointStrokes.length > 0) {
+    const avgWidth =
+      multiPointStrokes.reduce((sum, s) => sum + s.points.reduce((ps, p) => ps + p.width, 0) / s.points.length, 0) /
+      multiPointStrokes.length;
+    for (const s of strokes) {
+      if (s.points.length === 1) {
+        s.points[0]!.width = Math.round(avgWidth * 100) / 100;
+      }
+    }
+  }
+
   return strokes;
 }

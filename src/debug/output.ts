@@ -6,6 +6,15 @@ import { bitmapToPNG } from './png.ts';
 
 const STROKE_COLORS = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990'];
 
+/** Render a single-point dot as a circle (round cap) or rect (butt/square cap). */
+function dotElement(x: string, y: string, size: number, fill: string, lineCap: LineCap): string {
+  if (lineCap === 'round') {
+    return `<circle cx="${x}" cy="${y}" r="${(size / 2).toFixed(1)}" fill="${fill}"`;
+  }
+  const half = size / 2;
+  return `<rect x="${(Number(x) - half).toFixed(1)}" y="${(Number(y) - half).toFixed(1)}" width="${size.toFixed(1)}" height="${size.toFixed(1)}" fill="${fill}"`;
+}
+
 export function charToFilename(char: string): string {
   const code = char.codePointAt(0)!;
   // Use readable names for alphanumeric, hex code for symbols
@@ -25,11 +34,13 @@ function polylinesToSVG(
 ): string {
   const paths = polylines
     .map((pl, i) => {
-      const color = STROKE_COLORS[i % STROKE_COLORS.length];
+      const color = STROKE_COLORS[i % STROKE_COLORS.length]!;
+      if (pl.length === 1) {
+        const p = pl[0]!;
+        return `  ${dotElement(p.x.toFixed(1), p.y.toFixed(1), strokeWidth, color, lineCap)}/>`;
+      }
       const d = pl.map((p, j) => `${j === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-      // Zero-length paths (dots) must use round caps to be visible in SVG
-      const cap = pl.length <= 1 ? 'round' : lineCap;
-      return `  <path d="${d}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="${cap}" stroke-linejoin="round"/>`;
+      return `  <path d="${d}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="${lineCap}" stroke-linejoin="round"/>`;
     })
     .join('\n');
 
@@ -66,16 +77,23 @@ function strokesAnimationSVG(strokes: Stroke[], width: number, height: number, t
     const avgWidth = stroke.points.reduce((s, p) => s + p.width, 0) / stroke.points.length;
     const strokeDuration = totalLength > 0 ? Math.max((stroke.length / totalLength) * drawingDuration, 0.05) : 0.1;
     const begin = `${timeOffset.toFixed(3)}s`;
-    // Zero-length paths (dots) must use round caps to be visible in SVG
-    const cap = len === 0 ? 'round' : lineCap;
 
-    // Stroke path: starts hidden, becomes visible and animates when its turn begins
-    // opacity:0 is needed because round linecaps bleed past the dashoffset on thick strokes
-    elements.push(`  <path d="${d}" fill="none" stroke="${color}" stroke-width="${Math.max(avgWidth, 1).toFixed(1)}" stroke-linecap="${cap}" stroke-linejoin="round"
+    if (len === 0) {
+      // Single-point stroke (dot): render as a shape that fades in
+      const p = stroke.points[0]!;
+      const size = Math.max(avgWidth, 1);
+      elements.push(`  ${dotElement(p.x.toFixed(1), p.y.toFixed(1), size, color!, lineCap)} opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="${strokeDuration.toFixed(3)}s" begin="${begin}" fill="freeze"/>
+  </${lineCap === 'round' ? 'circle' : 'rect'}>`);
+    } else {
+      // Stroke path: starts hidden, becomes visible and animates when its turn begins
+      // opacity:0 is needed because round linecaps bleed past the dashoffset on thick strokes
+      elements.push(`  <path d="${d}" fill="none" stroke="${color}" stroke-width="${Math.max(avgWidth, 1).toFixed(1)}" stroke-linecap="${lineCap}" stroke-linejoin="round"
     stroke-dasharray="${len.toFixed(0)}" stroke-dashoffset="${len.toFixed(0)}" opacity="0">
     <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="${begin}" fill="freeze"/>
     <animate attributeName="stroke-dashoffset" from="${len.toFixed(0)}" to="0" dur="${strokeDuration.toFixed(3)}s" begin="${begin}" fill="freeze"/>
   </path>`);
+    }
 
     // Label: starts invisible, fades in when stroke begins
     if (stroke.points.length > 0) {
@@ -182,14 +200,21 @@ export function glyphToAnimatedSVG(
 
     const avgWidth = stroke.points.reduce((s, p) => s + p.width, 0) / stroke.points.length;
     const begin = `${stroke.delay.toFixed(3)}s`;
-    // Zero-length paths (dots) must use round caps to be visible in SVG
-    const cap = pathLen === 0 ? 'round' : lineCap;
 
-    elements.push(`  <path d="${d}" fill="none" stroke="currentColor" stroke-width="${Math.max(avgWidth, 0.5).toFixed(1)}" stroke-linecap="${cap}" stroke-linejoin="round"
+    if (pathLen === 0) {
+      // Single-point stroke (dot): render as a shape that fades in
+      const p = stroke.points[0]!;
+      const size = Math.max(avgWidth, 0.5);
+      elements.push(`  ${dotElement(String(p.x), String(p.y), size, 'currentColor', lineCap)} opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="${stroke.animationDuration.toFixed(3)}s" begin="${begin}" fill="freeze"/>
+  </${lineCap === 'round' ? 'circle' : 'rect'}>`);
+    } else {
+      elements.push(`  <path d="${d}" fill="none" stroke="currentColor" stroke-width="${Math.max(avgWidth, 0.5).toFixed(1)}" stroke-linecap="${lineCap}" stroke-linejoin="round"
     stroke-dasharray="${pathLen.toFixed(1)}" stroke-dashoffset="${pathLen.toFixed(1)}" opacity="0">
     <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="${begin}" fill="freeze"/>
     <animate attributeName="stroke-dashoffset" from="${pathLen.toFixed(1)}" to="0" dur="${stroke.animationDuration.toFixed(3)}s" begin="${begin}" fill="freeze"/>
   </path>`);
+    }
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="${vx} ${vy} ${vw} ${vh}">
