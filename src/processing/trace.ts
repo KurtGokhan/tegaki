@@ -477,12 +477,15 @@ export function traceAndSimplify(
     }
   }
 
-  // Second pass: handle remaining unvisited pixels (loops, junctions)
+  // Second pass: handle remaining unvisited pixels (loops, junctions, isolated pixels).
+  // Single-point chains are kept here because traceChain marks pixels visited even when
+  // the chain is too short — isolated pixels (e.g. restored compact shapes like dots)
+  // would otherwise be lost.
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       if (!skeleton[y * width + x] || visited[y * width + x]) continue;
       const chain = traceChain(x, y, skeleton, visited, width, height, lookback, curvatureBias);
-      if (chain.length > 1) polylines.push(chain);
+      if (chain.length >= 1) polylines.push(chain);
     }
   }
 

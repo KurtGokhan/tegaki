@@ -27,7 +27,9 @@ function polylinesToSVG(
     .map((pl, i) => {
       const color = STROKE_COLORS[i % STROKE_COLORS.length];
       const d = pl.map((p, j) => `${j === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-      return `  <path d="${d}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="${lineCap}" stroke-linejoin="round"/>`;
+      // Zero-length paths (dots) must use round caps to be visible in SVG
+      const cap = pl.length <= 1 ? 'round' : lineCap;
+      return `  <path d="${d}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="${cap}" stroke-linejoin="round"/>`;
     })
     .join('\n');
 
@@ -64,10 +66,12 @@ function strokesAnimationSVG(strokes: Stroke[], width: number, height: number, t
     const avgWidth = stroke.points.reduce((s, p) => s + p.width, 0) / stroke.points.length;
     const strokeDuration = totalLength > 0 ? Math.max((stroke.length / totalLength) * drawingDuration, 0.05) : 0.1;
     const begin = `${timeOffset.toFixed(3)}s`;
+    // Zero-length paths (dots) must use round caps to be visible in SVG
+    const cap = len === 0 ? 'round' : lineCap;
 
     // Stroke path: starts hidden, becomes visible and animates when its turn begins
     // opacity:0 is needed because round linecaps bleed past the dashoffset on thick strokes
-    elements.push(`  <path d="${d}" fill="none" stroke="${color}" stroke-width="${Math.max(avgWidth, 1).toFixed(1)}" stroke-linecap="${lineCap}" stroke-linejoin="round"
+    elements.push(`  <path d="${d}" fill="none" stroke="${color}" stroke-width="${Math.max(avgWidth, 1).toFixed(1)}" stroke-linecap="${cap}" stroke-linejoin="round"
     stroke-dasharray="${len.toFixed(0)}" stroke-dashoffset="${len.toFixed(0)}" opacity="0">
     <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="${begin}" fill="freeze"/>
     <animate attributeName="stroke-dashoffset" from="${len.toFixed(0)}" to="0" dur="${strokeDuration.toFixed(3)}s" begin="${begin}" fill="freeze"/>
@@ -178,8 +182,10 @@ export function glyphToAnimatedSVG(
 
     const avgWidth = stroke.points.reduce((s, p) => s + p.width, 0) / stroke.points.length;
     const begin = `${stroke.delay.toFixed(3)}s`;
+    // Zero-length paths (dots) must use round caps to be visible in SVG
+    const cap = pathLen === 0 ? 'round' : lineCap;
 
-    elements.push(`  <path d="${d}" fill="none" stroke="currentColor" stroke-width="${Math.max(avgWidth, 0.5).toFixed(1)}" stroke-linecap="${lineCap}" stroke-linejoin="round"
+    elements.push(`  <path d="${d}" fill="none" stroke="currentColor" stroke-width="${Math.max(avgWidth, 0.5).toFixed(1)}" stroke-linecap="${cap}" stroke-linejoin="round"
     stroke-dasharray="${pathLen.toFixed(1)}" stroke-dashoffset="${pathLen.toFixed(1)}" opacity="0">
     <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="${begin}" fill="freeze"/>
     <animate attributeName="stroke-dashoffset" from="${pathLen.toFixed(1)}" to="0" dur="${stroke.animationDuration.toFixed(3)}s" begin="${begin}" fill="freeze"/>

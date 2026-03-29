@@ -29,33 +29,94 @@ function degree(x: number, y: number, skel: Uint8Array, w: number, h: number): n
 export async function skeletonize(bitmap: Uint8Array, width: number, height: number): Promise<Uint8Array> {
   const dt = computeInverseDistanceTransform(bitmap, width, height);
 
+  let skeleton: Uint8Array;
+
   if (SKELETON_METHOD === 'medial-axis') {
-    return medialAxisThin(bitmap, dt, width, height);
-  }
-
-  // scikit-image backed methods — delegate to Python subprocess
-  if (SKELETON_METHOD.startsWith('skimage-')) {
+    skeleton = medialAxisThin(bitmap, dt, width, height);
+  } else if (SKELETON_METHOD.startsWith('skimage-')) {
+    // scikit-image backed methods — delegate to Python subprocess
     const skimageMethod = SKELETON_METHOD.replace('skimage-', '') as 'zhang' | 'lee' | 'medial-axis' | 'thin';
-    const skeleton = await skimageSkeletonize(
-      bitmap,
-      width,
-      height,
-      skimageMethod,
-      skimageMethod === 'thin' ? THIN_MAX_ITERATIONS : undefined,
-    );
-    return cleanJunctionClusters(skeleton, dt, width, height, zhangSuenThin);
+    const raw = await skimageSkeletonize(bitmap, width, height, skimageMethod, skimageMethod === 'thin' ? THIN_MAX_ITERATIONS : undefined);
+    skeleton = cleanJunctionClusters(raw, dt, width, height, zhangSuenThin);
+  } else {
+    // TypeScript implementations
+    const thinFns: Record<string, ThinFn> = {
+      'zhang-suen': zhangSuenThin,
+      'guo-hall': guoHallThin,
+      lee: leeThin,
+      thin: (bmp, w, h) => morphologicalThin(bmp, w, h, THIN_MAX_ITERATIONS),
+    };
+    const thinFn = thinFns[SKELETON_METHOD] ?? zhangSuenThin;
+    const raw = thinFn(bitmap, width, height);
+    skeleton = cleanJunctionClusters(raw, dt, width, height, thinFn);
   }
 
-  // TypeScript implementations
-  const thinFns: Record<string, ThinFn> = {
-    'zhang-suen': zhangSuenThin,
-    'guo-hall': guoHallThin,
-    lee: leeThin,
-    thin: (bmp, w, h) => morphologicalThin(bmp, w, h, THIN_MAX_ITERATIONS),
-  };
-  const thinFn = thinFns[SKELETON_METHOD] ?? zhangSuenThin;
-  const skeleton = thinFn(bitmap, width, height);
-  return cleanJunctionClusters(skeleton, dt, width, height, thinFn);
+  // Thinning algorithms can fully erase compact symmetric shapes (circles,
+  // squares) like the dot in "i". Restore a single pixel at the medial center
+  // for any bitmap connected component that lost all its skeleton pixels.
+  restoreErasedComponents(bitmap, skeleton, dt, width, height);
+
+  return skeleton;
+}
+
+/**
+ * Restore skeleton pixels for bitmap connected components that were fully erased
+ * by thinning. For each erased component, sets the pixel with the highest distance
+ * transform value (the medial center) as a skeleton pixel.
+ */
+function restoreErasedComponents(bitmap: Uint8Array, skeleton: Uint8Array, dt: Float32Array, width: number, height: number): void {
+  const labels = new Int32Array(width * height);
+  let nextLabel = 1;
+
+  // Flood-fill to label connected components in the bitmap
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      if (!bitmap[idx] || labels[idx]) continue;
+
+      const label = nextLabel++;
+      const queue: number[] = [idx];
+      labels[idx] = label;
+
+      while (queue.length > 0) {
+        const ci = queue.pop()!;
+        const cx = ci % width;
+        const cy = (ci - cx) / width;
+
+        for (let d = 0; d < 8; d++) {
+          const nx = cx + DX[d]!;
+          const ny = cy + DY[d]!;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          const ni = ny * width + nx;
+          if (bitmap[ni] && !labels[ni]) {
+            labels[ni] = label;
+            queue.push(ni);
+          }
+        }
+      }
+    }
+  }
+
+  // For each label, check if any skeleton pixel exists
+  const hasSkeleton = new Uint8Array(nextLabel);
+  const bestIdx = new Int32Array(nextLabel).fill(-1);
+  const bestDt = new Float32Array(nextLabel);
+
+  for (let i = 0; i < bitmap.length; i++) {
+    const label = labels[i]!;
+    if (!label) continue;
+    if (skeleton[i]) hasSkeleton[label] = 1;
+    if (dt[i]! > bestDt[label]!) {
+      bestDt[label] = dt[i]!;
+      bestIdx[label] = i;
+    }
+  }
+
+  for (let label = 1; label < nextLabel; label++) {
+    if (!hasSkeleton[label] && bestIdx[label]! >= 0) {
+      skeleton[bestIdx[label]!] = 1;
+    }
+  }
 }
 
 /**
