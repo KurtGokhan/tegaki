@@ -175,7 +175,7 @@ export const THIN_MAX_ITERATIONS = 25;
  * Each stroke's animationDuration = length / DRAWING_SPEED.
  * Lower = slower drawing, higher = faster drawing.
  */
-export const DRAWING_SPEED = 1500;
+export const DRAWING_SPEED = 3000;
 
 /**
  * Pause duration in seconds between consecutive strokes during animation.

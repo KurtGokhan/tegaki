@@ -1,3 +1,4 @@
+import { layoutWithLines, prepareWithSegments } from '@chenglou/pretext';
 import * as opentype from 'opentype.js';
 import { type ComponentProps, type CSSProperties, type ReactElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { twJoin } from 'tailwind-merge';
@@ -36,16 +37,113 @@ export function computeTimeline(text: string): Timeline {
   return { entries, totalDuration: Math.max(0, offset) };
 }
 
+interface TextLayout {
+  /** Character indices per line */
+  lines: number[][];
+  /** Width in em per character index */
+  charWidths: number[];
+  /** Kerning adjustment in em between character at index i and i+1 */
+  kernings: number[];
+  /** Intrinsic (single-line) width in em */
+  intrinsicWidth: number;
+}
+
+function computeTextLayout(text: string, fontFamily: string, fontSize: number, maxWidth: number): TextLayout {
+  const fontStr = `${fontSize}px ${fontFamily}`;
+  const lineHeight = fontSize * 1.4;
+
+  // Measure unique character widths
+  const widthCache = new Map<string, number>();
+  const charWidths: number[] = [];
+  for (const char of text) {
+    let w = widthCache.get(char);
+    if (w === undefined) {
+      if (char === '\n') {
+        w = 0;
+      } else {
+        const p = prepareWithSegments(char, fontStr, { whiteSpace: 'pre-wrap' });
+        const r = layoutWithLines(p, Infinity, lineHeight);
+        w = r.lines.length > 0 ? r.lines[0]!.width / fontSize : 0;
+      }
+      widthCache.set(char, w);
+    }
+    charWidths.push(w);
+  }
+
+  // Compute intrinsic width (single-line, no wrapping)
+  const prepared = prepareWithSegments(text, fontStr, { whiteSpace: 'pre-wrap' });
+  const singleLineResult = layoutWithLines(prepared, Infinity, lineHeight);
+  const intrinsicWidth = Math.max(0, ...singleLineResult.lines.map((l) => l.width)) / fontSize;
+
+  // Line breaking at actual available width
+  const result = layoutWithLines(prepared, maxWidth, lineHeight);
+
+  // Map line texts back to character indices
+  const lines: number[][] = [];
+  let charOffset = 0;
+  for (const line of result.lines) {
+    const indices: number[] = [];
+    for (let i = 0; i < line.text.length; i++) {
+      indices.push(charOffset + i);
+    }
+    charOffset += line.text.length;
+    while (charOffset < text.length) {
+      if (text[charOffset] === '\n') {
+        // Include newline in this line but don't render it
+        indices.push(charOffset);
+        charOffset++;
+        break;
+      }
+      break;
+    }
+    lines.push(indices);
+  }
+
+  // Any remaining characters (shouldn't happen, but safety)
+  if (charOffset < text.length) {
+    const indices: number[] = [];
+    for (let i = charOffset; i < text.length; i++) {
+      indices.push(i);
+    }
+    lines.push(indices);
+  }
+
+  // Measure kerning between adjacent character pairs
+  const kernings: number[] = [];
+  const pairCache = new Map<string, number>();
+  for (let i = 0; i < text.length - 1; i++) {
+    const a = text[i]!;
+    const b = text[i + 1]!;
+    if (a === '\n' || b === '\n') {
+      kernings.push(0);
+      continue;
+    }
+    const pair = `${a}${b}`;
+    let k = pairCache.get(pair);
+    if (k === undefined) {
+      const p = prepareWithSegments(pair, fontStr, { whiteSpace: 'pre-wrap' });
+      const r = layoutWithLines(p, Infinity, lineHeight);
+      const pairWidth = r.lines.length > 0 ? r.lines[0]!.width / fontSize : 0;
+      k = pairWidth - (widthCache.get(a) ?? 0) - (widthCache.get(b) ?? 0);
+      if (Math.abs(k) < 0.001) k = 0;
+      pairCache.set(pair, k);
+    }
+    kernings.push(k);
+  }
+
+  return { lines, charWidths, kernings, intrinsicWidth };
+}
+
 export function Handwriter({ text, time, ...props }: { text: string; time: number } & ComponentProps<'div'>) {
   const [fontFamily, setFontFamily] = useState<string | null>(null);
-  const [kernings, setKernings] = useState<number[]>([]);
-  const [charWidths, setCharWidths] = useState<number[]>([]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [fontSize, setFontSize] = useState(0);
 
   const timeline = useMemo(() => computeTimeline(text), [text]);
-
-  // SVG refs for setCurrentTime control
   const svgRefs = useRef(new Map<number, SVGSVGElement>());
 
+  // Load font: extract family name from the .ttf, register as FontFace
   useEffect(() => {
     opentype.load(fontUrl, (err, font) => {
       if (err) {
@@ -69,55 +167,25 @@ export function Handwriter({ text, time, ...props }: { text: string; time: numbe
     });
   }, []);
 
+  // Observe container size for line wrapping
   useEffect(() => {
-    if (!fontFamily) return;
-
-    const span = document.createElement('span');
-    span.style.fontFamily = fontFamily;
-    span.style.fontSize = '100px';
-    span.style.opacity = '0';
-    span.style.position = 'absolute';
-    span.style.whiteSpace = 'nowrap';
-    span.style.fontKerning = 'normal';
-    span.style.textRendering = 'optimizeLegibility';
-    span.style.contain = 'layout';
-    document.body.appendChild(span);
-
-    const newKernings: number[] = [];
-    const newWidths: number[] = [];
-    const chars = text.split('');
-
-    for (let i = 0; i < chars.length; i++) {
-      let char = chars[i];
-      if (char === ' ') char = '\u00A0';
-      if (!char) continue;
-
-      span.textContent = char;
-      const w1 = span.getBoundingClientRect().width;
-      newWidths.push(w1 / 100);
-
-      if (i < chars.length - 1) {
-        let nextChar = chars[i + 1];
-        if (nextChar === ' ') nextChar = '\u00A0';
-        if (!nextChar) continue;
-
-        span.textContent = nextChar;
-        const w2 = span.getBoundingClientRect().width;
-
-        span.textContent = char + nextChar;
-        const wPair = span.getBoundingClientRect().width;
-
-        let k = (wPair - (w1 + w2)) / 100;
-        if (Math.abs(k) < 0.0001) k = 0;
-
-        newKernings.push(k);
+    const el = rootRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) {
+        setContainerWidth(entry.contentRect.width);
+        setFontSize(Number.parseFloat(getComputedStyle(el).fontSize));
       }
-    }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
-    document.body.removeChild(span);
-    setKernings(newKernings);
-    setCharWidths(newWidths);
-  }, [text, fontFamily]);
+  // Compute text layout with pretext
+  const layout = useMemo(() => {
+    if (!fontFamily || !fontSize || !containerWidth || !text) return null;
+    return computeTextLayout(text, fontFamily, fontSize, containerWidth);
+  }, [text, fontFamily, fontSize, containerWidth]);
 
   // Update all SVG elements' current time before paint
   useLayoutEffect(() => {
@@ -132,23 +200,23 @@ export function Handwriter({ text, time, ...props }: { text: string; time: numbe
 
   const characters = text.split('');
 
-  const glyphElements = characters.map((char, index) => {
-    const entry = timeline.entries[index]!;
+  const renderGlyph = (charIdx: number) => {
+    const char = characters[charIdx]!;
+    const entry = timeline.entries[charIdx]!;
     const GlyphSvg = glyphs[char as keyof typeof glyphs] as any;
+    const width = layout?.charWidths[charIdx] ?? 1;
+    const kerning = layout?.kernings[charIdx];
 
-    let style: CSSProperties = {};
-    if (fontFamily && charWidths[index] !== undefined) {
-      const width = charWidths[index];
-      const marginRight = kernings[index];
-      style = {
-        width: `${width}em`,
-        marginRight: marginRight ? `${marginRight}em` : undefined,
-      };
-    } else {
-      style = { width: '1em' };
-    }
+    const style: CSSProperties = {
+      width: `${width}em`,
+      marginRight: kerning ? `${kerning}em` : undefined,
+    };
 
     let content: ReactElement;
+
+    if (char === '\n') {
+      return null; // newlines handled by line structure
+    }
 
     if (GlyphSvg) {
       content = (
@@ -156,35 +224,45 @@ export function Handwriter({ text, time, ...props }: { text: string; time: numbe
           ref={(node: SVGSVGElement | null) => {
             if (node) {
               node.pauseAnimations();
-              svgRefs.current.set(index, node);
+              svgRefs.current.set(charIdx, node);
             } else {
-              svgRefs.current.delete(index);
+              svgRefs.current.delete(charIdx);
             }
           }}
-          className="text-inherit! size-[1.4222em] shrink-0"
+          style={{ height: '1lh', overflow: 'visible', marginInline: '-100%' }}
         />
       );
     } else {
       const isVisible = time >= entry.offset;
-      content = (
-        <span className="size-[1em]" style={{ visibility: isVisible ? 'visible' : 'hidden' }}>
-          {char}
-        </span>
-      );
+      content = <span style={{ fontFamily: fontFamily ?? undefined, visibility: isVisible ? 'visible' : 'hidden' }}>{char}</span>;
     }
 
     return (
-      <span className="h-lh flex flex-row items-center justify-center" style={style} key={index}>
+      <span className="inline-flex items-baseline justify-center" style={style} key={charIdx}>
         {content}
       </span>
     );
-  });
+  };
+
+  const lineElements = layout
+    ? layout.lines.map((lineIndices, lineIdx) => (
+        <div className="flex flex-row" key={lineIdx}>
+          {lineIndices.map(renderGlyph)}
+        </div>
+      ))
+    : // Fallback before layout is ready: single line
+      characters.length > 0 && <div className="flex flex-row">{characters.map((_, i) => renderGlyph(i))}</div>;
 
   return (
-    <div {...props} className={twJoin('flex flex-row relative', props.className)}>
-      {glyphElements}
+    <div ref={rootRef} {...props} className={twJoin('grid', props.className)} style={{ ...props.style, maxWidth: '100%' }}>
+      <div className="[grid-area:1/1] pointer-events-none">{lineElements}</div>
 
-      <div className="select-auto text-transparent absolute inset-0 selectable whitespace-nowrap">{text}</div>
+      <div
+        className="[grid-area:1/1] select-auto text-transparent whitespace-pre-wrap wrap-break-word"
+        style={{ fontFamily: fontFamily ?? undefined }}
+      >
+        {text}
+      </div>
     </div>
   );
 }

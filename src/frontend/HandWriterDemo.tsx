@@ -36,13 +36,21 @@ export function HandwriterDemo() {
 
   // rAF playback loop
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || totalDuration <= 0) return;
     let lastTs: number | null = null;
 
     const tick = (ts: number) => {
-      if (lastTs === null) lastTs = ts;
-      const delta = ((ts - lastTs) / 1000) * speedRef.current;
+      if (lastTs === null) {
+        lastTs = ts;
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      const elapsed = (ts - lastTs) / 1000;
       lastTs = ts;
+
+      const remaining = Math.max(0, totalDuration - timeRef.current);
+      const catchUpFactor = Math.max(1, remaining / 2);
+      const delta = elapsed * speedRef.current * catchUpFactor;
 
       timeRef.current = Math.min(timeRef.current + delta, totalDuration);
       setDisplayTime(timeRef.current);
@@ -69,7 +77,6 @@ export function HandwriterDemo() {
   const togglePlay = useCallback(() => {
     setPlaying((p) => {
       if (!p && timeRef.current >= computeTimeline(text).totalDuration) {
-        // Restart from beginning if at the end
         timeRef.current = 0;
         setDisplayTime(0);
       }
@@ -79,7 +86,7 @@ export function HandwriterDemo() {
 
   return (
     <div className="flex flex-col p-20 gap-4 items-start">
-      <textarea className="p-4 border border-gray-800 rounded" rows={1} value={text} onChange={(e) => setText(e.target.value)} />
+      <textarea className="p-4 border border-gray-800 rounded w-80" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
 
       <div className="flex flex-row items-center gap-4">
         <button type="button" className="px-3 py-1 border border-gray-800 rounded cursor-pointer" onClick={togglePlay}>
@@ -92,13 +99,13 @@ export function HandwriterDemo() {
         </label>
       </div>
 
-      <div className="flex flex-row items-center gap-2 w-full max-w-lg">
+      <div className="flex flex-row items-center gap-2 w-80">
         <span className="text-sm tabular-nums">{displayTime.toFixed(2)}s</span>
         <input className="flex-1" type="range" min={0} max={totalDuration} step={0.01} value={displayTime} onChange={handleScrub} />
         <span className="text-sm tabular-nums">{totalDuration.toFixed(2)}s</span>
       </div>
 
-      <Handwriter className="text-5xl" text={text} time={displayTime} />
+      <Handwriter className="text-3xl w-80 border border-gray-300 rounded p-4" text={text} time={displayTime} />
     </div>
   );
 }
