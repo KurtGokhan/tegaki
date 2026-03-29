@@ -1,5 +1,4 @@
 import { JUNCTION_CLEANUP_MAX_ITERATIONS, SKELETON_METHOD, THIN_MAX_ITERATIONS } from '../constants.ts';
-import { skimageSkeletonize } from './skimage-bridge.ts';
 import { computeInverseDistanceTransform } from './width.ts';
 
 // 8-connected neighbor offsets
@@ -34,7 +33,8 @@ export async function skeletonize(bitmap: Uint8Array, width: number, height: num
   if (SKELETON_METHOD === 'medial-axis') {
     skeleton = medialAxisThin(bitmap, dt, width, height);
   } else if (SKELETON_METHOD.startsWith('skimage-')) {
-    // scikit-image backed methods — delegate to Python subprocess
+    // scikit-image backed methods — delegate to Python subprocess (dynamic import to avoid bundling Node deps)
+    const { skimageSkeletonize } = await import('./skimage-bridge.ts');
     const skimageMethod = SKELETON_METHOD.replace('skimage-', '') as 'zhang' | 'lee' | 'medial-axis' | 'thin';
     const raw = await skimageSkeletonize(bitmap, width, height, skimageMethod, skimageMethod === 'thin' ? THIN_MAX_ITERATIONS : undefined);
     skeleton = cleanJunctionClusters(raw, dt, width, height, zhangSuenThin);
@@ -64,7 +64,7 @@ export async function skeletonize(bitmap: Uint8Array, width: number, height: num
  * by thinning. For each erased component, sets the pixel with the highest distance
  * transform value (the medial center) as a skeleton pixel.
  */
-function restoreErasedComponents(bitmap: Uint8Array, skeleton: Uint8Array, dt: Float32Array, width: number, height: number): void {
+export function restoreErasedComponents(bitmap: Uint8Array, skeleton: Uint8Array, dt: Float32Array, width: number, height: number): void {
   const labels = new Int32Array(width * height);
   let nextLabel = 1;
 
@@ -126,12 +126,19 @@ function restoreErasedComponents(bitmap: Uint8Array, skeleton: Uint8Array, dt: F
  * the highest-DT pixel, reconnect arms via Bresenham, then Zhang-Suen thin.
  * Repeat because thinning can reintroduce clusters from reconnection lines.
  */
-type ThinFn = (bitmap: Uint8Array, width: number, height: number) => Uint8Array;
+export type ThinFn = (bitmap: Uint8Array, width: number, height: number) => Uint8Array;
 
-function cleanJunctionClusters(skeleton: Uint8Array, dt: Float32Array, width: number, height: number, thin: ThinFn): Uint8Array {
+export function cleanJunctionClusters(
+  skeleton: Uint8Array,
+  dt: Float32Array,
+  width: number,
+  height: number,
+  thin: ThinFn,
+  maxIterations = JUNCTION_CLEANUP_MAX_ITERATIONS,
+): Uint8Array {
   let current = skeleton;
 
-  for (let iter = 0; iter < JUNCTION_CLEANUP_MAX_ITERATIONS; iter++) {
+  for (let iter = 0; iter < maxIterations; iter++) {
     const result = collapseClusterPass(current, dt, width, height);
     if (!result) break; // no clusters found
     current = thin(result, width, height);
@@ -274,7 +281,7 @@ function bresenham(bitmap: Uint8Array, x0: number, y0: number, x1: number, y1: n
  * Because high-DT pixels (on the medial axis) are removed last, the
  * resulting skeleton lies on the true medial axis of the shape.
  */
-function medialAxisThin(bitmap: Uint8Array, dt: Float32Array, width: number, height: number): Uint8Array {
+export function medialAxisThin(bitmap: Uint8Array, dt: Float32Array, width: number, height: number): Uint8Array {
   const result = new Uint8Array(bitmap);
 
   // Collect all foreground pixels with their DT values

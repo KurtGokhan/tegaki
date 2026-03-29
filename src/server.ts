@@ -2,6 +2,7 @@ import AnthropicBedrock from '@anthropic-ai/bedrock-sdk';
 import { serve } from 'bun';
 import chatPage from '../public/chat.html';
 import homepage from '../public/index.html';
+import previewPage from '../public/preview.html';
 
 const awsAccessKey = process.env.AWS_ACCESS_KEY_ID;
 const awsSecretKey = process.env.AWS_SECRET_ACCESS_KEY;
@@ -15,6 +16,7 @@ const server = serve({
   routes: {
     '/': homepage,
     '/chat': chatPage,
+    '/preview': previewPage,
     '/api/chat': {
       async POST(req) {
         const body = await req.json();

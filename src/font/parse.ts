@@ -93,6 +93,6 @@ export function extractGlyph(font: opentype.Font, char: string): RawGlyphData | 
     advanceWidth: glyph.advanceWidth ?? 0,
     boundingBox: { x1: bb.x1, y1: bb.y1, x2: bb.x2, y2: bb.y2 },
     commands,
-    pathString: path.toSVG(2),
+    pathString: path.toPathData(2),
   };
 }

@@ -3,8 +3,13 @@ import { DISTANCE_TRANSFORM_METHOD } from '../constants.ts';
 /**
  * Compute distance transform using the configured method.
  */
-export function computeDistanceTransform(bitmap: Uint8Array, width: number, height: number): Float32Array {
-  if (DISTANCE_TRANSFORM_METHOD === 'chamfer') {
+export function computeDistanceTransform(
+  bitmap: Uint8Array,
+  width: number,
+  height: number,
+  method?: 'euclidean' | 'chamfer',
+): Float32Array {
+  if ((method ?? DISTANCE_TRANSFORM_METHOD) === 'chamfer') {
     return computeChamferDT(bitmap, width, height);
   }
   return computeEuclideanDT(bitmap, width, height);
@@ -129,13 +134,18 @@ function edt1d(f: Float32Array, out: Float32Array, n: number, v: Int32Array, z: 
  * Invert the distance transform: compute distance from foreground to nearest background.
  * This gives the "radius" at each point inside the shape.
  */
-export function computeInverseDistanceTransform(bitmap: Uint8Array, width: number, height: number): Float32Array {
+export function computeInverseDistanceTransform(
+  bitmap: Uint8Array,
+  width: number,
+  height: number,
+  method?: 'euclidean' | 'chamfer',
+): Float32Array {
   // Invert the bitmap: foreground becomes background and vice versa
   const inverted = new Uint8Array(bitmap.length);
   for (let i = 0; i < bitmap.length; i++) {
     inverted[i] = bitmap[i] ? 0 : 1;
   }
-  return computeDistanceTransform(inverted, width, height);
+  return computeDistanceTransform(inverted, width, height, method);
 }
 
 /**
