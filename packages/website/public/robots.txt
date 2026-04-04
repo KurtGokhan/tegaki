@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://gkurt.com/tegaki/sitemap-index.xml
