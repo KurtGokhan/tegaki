@@ -16,6 +16,7 @@ type PreviewMode = 'glyph' | 'text';
 
 /** All state that gets persisted to the URL */
 export type RenderMode = 'svg' | 'canvas';
+export type TimeMode = 'controlled' | 'uncontrolled' | 'css';
 
 export interface UrlState {
   fontFamily: string;
@@ -31,6 +32,8 @@ export interface UrlState {
   lineHeightRatio: number;
   showOverlay: boolean;
   renderMode: RenderMode;
+  timeMode: TimeMode;
+  loop: boolean;
 }
 
 export const URL_DEFAULTS: UrlState = {
@@ -46,6 +49,8 @@ export const URL_DEFAULTS: UrlState = {
   lineHeightRatio: 1.5,
   showOverlay: false,
   renderMode: 'svg',
+  timeMode: 'controlled',
+  loop: false,
 };
 
 // Short keys for compact URLs — only non-default values are written
@@ -88,6 +93,8 @@ export function parseUrlState(): UrlState {
   if (p.has('lh')) state.lineHeightRatio = Number(p.get('lh'));
   if (p.has('ol')) state.showOverlay = p.get('ol') === '1';
   if (p.has('rm')) state.renderMode = p.get('rm') as RenderMode;
+  if (p.has('tm')) state.timeMode = p.get('tm') as TimeMode;
+  if (p.has('lo')) state.loop = p.get('lo') === '1';
 
   // Pipeline options — read short keys
   for (const [short, long] of Object.entries(REVERSE_OPTION_KEYS)) {
@@ -119,6 +126,8 @@ export function buildUrlParams(state: UrlState): URLSearchParams {
   if (state.lineHeightRatio !== URL_DEFAULTS.lineHeightRatio) p.set('lh', String(state.lineHeightRatio));
   if (state.showOverlay !== URL_DEFAULTS.showOverlay) p.set('ol', '1');
   if (state.renderMode !== URL_DEFAULTS.renderMode) p.set('rm', state.renderMode);
+  if (state.timeMode !== URL_DEFAULTS.timeMode) p.set('tm', state.timeMode);
+  if (state.loop !== URL_DEFAULTS.loop) p.set('lo', '1');
 
   // Pipeline options — only non-defaults
   for (const [long, short] of Object.entries(OPTION_KEYS)) {

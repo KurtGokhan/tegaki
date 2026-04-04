@@ -7,6 +7,10 @@ import { computeTimeline } from './timeline.ts';
 import type { Coercible } from './utils.ts';
 import { coerceToString, graphemes } from './utils.ts';
 
+const PADDING_H_EM = 0.2;
+const MIN_LINE_HEIGHT_EM = 1.8;
+const MIN_PADDING_V_EM = 0.2;
+
 // --- CSS custom property names ---
 
 const CSS_TIME = '--tegaki-time';
@@ -277,9 +281,13 @@ export function TegakiRenderer({
 
   // --- Text layout ---
   const layout = useMemo(() => {
-    if (!fontFamily || !fontSize || !lineHeight || !containerWidth || !resolvedText) return null;
+    if (!fontFamily || !fontSize || !containerWidth || !resolvedText) return null;
     return computeTextLayout(resolvedText, fontFamily, fontSize, lineHeight, containerWidth);
   }, [resolvedText, fontFamily, fontSize, lineHeight, containerWidth]);
+
+  // --- Canvas padding ---
+  const padH = PADDING_H_EM * fontSize;
+  const padV = fontSize ? Math.max(MIN_PADDING_V_EM * fontSize, (MIN_LINE_HEIGHT_EM * fontSize - lineHeight) / 2) : 0;
 
   // --- Sync SVG glyph times before paint ---
   // Runs every render so SVGs stay correct even when currentTime hasn't changed
@@ -308,9 +316,9 @@ export function TegakiRenderer({
     const dpr = window.devicePixelRatio || 1;
     const el = rootRef.current;
     if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
+    const canvasRect = canvas.getBoundingClientRect();
+    const w = canvasRect.width;
+    const h = canvasRect.height;
 
     // Resize canvas backing store if needed
     const needsResize = canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr);
@@ -324,6 +332,7 @@ export function TegakiRenderer({
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
+    ctx.translate(padH, padV);
 
     // Read currentColor from the container
     const color = getComputedStyle(el).color;
@@ -375,7 +384,7 @@ export function TegakiRenderer({
       }
       y += lineHeight;
     }
-  }, [mode, currentTime, timeline, layout, font, fontFamily, fontSize, lineHeight, resolvedText, emHeight]);
+  }, [mode, currentTime, timeline, layout, font, fontFamily, fontSize, lineHeight, resolvedText, emHeight, padH, padV]);
 
   // --- Rendering ---
 
@@ -471,9 +480,9 @@ export function TegakiRenderer({
           aria-hidden
           style={{
             position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
+            inset: `${-padV}px ${-padH}px`,
+            width: `calc(100% + ${padH * 2}px)`,
+            height: `calc(100% + ${padV * 2}px)`,
             pointerEvents: 'none',
           }}
         />

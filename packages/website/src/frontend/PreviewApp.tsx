@@ -16,7 +16,7 @@ import {
   STROKE_COLORS,
   type VisualizationStage,
 } from 'tegaki-generator';
-import { parseUrlState, type RenderMode, syncUrlState } from './url-state.ts';
+import { parseUrlState, type RenderMode, syncUrlState, type TimeMode } from './url-state.ts';
 
 type PreviewMode = 'glyph' | 'text';
 
@@ -77,6 +77,8 @@ export function PreviewApp() {
   const [lineHeightRatio, setLineHeightRatio] = useState(initialUrlState.lineHeightRatio);
   const [showOverlay, setShowOverlay] = useState(initialUrlState.showOverlay);
   const [renderMode, setRenderMode] = useState<RenderMode>(initialUrlState.renderMode);
+  const [timeMode, setTimeMode] = useState<TimeMode>(initialUrlState.timeMode);
+  const [loop, setLoop] = useState(initialUrlState.loop);
 
   // Animation state (lifted up so controls live outside the canvas area)
   const [animPlaying, setAnimPlaying] = useState(true);
@@ -214,6 +216,8 @@ export function PreviewApp() {
         lineHeightRatio,
         showOverlay,
         renderMode,
+        timeMode,
+        loop,
       });
     }, 300);
     return () => clearTimeout(syncTimerRef.current);
@@ -230,6 +234,8 @@ export function PreviewApp() {
     lineHeightRatio,
     showOverlay,
     renderMode,
+    timeMode,
+    loop,
   ]);
 
   // Auto-load font on mount (from URL state or default)
@@ -661,6 +667,10 @@ export function PreviewApp() {
             onShowOverlayChange={setShowOverlay}
             renderMode={renderMode}
             onRenderModeChange={setRenderMode}
+            timeMode={timeMode}
+            onTimeModeChange={setTimeMode}
+            loop={loop}
+            onLoopChange={setLoop}
           />
         )}
       </main>
@@ -939,6 +949,10 @@ function TextPreview({
   onShowOverlayChange,
   renderMode,
   onRenderModeChange,
+  timeMode,
+  onTimeModeChange: setTimeMode,
+  loop,
+  onLoopChange: setLoop,
 }: {
   fontInfo: ParsedFontInfo | null;
   fontBuffer: ArrayBuffer | null;
@@ -956,13 +970,14 @@ function TextPreview({
   onShowOverlayChange: (v: boolean) => void;
   renderMode: RenderMode;
   onRenderModeChange: (v: RenderMode) => void;
+  timeMode: TimeMode;
+  onTimeModeChange: (v: TimeMode) => void;
+  loop: boolean;
+  onLoopChange: (v: boolean) => void;
 }) {
-  type TimeMode = 'controlled' | 'uncontrolled' | 'css';
-  const [timeMode, setTimeMode] = useState<TimeMode>('controlled');
   const [playing, setPlaying] = useState(true);
   const [displayTime, setDisplayTime] = useState(0);
   const timeRef = useRef(0);
-  const [loop, setLoop] = useState(false);
   const [fontReady, setFontReady] = useState(false);
 
   // Synchronous font change detection — reset all font-dependent state BEFORE rendering
@@ -1324,7 +1339,7 @@ function TextPreview({
             <input
               type="range"
               className="w-20"
-              min={0.5}
+              min={0}
               max={3}
               step={0.1}
               value={lineHeightRatio}
