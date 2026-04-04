@@ -68,6 +68,26 @@ export interface TegakiGlyphData {
   }[];
 }
 
+export type TegakiEffectConfigs = {
+  glow: { radius?: number; color?: string };
+  wobble: { amplitude?: number; frequency?: number };
+  pressureWidth: {};
+  rainbow: { saturation?: number; lightness?: number };
+};
+
+export type TegakiEffectName = keyof TegakiEffectConfigs;
+
+type TegakiCustomEffect = {
+  [K in TegakiEffectName]: TegakiEffectConfigs[K] & { effect: K; order?: number };
+}[TegakiEffectName];
+
+/** Validates an effects object: known keys infer `effect`, unknown keys require it. */
+export type TegakiEffects<T> = {
+  [K in keyof T]: K extends TegakiEffectName
+    ? (TegakiEffectConfigs[K] & { effect?: K; order?: number }) | boolean
+    : TegakiCustomEffect | boolean;
+};
+
 export interface TegakiBundle {
   family: string;
   lineCap: LineCap;

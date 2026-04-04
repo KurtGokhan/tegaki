@@ -1,5 +1,5 @@
 import { type ComponentProps, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { TegakiBundle } from '../types.ts';
+import type { TegakiBundle, TegakiEffects } from '../types.ts';
 import { drawGlyph } from './drawGlyph.ts';
 import { computeTextLayout } from './textLayout.ts';
 import type { TimelineEntry } from './timeline.ts';
@@ -60,7 +60,7 @@ export type TimeControlMode = {
  */
 export type TimeControlProp = null | undefined | number | 'css' | TimeControlMode[keyof TimeControlMode];
 
-export interface TegakiRendererProps extends Omit<ComponentProps<'div'>, 'children'> {
+export interface TegakiRendererProps<E extends TegakiEffects<E> = Record<string, never>> extends Omit<ComponentProps<'div'>, 'children'> {
   /** TegakiBundle with font data and animated glyph SVGs. */
   font?: TegakiBundle;
 
@@ -84,22 +84,26 @@ export interface TegakiRendererProps extends Omit<ComponentProps<'div'>, 'childr
    * on a `<canvas>` (requires `font.glyphData`). Default: `'svg'` */
   mode?: 'svg' | 'canvas';
 
+  /** Visual effects applied during canvas rendering. */
+  effects?: E;
+
   /** Show debug text overlay. */
   showOverlay?: boolean;
 }
 
 // --- Component ---
 
-export function TegakiRenderer({
+export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string, never>>({
   font,
   text,
   children,
   time: timeProp,
   onComplete,
   mode = 'svg',
+  effects,
   showOverlay,
   ...props
-}: TegakiRendererProps) {
+}: TegakiRendererProps<E>) {
   const resolvedText = text ?? coerceToString(children);
 
   // --- Resolve time control ---

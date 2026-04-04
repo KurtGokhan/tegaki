@@ -6,6 +6,7 @@
     "jsx": "react-jsx",
     "moduleDetection": "force",
     "allowJs": true,
+    "types": ["bun"],
 
     "moduleResolution": "nodenext",
     "customConditions": ["tegaki@dev"],
