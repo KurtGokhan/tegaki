@@ -1,0 +1,19 @@
+import type { SVGProps } from "react";
+const SvgComponent = (props: SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -1875 887 2790">
+  <path d="M 227.3 -642.67 L 90.93 -449.87 L 39.2 -341.71 L 10.99 -233.55 L 25.1 -134.8 L 67.42 -68.97 L 95.63 -54.86 L 175.58 -54.86 L 283.73 -115.99 L 410.7 -228.85 L 467.13 -233.55 L 500.05 -261.77 L 641.12 -496.89 L 777.5 -755.53" fill="none" stroke="currentColor" strokeWidth="79.5" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="1797.5" strokeDashoffset="1797.5" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="1797.5" to="0" dur="0.573s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 382.49 43.89 L 401.3 58 L 457.73 48.6 L 664.64 -97.18 L 801.01 -233.55 L 885.65 -341.71" fill="none" stroke="currentColor" strokeWidth="69.1" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="733.2" strokeDashoffset="733.2" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.723s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="733.2" to="0" dur="0.221s" begin="0.723s" fill="freeze"/>
+  </path>
+  <path d="M 490.64 -247.66 L 476.54 -224.15 L 467.13 -163.02 L 396.59 -26.64 L 387.19 25.08 L 274.33 199.08 L 260.22 264.91 L 175.58 434.2 L 105.04 561.17 L -36.04 753.97 L -115.98 833.91 L -186.52 871.53 L -224.14 880.94 L -289.97 876.24 L -337 833.91 L -346.4 772.78 L -318.19 669.33 L -224.14 532.95 L -50.14 358.96 L 161.47 208.48 L 236.71 180.27 L 283.73 184.97" fill="none" stroke="currentColor" strokeWidth="91.1" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="2563.8" strokeDashoffset="2563.8" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="1.094s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="2563.8" to="0" dur="0.824s" begin="1.094s" fill="freeze"/>
+  </path>
+</svg>);
+export default SvgComponent;

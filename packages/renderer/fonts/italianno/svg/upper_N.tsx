@@ -1,0 +1,19 @@
+import type { SVGProps } from "react";
+const SvgComponent = (props: SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -800 721 1250">
+  <path d="M 10.68 -127.78 L 8.11 -107.18 L 23.55 -55.7 L 54.44 -19.67 L 69.88 -11.95 L 105.92 -4.22 L 141.95 -6.8 L 180.56 -19.67 L 219.17 -42.83 L 260.36 -81.44 L 319.56 -168.96 L 363.32 -259.05 L 440.54 -449.53 L 453.41 -467.54 L 484.3 -472.69 L 600.13 -71.15 L 610.42 -60.85 L 613 -42.83 L 607.85 -29.96 L 574.39 24.09" fill="none" stroke="currentColor" strokeWidth="30.5" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="1377.8" strokeDashoffset="1377.8" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="1377.8" to="0" dur="0.449s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 288.67 -390.32 L 257.78 -428.93 L 247.49 -467.54 L 255.21 -485.56 L 291.25 -513.88 L 371.04 -531.89 L 556.37 -531.89 L 582.11 -539.62 L 504.89 -511.3 L 484.3 -472.69" fill="none" stroke="currentColor" strokeWidth="29.6" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="604.4" strokeDashoffset="604.4" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.599s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="604.4" to="0" dur="0.192s" begin="0.599s" fill="freeze"/>
+  </path>
+  <path d="M 610.42 -60.85 L 633.59 -86.59 L 754.57 -400.62 L 818.92 -526.75 L 865.25 -580.8 L 898.71 -593.67 L 916.73 -591.1 L 929.6 -580.8 L 934.75 -555.06" fill="none" stroke="currentColor" strokeWidth="33.1" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="713.8" strokeDashoffset="713.8" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.941s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="713.8" to="0" dur="0.227s" begin="0.941s" fill="freeze"/>
+  </path>
+</svg>);
+export default SvgComponent;

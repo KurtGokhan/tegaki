@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -960 520 1260">
+  <path d="M 219.49 -306.16 L 223.57 -302.08 L 239.89 -302.08 L 374.57 -320.45 L 399.05 -363.3 L 482.71 -446.96 L 535.76 -530.62 L 539.85 -553.06 L 531.68 -593.87 L 523.52 -606.12 L 494.95 -628.56 L 411.29 -640.8 L 358.24 -632.64 L 325.59 -610.2 L 321.51 -577.55 L 229.69 -361.26 L 221.53 -308.2 L 201.12 -287.8 L 180.72 -238.83 L 115.42 -61.3 L 115.42 -42.94" fill="none" stroke="currentColor" stroke-width="63.8" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="1392.9" stroke-dashoffset="1392.9" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="1392.9" to="0" dur="0.443s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 170.52 1.95 L 211.33 32.56 L 237.85 40.72 L 288.86 44.8 L 327.63 38.68 L 376.61 20.32 L 417.42 -8.25 L 450.06 -36.82 L 480.67 -77.63 L 501.08 -116.4 L 509.24 -149.04 L 513.32 -202.1 L 507.2 -236.79 L 466.39 -283.72 L 423.54 -306.16 L 384.77 -314.32 L 378.65 -324.53" fill="none" stroke="currentColor" stroke-width="57.8" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="751.5" stroke-dashoffset="751.5" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.593s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="751.5" to="0" dur="0.231s" begin="0.593s" fill="freeze"/>
+  </path>
+  <path d="M 437.82 -397.98 L 448.02 -406.15" fill="none" stroke="currentColor" stroke-width="54.3" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="67.4" stroke-dashoffset="67.4" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.974s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="67.4" to="0" dur="0.004s" begin="0.974s" fill="freeze"/>
+  </path>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -1875 372 2790">
+  <path d="M 233.7 -657.14 L 90.48 -439.75 L 8.64 -283.74 L -16.94 -217.25 L -29.72 -158.43 L -27.17 -117.51 L -11.82 -68.91 L 21.42 -40.78 L 54.67 -38.22 L 110.94 -45.9 L 162.09 -74.03 L 233.7 -135.41 L 274.62 -184 L 374.36 -340.01" fill="none" stroke="currentColor" stroke-width="71.9" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="1266.9" stroke-dashoffset="1266.9" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="1266.9" to="0" dur="0.398s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 353.9 -825.93 L 387.15 -874.53" fill="none" stroke="currentColor" stroke-width="106.5" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="165.4" stroke-dashoffset="165.4" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.548s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="165.4" to="0" dur="0.020s" begin="0.548s" fill="freeze"/>
+  </path>
+</svg>

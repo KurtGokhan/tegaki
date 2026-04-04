@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -960 486 1260">
+  <path d="M 152.13 -59.79 L 178.74 -20.9 L 195.12 -8.62 L 242.2 11.85 L 268.81 15.95 L 311.8 15.95 L 367.07 3.67 L 410.06 -16.8 L 432.58 -37.28 L 438.72 -49.56 L 428.48 -108.92 L 397.78 -147.81 L 367.07 -174.43 L 305.66 -207.18 L 262.67 -237.88 L 221.73 -272.68 L 197.17 -309.53 L 188.98 -370.94 L 203.31 -409.83 L 252.44 -481.48 L 291.33 -524.47 L 352.74 -573.6 L 475.56 -643.2 L 545.16 -661.62 L 573.82 -661.62 L 606.57 -653.43 L 622.95 -637.06 L 629.09 -585.88 L 620.9 -561.32 L 592.24 -516.28 L 551.3 -473.29" fill="none" stroke="currentColor" stroke-width="57.4" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="1581.4" stroke-dashoffset="1581.4" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="1581.4" to="0" dur="0.508s" begin="0.000s" fill="freeze"/>
+  </path>
+</svg>

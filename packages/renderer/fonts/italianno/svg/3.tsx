@@ -1,0 +1,19 @@
+import type { SVGProps } from "react";
+const SvgComponent = (props: SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -800 314 1250">
+  <path d="M 78.15 -114.01 L 67.06 -100.45 L 64.59 -93.06 L 55.97 -41.3 L 55.97 -24.05 L 74.45 -10.49 L 112.66 -1.87 L 157.02 -1.87 L 182.9 -5.56 L 226.03 -22.82 L 255.61 -45 L 282.72 -74.58 L 303.67 -112.78 L 309.83 -130.03 L 315.99 -176.86 L 312.29 -194.11 L 298.74 -213.83 L 279.02 -226.15 L 248.21 -233.55 L 239.59 -239.71 L 237.12 -243.41 L 244.52 -253.27" fill="none" stroke="currentColor" strokeWidth="30.7" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="614.9" strokeDashoffset="614.9" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="614.9" to="0" dur="0.195s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 149.63 -314.88 L 141 -302.56 L 153.32 -319.81 L 159.48 -353.08 L 176.74 -402.38 L 191.53 -414.7 L 212.48 -423.33 L 245.75 -429.49 L 282.72 -430.72 L 318.46 -425.79 L 334.48 -418.4 L 349.27 -404.84 L 359.12 -385.13 L 360.36 -370.34 L 351.73 -334.6 L 335.71 -308.72 L 311.06 -286.54 L 277.79 -266.82 L 243.28 -254.5 L 235.89 -243.41 L 187.83 -240.94 L 166.88 -233.55" fill="none" stroke="currentColor" strokeWidth="26.2" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="631.2" strokeDashoffset="631.2" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.345s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="631.2" to="0" dur="0.202s" begin="0.345s" fill="freeze"/>
+  </path>
+  <path d="M 350.5 -404.84 L 350.5 -403.61" fill="none" stroke="currentColor" strokeWidth="46.0" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="47.3" strokeDashoffset="47.3" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.697s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="47.3" to="0" dur="0.001s" begin="0.697s" fill="freeze"/>
+  </path>
+</svg>);
+export default SvgComponent;

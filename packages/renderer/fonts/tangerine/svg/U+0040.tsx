@@ -1,0 +1,17 @@
+import type { SVGProps } from "react";
+const SvgComponent = (props: SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -750 492 1000">
+  <path d="M 274.32 -139.16 L 280.37 -137.95 L 284 -141.58 L 291.26 -142.79 L 282.79 -135.53 L 284 -139.16 L 277.95 -140.37 L 271.9 -135.53 L 227.13 -81.08 L 216.24 -73.82 L 188.41 -67.77 L 179.94 -75.03 L 170.26 -100.44 L 173.89 -144 L 185.99 -180.3 L 194.46 -194.82 L 221.08 -225.07 L 252.54 -243.22 L 293.68 -246.85 L 311.83 -239.59 L 325.14 -228.7 L 320.3 -204.5 L 293.68 -147.63 L 287.63 -81.08 L 290.05 -70.19 L 300.94 -55.67 L 333.61 -56.88 L 360.23 -64.14 L 378.38 -75.03 L 401.37 -94.39 L 419.52 -119.8 L 427.99 -136.74 L 437.67 -173.04 L 440.09 -200.87 L 438.88 -233.54 L 430.41 -263.79 L 420.73 -283.15 L 388.06 -321.87 L 350.55 -344.86 L 317.88 -354.54 L 268.27 -355.75 L 247.7 -353.33 L 202.93 -341.23 L 176.31 -327.92 L 158.16 -317.03 L 118.23 -280.73 L 92.82 -243.22 L 75.88 -203.29 L 67.41 -165.78 L 63.78 -107.7 L 68.62 -76.24 L 80.72 -38.73 L 100.08 -7.27 L 129.12 24.19 L 150.9 38.71 L 192.04 55.65 L 222.29 60.49 L 291.26 56.86 L 328.77 45.97 L 356.6 31.45 L 384.43 8.46 L 408.63 -24.21" fill="none" stroke="currentColor" strokeWidth="21.7" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="1973.9" strokeDashoffset="1973.9" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="1973.9" to="0" dur="0.651s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 325.14 -226.28 L 357.81 -249.27" fill="none" stroke="currentColor" strokeWidth="21.2" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="61.1" strokeDashoffset="61.1" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.801s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="61.1" to="0" dur="0.013s" begin="0.801s" fill="freeze"/>
+  </path>
+  <circle cx="234.39" cy="-88.34" r="6.8" fill="currentColor" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.964s" fill="freeze"/>
+  </circle>
+</svg>);
+export default SvgComponent;

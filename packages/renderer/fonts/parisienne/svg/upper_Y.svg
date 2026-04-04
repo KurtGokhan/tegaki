@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -1875 2023 2790">
+  <path d="M 597.37 -165.16 L 489 -178.71 L 279.03 -171.93 L 123.25 -110.97 L 21.65 -29.7 L -59.63 71.9 L -100.27 200.6 L -107.05 322.51 L -79.95 444.43 L 55.51 613.76 L 170.66 674.72 L 319.67 715.36 L 570.28 722.14 L 665.11 708.59 L 854.76 647.63 L 976.67 579.9 L 1078.27 505.39 L 1234.06 356.38 L 1369.52 180.28 L 1599.81 -199.03 L 1620.13 -280.31 L 1755.6 -483.5 L 1931.7 -795.07 L 2263.59 -1242.11" fill="none" stroke="currentColor" stroke-width="87.1" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="4652.8" stroke-dashoffset="4652.8" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="4652.8" to="0" dur="1.522s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 922.49 -679.93 L 773.48 -578.33 L 624.47 -524.14 L 468.68 -510.6 L 333.22 -537.69 L 245.16 -591.88 L 150.34 -727.34 L 136.79 -876.35 L 163.88 -1005.04 L 245.16 -1140.51 L 373.86 -1255.65 L 522.87 -1343.71 L 631.24 -1384.35 L 739.61 -1411.44 L 942.81 -1431.76 L 1139.23 -1397.89 L 1247.6 -1336.93 L 1308.56 -1269.2 L 1362.75 -1167.6 L 1376.3 -1086.32 L 1369.52 -944.08 L 1335.66 -822.17 L 1281.47 -707.02 L 956.35 -253.21 L 949.58 -178.71 L 963.13 -117.75 L 1017.31 -56.79 L 1085.05 -29.7 L 1234.06 -50.02 L 1410.16 -158.39 L 1545.63 -287.08 L 1599.81 -287.08 L 1626.91 -307.4 L 1579.49 -266.76 L 1565.95 -280.31" fill="none" stroke="currentColor" stroke-width="77.8" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="4768.7" stroke-dashoffset="4768.7" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="1.672s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="4768.7" to="0" dur="1.564s" begin="1.672s" fill="freeze"/>
+  </path>
+  <circle cx="231.62" cy="-605.42" r="61.4" fill="currentColor" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="3.386s" fill="freeze"/>
+  </circle>
+</svg>

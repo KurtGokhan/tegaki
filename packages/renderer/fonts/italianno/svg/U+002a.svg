@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -800 507 1250">
+  <path d="M 117.15 -490.3 L 159.88 -498.39 L 247.66 -441.79 L 274.23 -418.69 L 268.45 -381.73 L 233.8 -268.54 L 232.65 -258.15 L 201.46 -240.82" fill="none" stroke="currentColor" stroke-width="35.7" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="420.8" stroke-dashoffset="420.8" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="420.8" to="0" dur="0.128s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 95.2 -333.22 L 99.82 -340.15 L 112.53 -347.08 L 172.59 -372.49 L 241.89 -405.99 L 260.37 -410.61 L 271.91 -418.69 L 285.77 -423.31 L 296.17 -432.55 L 307.72 -433.71 L 454.41 -501.85 L 462.49 -508.78 L 471.73 -537.66" fill="none" stroke="currentColor" stroke-width="33.5" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="474.4" stroke-dashoffset="474.4" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.278s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="474.4" to="0" dur="0.147s" begin="0.278s" fill="freeze"/>
+  </path>
+  <path d="M 358.54 -604.65 L 326.2 -587.33 L 286.93 -454.5 L 284.62 -422.16 L 293.86 -411.76 L 397.81 -345.93 L 440.55 -354.01" fill="none" stroke="currentColor" stroke-width="31.4" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="419.5" stroke-dashoffset="419.5" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.575s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="419.5" to="0" dur="0.129s" begin="0.575s" fill="freeze"/>
+  </path>
+  <path d="M 273.07 -419.85 L 271.91 -422.16 L 283.47 -422.16" fill="none" stroke="currentColor" stroke-width="41.9" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="56.0" stroke-dashoffset="56.0" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.854s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="56.0" to="0" dur="0.005s" begin="0.854s" fill="freeze"/>
+  </path>
+</svg>

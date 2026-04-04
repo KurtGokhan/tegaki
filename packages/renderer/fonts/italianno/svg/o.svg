@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -800 265 1250">
+  <path d="M 173.24 -63.86 L 180.79 -57.15 L 209.31 -57.99 L 227.76 -63.02 L 245.38 -70.57 L 268.86 -87.34 L 298.22 -115.02 L 308.28 -128.44 L 310.8 -135.15" fill="none" stroke="currentColor" stroke-width="14.6" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="184.7" stroke-dashoffset="184.7" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="184.7" to="0" dur="0.057s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 33.17 -42.05 L 38.2 -73.92 L 49.11 -103.28 L 74.27 -149.41 L 97.76 -182.96 L 135.5 -224.9 L 155.63 -241.67 L 179.11 -255.93 L 205.12 -266.84 L 226.92 -268.51 L 236.15 -267.68 L 243.7 -260.97 L 249.57 -250.06 L 252.92 -229.93 L 247.89 -200.58 L 236.99 -170.38 L 219.37 -135.15 L 203.44 -109.99 L 178.28 -77.28 L 174.92 -66.38 L 166.53 -61.34 L 136.34 -33.67 L 113.69 -19.41 L 95.24 -11.86 L 63.37 -7.66 L 49.11 -11.02 L 39.04 -21.08 L 34.85 -29.47 L 33.17 -42.05" fill="none" stroke="currentColor" stroke-width="31.5" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="765.2" stroke-dashoffset="765.2" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.207s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="765.2" to="0" dur="0.245s" begin="0.207s" fill="freeze"/>
+  </path>
+  <circle cx="127.95" cy="-217.35" r="11.5" fill="currentColor" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.602s" fill="freeze"/>
+  </circle>
+  <path d="M 40.72 -18.57 L 46.59 -12.7" fill="none" stroke="currentColor" stroke-width="33.5" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="41.9" stroke-dashoffset="41.9" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.753s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="41.9" to="0" dur="0.003s" begin="0.753s" fill="freeze"/>
+  </path>
+</svg>

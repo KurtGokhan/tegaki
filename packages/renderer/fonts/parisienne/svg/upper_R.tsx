@@ -1,0 +1,14 @@
+import type { SVGProps } from "react";
+const SvgComponent = (props: SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -1875 2167 2790">
+  <path d="M 985.47 -1330.52 L 1176.78 -1366.39 L 967.54 -1324.55 L 740.35 -1234.87 L 525.13 -1091.38 L 333.82 -912.03 L 196.31 -714.74 L 94.68 -463.64 L 64.78 -290.27 L 76.74 -158.74 L 118.59 -51.12 L 220.23 62.47 L 303.92 110.29 L 387.62 134.21 L 531.11 140.19 L 602.85 128.23 L 710.46 86.38 L 806.12 14.64 L 907.75 -87 L 1093.09 -391.9 L 1266.46 -774.52 L 1433.86 -1085.41 L 1613.22 -1324.55 L 1673 -1354.44 L 1732.79 -1414.22 L 1786.59 -1444.12" fill="none" stroke="currentColor" strokeWidth="77.8" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="4758.6" strokeDashoffset="4758.6" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="4758.6" to="0" dur="1.560s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 1188.74 -1372.37 L 1433.86 -1384.33 L 1535.5 -1372.37 L 1619.19 -1336.5 L 1661.04 -1336.5 L 1762.68 -1270.74 L 1852.36 -1187.04 L 1900.18 -1097.36 L 1918.12 -995.73 L 1912.14 -846.27 L 1894.21 -792.46 L 1780.61 -654.95 L 1631.15 -577.23 L 1565.39 -589.19 L 1547.45 -577.23 L 1457.77 -583.21 L 1409.95 -595.17 L 1380.05 -637.02 L 1409.95 -666.91 L 1469.73 -666.91 L 1523.54 -643 L 1565.39 -589.19 L 1637.13 -559.3 L 1673 -457.66 L 1684.96 -314.18 L 1589.3 -15.25 L 1601.26 74.42 L 1631.15 116.27 L 1690.94 134.21 L 1768.66 128.23 L 1876.27 68.44 L 1965.95 -15.25 L 2031.71 -104.93 L 2169.22 -344.07" fill="none" stroke="currentColor" strokeWidth="71.2" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="3620.1" strokeDashoffset="3620.1" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="1.710s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="3620.1" to="0" dur="1.183s" begin="1.710s" fill="freeze"/>
+  </path>
+</svg>);
+export default SvgComponent;

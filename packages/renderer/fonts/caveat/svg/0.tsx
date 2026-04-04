@@ -1,0 +1,14 @@
+import type { SVGProps } from "react";
+const SvgComponent = (props: SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -960 450 1260">
+  <path d="M 361.85 -479.75 L 356.22 -458.63" fill="none" stroke="currentColor" strokeWidth="65.6" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="87.5" strokeDashoffset="87.5" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="87.5" to="0" dur="0.007s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 456.18 -482.57 L 422.39 -491.02 L 402.68 -492.42 L 381.56 -489.61 L 360.44 -481.16 L 311.16 -469.9 L 264.7 -429.06 L 243.58 -405.13 L 214.01 -360.07 L 180.22 -288.26 L 173.18 -265.74 L 167.54 -213.64 L 174.58 -151.69 L 181.62 -127.75 L 195.7 -103.82 L 225.27 -71.43 L 233.72 -65.8 L 281.59 -55.94 L 316.79 -67.21 L 343.54 -86.92 L 382.97 -127.75 L 404.09 -155.91 L 419.58 -185.48 L 457.59 -281.22 L 473.08 -369.93 L 474.49 -407.94 L 468.86 -445.96 L 463.22 -469.9 L 456.18 -482.57 L 468.86 -492.42 L 485.75 -486.79" fill="none" stroke="currentColor" strokeWidth="55.9" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="1264.1" strokeDashoffset="1264.1" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.157s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="1264.1" to="0" dur="0.403s" begin="0.157s" fill="freeze"/>
+  </path>
+</svg>);
+export default SvgComponent;

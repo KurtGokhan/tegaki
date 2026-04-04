@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -750 156 1000">
+  <path d="M 35.17 -18.88 L 54.18 -40" fill="none" stroke="currentColor" stroke-width="34.8" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="63.2" stroke-dashoffset="63.2" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="63.2" to="0" dur="0.009s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 97.12 -210.37 L 124.58 -241.34" fill="none" stroke="currentColor" stroke-width="30.6" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="72.0" stroke-dashoffset="72.0" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.159s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="72.0" to="0" dur="0.014s" begin="0.159s" fill="freeze"/>
+  </path>
+</svg>

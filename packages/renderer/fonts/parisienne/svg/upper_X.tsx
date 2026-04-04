@@ -1,0 +1,29 @@
+import type { SVGProps } from "react";
+const SvgComponent = (props: SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -1875 2570 2790">
+  <path d="M 381.24 -330.43 L 175.65 -345.12 L 80.2 -308.41 L 6.77 -242.33 L -22.6 -190.93 L -29.94 -117.5 L 6.77 -29.39 L 72.86 36.69 L 256.42 95.43 L 491.38 102.77 L 667.6 73.4 L 880.53 -0.02 L 1086.12 -124.85 L 1350.45 -374.49 L 1394.51 -396.52 L 1526.67 -704.9 L 1570.73 -712.24 L 1607.44 -741.61 L 1768.98 -947.2 L 1923.17 -1101.4 L 2040.65 -1189.51 L 2268.27 -1306.99 L 2437.14 -1358.38 L 2554.62 -1373.07" fill="none" stroke="currentColor" strokeWidth="78.1" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="3896.8" strokeDashoffset="3896.8" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="3896.8" to="0" dur="1.273s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 1394.51 -381.83 L 1416.54 -330.43 L 1394.51 -337.78 L 1416.54 -315.75 L 1431.22 -124.85 L 1489.96 -22.05 L 1644.15 95.43 L 1798.34 124.8 L 1842.4 117.46 L 1930.51 -88.13 L 2099.39 -293.72 L 2202.18 -352.46 L 2304.98 -359.81 L 2356.37 -315.75 L 2356.37 -198.27 L 2216.87 -14.71 L 2047.99 88.09 L 1879.11 124.8 L 1849.74 102.77 L 1813.03 168.85 L 1783.66 315.7 L 1776.32 418.5 L 1798.34 440.53" fill="none" stroke="currentColor" strokeWidth="60.8" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="2770.1" strokeDashoffset="2770.1" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="1.423s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="2770.1" to="0" dur="0.903s" begin="1.423s" fill="freeze"/>
+  </path>
+  <path d="M 1166.89 -668.19 L 953.96 -528.68 L 807.11 -499.31 L 667.6 -499.31 L 520.75 -543.37 L 447.32 -594.76 L 366.56 -697.56 L 337.19 -793.01 L 337.19 -903.15 L 351.87 -983.92 L 417.95 -1116.08 L 586.83 -1262.93 L 719 -1321.67 L 880.53 -1351.04 L 1137.52 -1329.01 L 1247.66 -1292.3 L 1343.11 -1233.56 L 1423.88 -1145.45 L 1504.64 -998.6 L 1526.67 -866.44 L 1526.67 -704.9" fill="none" stroke="currentColor" strokeWidth="83.8" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="3042.5" strokeDashoffset="3042.5" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="2.476s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="3042.5" to="0" dur="0.986s" begin="2.476s" fill="freeze"/>
+  </path>
+  <path d="M 2062.67 -264.35 L 2070.02 -264.35" fill="none" stroke="currentColor" strokeWidth="94.7" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="102.1" strokeDashoffset="102.1" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="3.612s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="102.1" to="0" dur="0.002s" begin="3.612s" fill="freeze"/>
+  </path>
+  <path d="M 28.8 -7.37 L 28.8 -0.02" fill="none" stroke="currentColor" strokeWidth="94.7" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="102.1" strokeDashoffset="102.1" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="3.764s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="102.1" to="0" dur="0.002s" begin="3.764s" fill="freeze"/>
+  </path>
+</svg>);
+export default SvgComponent;

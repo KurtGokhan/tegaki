@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -1875 1673 2790">
+  <path d="M 968.76 -377.83 L 1010.91 -403.12 L 960.33 -390.48 L 880.23 -314.59 L 783.26 -255.57 L 711.6 -238.71 L 618.85 -242.92 L 555.61 -293.51 L 530.32 -382.04 L 538.75 -474.79 L 593.55 -597.05 L 639.93 -656.07 L 770.62 -782.54 L 816.99 -812.05 L 947.68 -866.86 L 867.58 -837.34 L 1057.29 -875.29 L 1086.8 -871.07 L 1150.03 -828.91 L 1171.11 -765.68 L 1192.19 -744.6" fill="none" stroke="currentColor" stroke-width="70.7" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="1897.2" stroke-dashoffset="1897.2" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="1897.2" to="0" dur="0.609s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 1280.72 -854.21 L 1225.92 -769.89 L 1183.76 -736.17 L 1175.33 -694.01 L 1065.72 -504.3 L 1010.91 -382.04 L 1019.35 -289.3 L 1040.42 -247.14 L 1091.01 -217.63 L 1171.11 -217.63 L 1234.35 -238.71 L 1310.23 -289.3 L 1398.76 -390.48 L 1457.78 -483.22 L 1508.37 -592.83 L 1537.88 -685.58 L 1554.75 -782.54 L 1558.96 -879.5 L 1550.53 -946.95 L 1529.45 -1031.27 L 1504.16 -1086.07 L 1457.78 -1157.74 L 1369.25 -1237.84 L 1306.02 -1275.78 L 1171.11 -1317.94 L 1019.35 -1322.16 L 867.58 -1292.65 L 741.11 -1246.27 L 623.07 -1183.04 L 496.59 -1090.29 L 336.39 -917.44 L 226.78 -744.6 L 171.98 -609.69 L 129.82 -411.55 L 142.47 -209.2 L 167.76 -120.67 L 218.35 -27.92 L 302.67 56.39 L 386.98 111.2 L 500.81 144.92 L 652.58 149.14 L 854.93 98.55" fill="none" stroke="currentColor" stroke-width="81.1" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="4981.3" stroke-dashoffset="4981.3" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.759s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="4981.3" to="0" dur="1.633s" begin="0.759s" fill="freeze"/>
+  </path>
+  <circle cx="1339.74" cy="-318.81" r="29.8" fill="currentColor" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="2.542s" fill="freeze"/>
+  </circle>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -750 299 1000">
+  <path d="M 46.95 -191.49 L 86.27 -223.66 L 94.14 -225.09 L 101.29 -221.52 L 104.86 -222.95" fill="none" stroke="currentColor" stroke-width="16.2" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="86.9" stroke-dashoffset="86.9" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="86.9" to="0" dur="0.024s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 134.18 -250.83 L 102 -219.37 L 99.86 -208.65 L 80.55 -171.47 L 64.11 -126.42 L 55.53 -80.66 L 52.67 -47.06 L 57.67 -31.33 L 64.82 -22.75 L 73.4 -22.75 L 99.14 -29.18 L 115.59 -39.91 L 139.9 -62.79 L 156.34 -82.09 L 187.09 -125.71 L 204.96 -155.74 L 217.12 -160.74 L 221.41 -160.74 L 222.84 -159.31 L 206.39 -152.88 L 208.54 -151.45 L 222.12 -151.45" fill="none" stroke="currentColor" stroke-width="24.7" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="533.6" stroke-dashoffset="533.6" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.174s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="533.6" to="0" dur="0.170s" begin="0.174s" fill="freeze"/>
+  </path>
+  <path d="M 267.88 -244.4 L 271.46 -247.26 L 255.73 -227.95 L 222.84 -157.88 L 220.69 -138.58 L 214.97 -114.98 L 210.68 -85.67 L 209.25 -46.34 L 214.26 -26.32 L 222.12 -17.74 L 229.99 -17.03 L 249.29 -21.32 L 257.16 -25.61 L 275.03 -41.34 L 284.33 -54.21" fill="none" stroke="currentColor" stroke-width="26.3" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="354.4" stroke-dashoffset="354.4" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.494s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="354.4" to="0" dur="0.109s" begin="0.494s" fill="freeze"/>
+  </path>
+</svg>

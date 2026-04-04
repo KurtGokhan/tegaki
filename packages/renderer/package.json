@@ -35,11 +35,16 @@
       "source": "./src/index.ts",
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
-    }
+    },
+    "./fonts/caveat": "./fonts/caveat/bundle.ts",
+    "./fonts/italianno": "./fonts/italianno/bundle.ts",
+    "./fonts/tangerine": "./fonts/tangerine/bundle.ts",
+    "./fonts/parisienne": "./fonts/parisienne/bundle.ts"
   },
   "files": [
     "dist/",
     "src/",
+    "fonts/",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -47,7 +52,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsdown src/index.ts --dts --sourcemap",
-    "prepack": "bun run build && bun ../../scripts/prepareForRelease.ts"
+    "prepack": "bun run build && bun ../../scripts/prepareForRelease.ts",
+    "generate-fonts": "bun --filter tegaki-generator start generate Caveat --output ../renderer/fonts/caveat && bun --filter tegaki-generator start generate Italianno --output ../renderer/fonts/italianno && bun --filter tegaki-generator start generate Tangerine --output ../renderer/fonts/tangerine && bun --filter tegaki-generator start generate Parisienne --output ../renderer/fonts/parisienne"
   },
   "dependencies": {
     "@chenglou/pretext": "^0.0.4"

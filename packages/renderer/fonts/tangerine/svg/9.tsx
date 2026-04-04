@@ -1,0 +1,9 @@
+import type { SVGProps } from "react";
+const SvgComponent = (props: SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -750 304 1000">
+  <path d="M -38.13 105.3 L -13.89 129.54 L 14.18 135.92 L 63.95 132.09 L 108.61 116.78 L 145.61 91.26 L 183.89 52.98 L 211.96 10.87 L 231.1 -27.41 L 246.42 -66.96 L 248.97 -88.66 L 270.66 -155.01 L 274.49 -193.29 L 274.49 -232.84 L 270.66 -248.16 L 265.56 -260.92 L 246.42 -285.16 L 224.72 -296.64 L 200.48 -299.2 L 172.41 -295.37 L 155.82 -290.26 L 140.51 -281.33 L 111.16 -255.81 L 92.02 -227.74 L 79.26 -199.67 L 70.33 -163.94 L 65.22 -120.56 L 66.5 -92.48 L 70.33 -81 L 80.54 -63.14 L 94.57 -47.82 L 106.06 -41.44 L 131.58 -37.62 L 174.96 -45.27 L 191.55 -55.48 L 226 -89.93 L 251.52 -97.59 L 234.93 -86.1 L 236.21 -89.93 L 231.1 -87.38" fill="none" stroke="currentColor" strokeWidth="29.3" strokeLinecap="round" strokeLinejoin="round"
+    strokeDasharray="1240.4" strokeDashoffset="1240.4" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="1240.4" to="0" dur="0.404s" begin="0.000s" fill="freeze"/>
+  </path>
+</svg>);
+export default SvgComponent;

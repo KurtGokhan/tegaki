@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -1875 1518 2790">
+  <path d="M 487.85 -151 L 542.85 -173 L 647.35 -184 L 702.35 -173 L 795.85 -101.5 L 861.85 8.5 L 878.35 74.5 L 900.35 91 L 960.85 261.5 L 1015.85 338.5 L 1103.85 421 L 1235.85 459.5 L 1378.85 443 L 1472.35 410" fill="none" stroke="currentColor" stroke-width="83.5" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="1422.1" stroke-dashoffset="1422.1" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.000s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="1422.1" to="0" dur="0.446s" begin="0.000s" fill="freeze"/>
+  </path>
+  <path d="M 856.35 -519.5 L 762.85 -596.5 L 718.85 -668 L 691.35 -745 L 685.85 -871.5 L 713.35 -992.5 L 740.85 -1047.5 L 845.35 -1179.5 L 889.35 -1212.5 L 966.35 -1251 L 1048.85 -1273 L 1197.35 -1267.5 L 1367.85 -1135.5 L 1400.85 -1075 L 1444.85 -910 L 1439.35 -728.5 L 1389.85 -525 L 1279.85 -299.5 L 1147.85 -129 L 993.85 19.5 L 850.85 113 L 669.35 168 L 487.85 179 L 372.35 151.5 L 273.35 96.5 L 196.35 25 L 146.85 -52 L 119.35 -118 L 91.85 -261 L 97.35 -464.5 L 135.85 -629.5 L 273.35 -932 L 388.85 -1086 L 498.85 -1207 L 702.35 -1361 L 878.35 -1443.5 L 1032.35 -1476.5 L 1158.85 -1482 L 1246.85 -1465.5 L 1312.85 -1438 L 1417.35 -1355.5 L 1483.35 -1245.5 L 1494.35 -1190.5" fill="none" stroke="currentColor" stroke-width="75.1" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="6206.0" stroke-dashoffset="6206.0" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="0.596s" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="6206.0" to="0" dur="2.044s" begin="0.596s" fill="freeze"/>
+  </path>
+  <circle cx="762.85" cy="-134.5" r="46.7" fill="currentColor" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="2.790s" fill="freeze"/>
+  </circle>
+</svg>
