@@ -7,18 +7,25 @@ on:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
+permissions:
+  id-token: write
+  contents: write
+  packages: write
+  pull-requests: write
+  issues: read
+
 jobs:
   changesets:
     name: Changesets PR
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: write
-      packages: write
-      pull-requests: write
-      issues: read
     steps:
       - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
       - uses: oven-sh/setup-bun@v2
       - run: bun i
 
