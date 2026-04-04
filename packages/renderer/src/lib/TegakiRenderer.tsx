@@ -378,14 +378,17 @@ export function TegakiRenderer({
   // --- Sync only active SVGs before paint ---
   const prevActiveRange = useRef<[number, number]>([-1, -1]);
   const prevSyncMode = useRef(mode);
+  const prevTimelineRef = useRef<Timeline | null>(null);
   useLayoutEffect(() => {
     if (mode !== 'svg') return;
     const entries = timeline.entries;
     if (entries.length === 0) return;
 
-    // When switching to SVG mode, all elements are freshly mounted — sync everything
-    const fullSync = prevSyncMode.current !== 'svg';
+    // Full sync when switching to SVG mode or when timeline changes (including first render)
+    const timelineChanged = prevTimelineRef.current !== timeline;
+    const fullSync = prevSyncMode.current !== 'svg' || timelineChanged;
     prevSyncMode.current = mode;
+    prevTimelineRef.current = timeline;
 
     if (fullSync) {
       for (let i = 0; i < entries.length; i++) {
@@ -402,7 +405,7 @@ export function TegakiRenderer({
     // Find the range of glyphs that need updating:
     // - Previously active glyphs (may need to clamp to 0 or duration)
     // - Currently active glyphs (in-progress animation)
-    const [prevStart, prevEnd] = prevActiveRange.current;
+    const [, prevEnd] = prevActiveRange.current;
 
     let activeStart = entries.length;
     let activeEnd = -1;
@@ -418,11 +421,12 @@ export function TegakiRenderer({
       }
     }
 
-    // Merge with previous range to catch glyphs that just became inactive
-    const syncStart = Math.min(activeStart, prevStart >= 0 ? prevStart : activeStart);
+    // Sync from index 0 up to the furthest active/previously-active glyph.
+    // This ensures all completed glyphs retain their end-state time even if
+    // pauseAnimations() is re-triggered by ref callback changes.
     const syncEnd = Math.max(activeEnd, prevEnd >= 0 ? prevEnd : activeEnd);
 
-    for (let i = syncStart; i <= syncEnd; i++) {
+    for (let i = 0; i <= syncEnd; i++) {
       const entry = entries[i]!;
       const svg = svgRefs.current.get(i);
       if (!svg || !entry.hasSvg) continue;
