@@ -1,5 +1,11 @@
 # tegaki
 
+## 0.2.3
+
+### Patch Changes
+
+- [`d171776`](https://github.com/KurtGokhan/tegaki/commit/d171776e48eae2063246209e8b56bf9e9185f4c7) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Fix layout issues when font is being loaded. Fix layout being calculated with ligatures.
+
 ## 0.2.2
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "tegaki",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "description": "React component for rendering animated handwriting from any font",
   "keywords": [

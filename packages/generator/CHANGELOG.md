@@ -1,5 +1,12 @@
 # tegaki-generator
 
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [[`d171776`](https://github.com/KurtGokhan/tegaki/commit/d171776e48eae2063246209e8b56bf9e9185f4c7)]:
+  - tegaki@0.2.3
+
 ## 0.2.2
 
 ### Patch Changes
