@@ -160,6 +160,29 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
+  // --- Font loading ---
+  const [fontReady, setFontReady] = useState(() => !!font && document.fonts.check(`16px "${font?.family}"`));
+  useEffect(() => {
+    if (!font) {
+      setFontReady(false);
+      return;
+    }
+    // Check if the font is already loaded
+    if (document.fonts.check(`16px "${font.family}"`)) {
+      setFontReady(true);
+      return;
+    }
+    // New font — mark not ready and start loading
+    setFontReady(false);
+    let cancelled = false;
+    font.registerFontFace().then(() => {
+      if (!cancelled) setFontReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [font]);
+
   // --- Font-derived constants ---
   const fontFamily = font?.family;
   const emHeight = font ? (font.ascender - font.descender) / font.unitsPerEm : 0;
@@ -206,7 +229,7 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
 
   // --- Uncontrolled: rAF playback loop ---
   useEffect(() => {
-    if (isControlled || !playing || !font) return;
+    if (isControlled || !playing || !font || !fontReady) return;
 
     // Reset smoothed boost when the loop restarts
     smoothedBoostRef.current = 0;
@@ -251,7 +274,7 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [isControlled, playing, speed, loop, catchUp, font]);
+  }, [isControlled, playing, speed, loop, catchUp, font, fontReady]);
 
   // --- SVG refs (only needed in SVG mode) ---
   const svgRefs = useRef(new Map<number, SVGSVGElement>());
@@ -331,9 +354,9 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
 
   // --- Text layout ---
   const layout = useMemo(() => {
-    if (!fontFamily || !fontSize || !containerWidth || !resolvedText) return null;
+    if (!fontReady || !fontFamily || !fontSize || !containerWidth || !resolvedText) return null;
     return computeTextLayout(resolvedText, fontFamily, fontSize, lineHeight, containerWidth);
-  }, [resolvedText, fontFamily, fontSize, lineHeight, containerWidth]);
+  }, [fontReady, resolvedText, fontFamily, fontSize, lineHeight, containerWidth]);
 
   // --- Canvas padding ---
   const padH = PADDING_H_EM * fontSize;
@@ -507,7 +530,7 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
 
   // --- Rendering ---
 
-  if (!font || !resolvedText) {
+  if (!font || !resolvedText || !fontReady) {
     return <div ref={rootRef} {...props} />;
   }
 
