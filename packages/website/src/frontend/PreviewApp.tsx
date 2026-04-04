@@ -88,6 +88,17 @@ export function PreviewApp() {
   // Cache of results per character
   const resultsCache = useRef(new Map<string, PipelineResult>());
 
+  // Set of characters the font actually supports
+  const availableChars = useMemo(() => {
+    if (!fontInfo) return new Set<string>();
+    const available = new Set<string>();
+    for (const c of chars) {
+      const glyph = fontInfo.font.charToGlyph(c);
+      if (glyph && glyph.index !== 0) available.add(c);
+    }
+    return available;
+  }, [fontInfo, chars]);
+
   const loadFont = useCallback(async (family: string) => {
     setFontLoading(true);
     setFontError('');
@@ -359,7 +370,29 @@ export function PreviewApp() {
 
           {/* Characters */}
           <fieldset className="flex flex-col gap-1">
-            <legend className="text-sm font-medium text-gray-600 mb-1">Characters</legend>
+            <div className="flex items-center justify-between mb-1">
+              <legend className="text-sm font-medium text-gray-600">Characters</legend>
+              {fontInfo && (
+                <button
+                  type="button"
+                  className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer"
+                  onClick={() => {
+                    const allChars: string[] = [];
+                    for (let i = 0; i < fontInfo.font.glyphs.length; i++) {
+                      const g = fontInfo.font.glyphs.get(i);
+                      if (g.index !== 0 && g.unicode != null) {
+                        const ch = String.fromCodePoint(g.unicode);
+                        if (ch.trim()) allChars.push(ch);
+                      }
+                    }
+                    allChars.sort((a, b) => a.codePointAt(0)! - b.codePointAt(0)!);
+                    setChars(allChars.join(''));
+                  }}
+                >
+                  Select all available
+                </button>
+              )}
+            </div>
             <textarea
               className="px-2 py-1 border border-gray-300 rounded text-sm font-mono h-16 resize-y"
               value={chars}
@@ -586,8 +619,12 @@ export function PreviewApp() {
                 <button
                   type="button"
                   key={`${c}-${i}`}
-                  className={`w-8 h-8 flex items-center justify-center text-sm font-mono rounded cursor-pointer transition-colors ${
-                    c === selectedChar ? 'bg-gray-800 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                  className={`w-8 h-8 flex items-center justify-center text-sm font-mono rounded transition-colors ${
+                    fontInfo && !availableChars.has(c)
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : c === selectedChar
+                        ? 'bg-gray-800 text-white cursor-pointer'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-800 cursor-pointer'
                   }`}
                   onClick={() => setSelectedChar(c)}
                 >
