@@ -8,7 +8,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!**/node_modules", "!**/dist", "!**/coverage", "!**/build", "!**/out", "!**/fonts"]
+    "includes": ["**", "!**/node_modules", "!**/dist", "!**/coverage", "!**/build", "!**/out", "!**/fonts", "!**/*.md", "!**/*.astro"]
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "javascript": {

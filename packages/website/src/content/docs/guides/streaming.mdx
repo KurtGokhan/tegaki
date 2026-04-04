@@ -1,0 +1,53 @@
+---
+title: Streaming Text
+description: Animate handwriting as text streams in from an API.
+---
+
+Tegaki can animate text as it arrives from a streaming API, making it perfect for AI chat interfaces.
+
+## Approach
+
+Use controlled time mode and advance the clock as new text arrives:
+
+```tsx
+import { computeTimeline, TegakiRenderer } from 'tegaki';
+import { useEffect, useRef, useState } from 'react';
+
+function StreamingTegaki({ text, font, speed = 4 }) {
+  const [displayTime, setDisplayTime] = useState(0);
+  const timeRef = useRef(0);
+  const durationRef = useRef(0);
+
+  // Recompute total duration as text grows
+  const { totalDuration } = computeTimeline(text, font);
+  durationRef.current = totalDuration;
+
+  useEffect(() => {
+    let lastTs = null;
+    let raf;
+
+    const tick = (ts) => {
+      if (lastTs === null) lastTs = ts;
+      const delta = ((ts - lastTs) / 1000) * speed;
+      lastTs = ts;
+
+      const target = durationRef.current;
+      if (timeRef.current < target) {
+        timeRef.current = Math.min(timeRef.current + delta, target);
+        setDisplayTime(timeRef.current);
+      }
+
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [speed]);
+
+  return <TegakiRenderer text={text} time={displayTime} font={font} />;
+}
+```
+
+## Live demo
+
+Try the [Chat Demo](/chat/) to see streaming handwriting animation in action with an AI backend.

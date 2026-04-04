@@ -237,10 +237,10 @@ export function HomePage() {
       <nav className="flex items-center justify-between px-8 py-4 border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
         <span className="text-lg font-semibold tracking-tight text-gray-900">tegaki</span>
         <div className="flex gap-4 text-sm">
-          <a href="/generator.html" className="text-gray-500 hover:text-gray-900 transition-colors">
+          <a href="/generator/" className="text-gray-500 hover:text-gray-900 transition-colors">
             Generator
           </a>
-          <a href="/chat.html" className="text-gray-500 hover:text-gray-900 transition-colors">
+          <a href="/chat/" className="text-gray-500 hover:text-gray-900 transition-colors">
             Chat Demo
           </a>
         </div>

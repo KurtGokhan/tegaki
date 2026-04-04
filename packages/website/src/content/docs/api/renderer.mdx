@@ -1,0 +1,81 @@
+---
+title: TegakiRenderer
+description: API reference for the TegakiRenderer React component.
+---
+
+The main component exported by the `tegaki` package.
+
+## Import
+
+```tsx
+import { TegakiRenderer } from 'tegaki';
+```
+
+## Props
+
+### `font`
+
+**Type:** `TegakiBundle` — **Required**
+
+The font bundle containing glyph components, metrics, and timing data.
+
+### `children` / `text`
+
+**Type:** `string`
+
+The text to render. Can be passed as children or the `text` prop.
+
+### `time`
+
+**Type:** `number | TimeControlProp`
+
+Controls animation timing. Pass a number for controlled mode, or an object:
+
+```ts
+// Uncontrolled — component manages its own clock
+{ mode: 'uncontrolled', speed?: number, loop?: boolean }
+
+// CSS — animation driven by CSS transitions
+{ mode: 'css', speed?: number }
+```
+
+### `renderMode`
+
+**Type:** `'svg' | 'canvas'`  
+**Default:** `'svg'`
+
+Rendering backend. Canvas mode supports additional effects.
+
+### `effects`
+
+**Type:** `TegakiEffectConfigs`
+
+Effects configuration (canvas mode only):
+
+```ts
+{
+  glow?: { radius: number, color: string, offsetX?: number, offsetY?: number },
+  wobble?: { amplitude: number, frequency: number, mode?: 'sine' | 'noise' },
+  pressureWidth?: { strength: number },
+  taper?: { startLength: number, endLength: number },
+  gradient?: { colors: string | string[], saturation?: number, lightness?: number },
+}
+```
+
+### `style`
+
+**Type:** `React.CSSProperties`
+
+Style object applied to the container. Use `fontSize` to control the text size.
+
+## Helper functions
+
+### `computeTimeline(text, font)`
+
+Computes the total animation duration for a given text and font bundle. Useful for controlled time mode.
+
+```ts
+import { computeTimeline } from 'tegaki';
+
+const { totalDuration } = computeTimeline('Hello', bundle);
+```

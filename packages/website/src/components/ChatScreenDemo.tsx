@@ -1,8 +1,5 @@
 import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
-import { createRoot } from 'react-dom/client';
 import { computeTimeline, type TegakiBundle, TegakiRenderer } from 'tegaki';
-import font from './font.ts';
-import './style.css';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -291,6 +288,3 @@ export function ChatScreenDemo({ font }: { font: TegakiBundle }) {
     </div>
   );
 }
-
-const root = createRoot(document.getElementById('root')!);
-root.render(<ChatScreenDemo font={font} />);

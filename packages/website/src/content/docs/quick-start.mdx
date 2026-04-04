@@ -1,0 +1,54 @@
+---
+title: Quick Start
+description: Render your first handwriting animation in minutes.
+---
+
+import { Steps, Code } from '@astrojs/starlight/components';
+
+<Steps>
+
+1. **Generate font data**
+
+   Run the generator to create stroke data for the Caveat font:
+
+   ```sh
+   npx tegaki-generator generate --font "Caveat" --chars "Hello World"
+   ```
+
+   This creates a JSON file with stroke paths, widths, and timing data.
+
+2. **Import the bundle**
+
+   The generator outputs a ready-to-use bundle:
+
+   ```tsx
+   import bundle from './output/caveat/bundle';
+   ```
+
+3. **Render the animation**
+
+   Use the `TegakiRenderer` component:
+
+   ```tsx
+   import { TegakiRenderer } from 'tegaki';
+
+   function App() {
+     return (
+       <TegakiRenderer
+         font={bundle}
+         time={{ mode: 'uncontrolled', speed: 1, loop: true }}
+         style={{ fontSize: 48 }}
+       >
+         Hello World
+       </TegakiRenderer>
+     );
+   }
+   ```
+
+</Steps>
+
+## What's next?
+
+- [Generating Font Data](/guides/generating/) — learn about pipeline options and customization
+- [Rendering Animations](/guides/rendering/) — control timing, effects, and rendering modes
+- [Generator Tool](/generator/) — try the interactive generator

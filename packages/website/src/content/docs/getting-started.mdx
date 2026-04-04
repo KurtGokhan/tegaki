@@ -1,0 +1,31 @@
+---
+title: Introduction
+description: Animated handwriting from any Google Font.
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+Tegaki generates stroke data from Google Fonts and renders beautiful handwriting animations in React.
+
+<CardGrid>
+  <Card title="Generate" icon="pencil">
+    The generator CLI downloads any Google Font, extracts glyph outlines, computes skeletons, and traces stroke paths with width and timing data.
+  </Card>
+  <Card title="Bundle" icon="seti:json">
+    Stroke data is packaged into a compact bundle with animated SVG components, glyph metrics, and timing information.
+  </Card>
+  <Card title="Render" icon="rocket">
+    Drop the `TegakiRenderer` React component into your app. It handles text layout, line wrapping, and smooth animation playback.
+  </Card>
+</CardGrid>
+
+## Packages
+
+- **`tegaki`** — React component for rendering animated handwriting
+- **`tegaki-generator`** — CLI tool that generates glyph data from fonts
+
+## Next steps
+
+- [Installation](/installation/) — add Tegaki to your project
+- [Quick Start](/quick-start/) — render your first animation in minutes
+- [Generator](/generator/) — try the interactive generator tool

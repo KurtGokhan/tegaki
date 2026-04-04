@@ -1,0 +1,80 @@
+---
+title: Rendering Animations
+description: How to use TegakiRenderer to display handwriting animations.
+---
+
+The `TegakiRenderer` component handles text layout, line wrapping, and animation playback.
+
+## Basic usage
+
+```tsx
+import { TegakiRenderer } from 'tegaki';
+import bundle from './output/caveat/bundle';
+
+<TegakiRenderer
+  font={bundle}
+  time={{ mode: 'uncontrolled', speed: 1, loop: true }}
+  style={{ fontSize: 48 }}
+>
+  Hello World
+</TegakiRenderer>
+```
+
+## Time control modes
+
+### Uncontrolled
+
+The component manages its own animation clock:
+
+```tsx
+<TegakiRenderer
+  font={bundle}
+  time={{ mode: 'uncontrolled', speed: 2, loop: true }}
+>
+  Animated text
+</TegakiRenderer>
+```
+
+### Controlled
+
+You provide the current time value directly (useful for syncing with external state):
+
+```tsx
+const [time, setTime] = useState(0);
+
+<TegakiRenderer font={bundle} time={time}>
+  Controlled text
+</TegakiRenderer>
+```
+
+### CSS
+
+Animation is driven purely by CSS (best performance, no JavaScript animation loop):
+
+```tsx
+<TegakiRenderer
+  font={bundle}
+  time={{ mode: 'css', speed: 1 }}
+>
+  CSS animated
+</TegakiRenderer>
+```
+
+## Render modes
+
+- **SVG** — Each glyph is an inline SVG with stroke-dasharray animation
+- **Canvas** — Renders to a 2D canvas with support for effects
+
+```tsx
+<TegakiRenderer
+  font={bundle}
+  renderMode="canvas"
+  effects={{ glow: { radius: 8, color: '#00ccff' } }}
+>
+  Canvas with effects
+</TegakiRenderer>
+```
+
+## Streaming text
+
+For chat-like interfaces where text arrives incrementally, see [Streaming Text](/guides/streaming/).

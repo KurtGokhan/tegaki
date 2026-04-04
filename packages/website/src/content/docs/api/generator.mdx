@@ -1,0 +1,59 @@
+---
+title: Generator CLI
+description: API reference for the tegaki-generator CLI tool.
+---
+
+The `tegaki-generator` package provides a CLI for generating handwriting data from fonts.
+
+## Usage
+
+```sh
+npx tegaki-generator generate [options]
+```
+
+## Commands
+
+### `generate`
+
+Process a font and output stroke data.
+
+```sh
+npx tegaki-generator generate --font "Caveat" --chars "Hello World" --resolution 400
+```
+
+#### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--font` | `string` | `"Caveat"` | Google Font family name |
+| `--chars` | `string` | Default charset | Characters to process |
+| `--resolution` | `number` | `400` | Bitmap resolution |
+| `--skeleton-method` | `string` | `"zhang-suen"` | `zhang-suen` or `voronoi` |
+| `--line-cap` | `string` | `"round"` | `round` or `butt` |
+| `--bezier-tolerance` | `number` | `0.5` | Bezier subdivision flatness |
+| `--rdp-tolerance` | `number` | `1.0` | RDP simplification tolerance |
+| `--spur-length-ratio` | `number` | `0.08` | Spur pruning threshold (fraction of resolution) |
+| `--merge-threshold-ratio` | `number` | — | Merge threshold for nearby strokes |
+| `--drawing-speed` | `number` | — | Animation drawing speed |
+| `--stroke-pause` | `number` | — | Pause between strokes |
+
+## Programmatic API
+
+```ts
+import { parseFont, processGlyph, glyphToAnimatedSVG } from 'tegaki-generator';
+
+// Parse a font file
+const fontInfo = parseFont(buffer);
+
+// Process a single glyph
+const result = processGlyph(fontInfo, 'A', options);
+
+// Convert to animated SVG
+const svg = glyphToAnimatedSVG(
+  result.strokesFontUnits,
+  result.advanceWidth,
+  result.ascender,
+  result.descender,
+  result.lineCap,
+);
+```

@@ -1,0 +1,70 @@
+---
+title: Generating Font Data
+description: How to use the generator CLI to create stroke data from fonts.
+---
+
+The `tegaki-generator` CLI processes Google Fonts through a multi-stage pipeline to produce stroke data suitable for handwriting animation.
+
+## Pipeline
+
+Each glyph goes through these stages:
+
+1. **Extract** — opentype.js extracts path commands and metrics
+2. **Flatten** — Adaptive de Casteljau subdivision converts bezier curves to polyline segments
+3. **Rasterize** — Scanline fill with nonzero winding rule produces a binary bitmap
+4. **Skeletonize** — Zhang-Suen thinning reduces the bitmap to 1px-wide skeleton
+5. **Trace** — Walks skeleton pixels into polylines, prunes short spurs, simplifies with Ramer-Douglas-Peucker
+6. **Width** — Distance transform computes stroke width at each skeleton point
+7. **Stroke order** — Groups polylines into connected components, sorts top-to-bottom/left-to-right
+
+## Basic usage
+
+```sh
+npx tegaki-generator generate --font "Caveat"
+```
+
+This generates data for the default character set using the Caveat font.
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--font` | `Caveat` | Google Font family name |
+| `--chars` | `A-Za-z0-9` + punctuation | Characters to process |
+| `--resolution` | `400` | Bitmap resolution for rasterization |
+| `--skeleton-method` | `zhang-suen` | Skeletonization algorithm |
+| `--line-cap` | `round` | Stroke line cap style |
+| `--bezier-tolerance` | `0.5` | Flatness tolerance for bezier subdivision |
+| `--rdp-tolerance` | `1.0` | Ramer-Douglas-Peucker simplification tolerance |
+
+## Output format
+
+The generator outputs a JSON file containing font metrics and per-glyph stroke data:
+
+```json
+{
+  "font": {
+    "family": "Caveat",
+    "unitsPerEm": 1000,
+    "ascender": 960,
+    "descender": -300
+  },
+  "glyphs": {
+    "A": {
+      "advanceWidth": 502,
+      "strokes": [
+        {
+          "points": [{ "x": 100, "y": 200, "t": 0, "width": 45.2 }],
+          "order": 0
+        }
+      ]
+    }
+  }
+}
+```
+
+Each stroke point includes: `x`, `y` (font units), `t` (0-1 animation progress), and `width` (stroke diameter).
+
+## Interactive generator
+
+Use the [interactive generator tool](/generator/) to visualize each pipeline stage and fine-tune options.
