@@ -515,18 +515,18 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
     <div
       ref={rootRef}
       {...props}
-      style={
-        {
-          ...props.style,
-          position: 'relative',
-          maxWidth: '100%',
-          width: 'auto',
-          height: 'auto',
+      style={{
+        ...props.style,
+        position: 'relative',
+        maxWidth: '100%',
+        width: 'auto',
+        height: 'auto',
+        ...{
           [CSS_DURATION]: timeline.totalDuration,
           [CSS_TIME]: currentTime,
           [CSS_PROGRESS]: timeline.totalDuration > 0 ? currentTime / timeline.totalDuration : 0,
-        } as React.CSSProperties
-      }
+        },
+      }}
     >
       {/* Sentinel: inherits font-size & line-height; its height changes when either changes */}
       <span
