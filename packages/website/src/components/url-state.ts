@@ -104,6 +104,7 @@ const OPTION_KEYS: Record<keyof PipelineOptions, string> = {
   voronoiSamplingInterval: 'vs',
   drawingSpeed: 'ds',
   strokePause: 'sp',
+  ligatures: 'lg',
 };
 
 const REVERSE_OPTION_KEYS = Object.fromEntries(Object.entries(OPTION_KEYS).map(([k, v]) => [v, k])) as Record<

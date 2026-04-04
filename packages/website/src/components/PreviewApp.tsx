@@ -480,6 +480,11 @@ export function PreviewApp() {
               ]}
               onChange={(v) => updateOption('dtMethod', v as 'euclidean' | 'chamfer')}
             />
+
+            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
+              <input type="checkbox" checked={options.ligatures} onChange={(e) => updateOption('ligatures', e.target.checked)} />
+              Ligatures (calt, liga)
+            </label>
           </fieldset>
 
           {/* Advanced options */}

@@ -50,6 +50,7 @@ export interface PipelineOptions {
   voronoiSamplingInterval: number;
   drawingSpeed: number;
   strokePause: number;
+  ligatures: boolean;
 }
 
 export const DEFAULT_OPTIONS: PipelineOptions = {
@@ -68,6 +69,7 @@ export const DEFAULT_OPTIONS: PipelineOptions = {
   voronoiSamplingInterval: 2,
   drawingSpeed: 3000,
   strokePause: 0.15,
+  ligatures: false,
 };
 
 export interface PipelineResult {
@@ -349,6 +351,7 @@ export const generateArgsSchema = z.object({
   voronoiSamplingInterval: z.number().default(DEFAULT_OPTIONS.voronoiSamplingInterval).describe('Voronoi boundary sampling interval'),
   drawingSpeed: z.number().default(DRAWING_SPEED).describe('Drawing speed in font units per second'),
   strokePause: z.number().default(STROKE_PAUSE).describe('Pause duration in seconds between strokes'),
+  ligatures: z.boolean().default(false).describe('Enable OpenType ligatures (calt, liga) in the font bundle'),
 });
 
 // ── Bundle extraction (pure — no file I/O) ────────────────────────────────
@@ -460,6 +463,7 @@ export function extractTegakiBundle(input: ExtractBundleInput): TegakiBundleOutp
       fontInfo.unitsPerEm,
       fontInfo.ascender,
       fontInfo.descender,
+      options.ligatures,
     ),
   });
 
@@ -474,6 +478,7 @@ function generateGlyphsModule(
   unitsPerEm: number,
   ascender: number,
   descender: number,
+  ligatures: boolean,
 ): string {
   const imports: string[] = [];
   const mapEntries: string[] = [];
@@ -513,7 +518,7 @@ ${timingEntries.join('\n')}
   },
   registerFontFace() {
     if (!registered) {
-      registered = new FontFace(bundle.family, \`url(\${fontUrl})\`, { featureSettings: "'calt' 0, 'liga' 0" })
+      registered = new FontFace(bundle.family, \`url(\${fontUrl})\`${ligatures ? '' : `, { featureSettings: "'calt' 0, 'liga' 0" }`})
         .load()
         .then((loaded) => { document.fonts.add(loaded); });
     }
