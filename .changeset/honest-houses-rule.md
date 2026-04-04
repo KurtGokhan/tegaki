@@ -1,5 +1,0 @@
----
-"tegaki": patch
----
-
-changeset fix

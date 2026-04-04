@@ -1,5 +1,11 @@
 # tegaki
 
+## 0.2.2
+
+### Patch Changes
+
+- [`4f5c639`](https://github.com/KurtGokhan/tegaki/commit/4f5c639799056093a8797dbb6a84cd6989500811) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - changeset fix
+
 ## 0.2.1
 
 ### Patch Changes
