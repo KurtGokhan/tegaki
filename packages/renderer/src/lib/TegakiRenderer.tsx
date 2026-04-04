@@ -5,6 +5,11 @@ import { drawGlyph } from './drawGlyph.ts';
 
 const GLYPH_GAP = 0.1;
 
+const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+function graphemes(text: string): string[] {
+  return Array.from(segmenter.segment(text), (s) => s.segment);
+}
+
 // --- Children coercion ---
 
 type Coercible = string | number | boolean | null | undefined | readonly Coercible[];
@@ -32,7 +37,7 @@ export interface Timeline {
 }
 
 export function computeTimeline(text: string, font: TegakiBundle): Timeline {
-  const chars = Array.from(text);
+  const chars = graphemes(text);
   const entries: TimelineEntry[] = [];
   let offset = 0;
   for (const char of chars) {
@@ -64,7 +69,7 @@ interface TextLayout {
 
 function computeTextLayout(text: string, fontFamily: string, fontSize: number, lineHeight: number, maxWidth: number): TextLayout {
   const fontStr = `${fontSize}px ${fontFamily}`;
-  const chars = Array.from(text);
+  const chars = graphemes(text);
 
   // Measure unique character widths
   const widthCache = new Map<string, number>();
@@ -92,8 +97,8 @@ function computeTextLayout(text: string, fontFamily: string, fontSize: number, l
   // Line breaking at actual available width
   const result = layoutWithLines(prepared, maxWidth, lineHeight);
 
-  // Map line texts back to character indices (code-point-based)
-  // Build a mapping from UTF-16 offset to code point index
+  // Map line texts back to character indices (grapheme-based)
+  // Build a mapping from UTF-16 offset to grapheme index
   const utf16ToCodePoint: number[] = [];
   for (let ci = 0; ci < chars.length; ci++) {
     for (let j = 0; j < chars[ci]!.length; j++) {
@@ -434,7 +439,7 @@ export function TegakiRenderer({
 
     const emHeightPx = emHeight * fontSize;
     const halfLeading = (lineHeight - emHeightPx) / 2;
-    const characters = Array.from(resolvedText);
+    const characters = graphemes(resolvedText);
 
     let y = 0;
     for (const lineIndices of layout.lines) {
@@ -487,7 +492,7 @@ export function TegakiRenderer({
     return <div ref={rootRef} {...props} />;
   }
 
-  const characters = Array.from(resolvedText);
+  const characters = graphemes(resolvedText);
 
   const renderGlyph = (charIdx: number) => {
     const char = characters[charIdx]!;
