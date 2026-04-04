@@ -8,7 +8,7 @@
   "scripts": {
     "start": "bun --filter tegaki-generator start",
     "dev": "bun --filter tegaki-website dev",
-    "serve": "bun --filter tegaki-website serve",
+    "build:website": "bun --filter tegaki-website build",
     "compile": "bun --filter tegaki-generator compile",
     "test": "bun --filter '*' test",
     "typecheck": "bun --filter '*' typecheck",

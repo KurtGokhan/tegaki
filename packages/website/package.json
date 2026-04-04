@@ -14,24 +14,25 @@
   },
   "license": "MIT",
   "scripts": {
-    "dev": "bun --conditions=tegaki@dev --watch src/server.ts",
-    "serve": "bun --conditions=tegaki@dev --watch src/server.ts",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/bedrock-sdk": "^0.27.0",
-    "bun-plugin-tailwind": "^0.1.2",
     "fflate": "^0.8.2",
-    "tailwindcss": "^4.2.2",
-    "tegaki": "workspace:*",
-    "tegaki-generator": "workspace:*",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "tegaki": "workspace:*",
+    "tegaki-generator": "workspace:*"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.11",
+    "@tailwindcss/vite": "^4.2.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "typescript": "^6.0.2"
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3"
   }
 }

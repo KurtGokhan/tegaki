@@ -2,6 +2,7 @@ import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'r
 import { createRoot } from 'react-dom/client';
 import { computeTimeline, type TegakiBundle, TegakiRenderer } from 'tegaki';
 import font from './font.ts';
+import './style.css';
 
 type Message = {
   role: 'user' | 'assistant';
