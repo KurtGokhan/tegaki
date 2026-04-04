@@ -375,67 +375,21 @@ export function TegakiRenderer({
     return computeTextLayout(resolvedText, fontFamily, fontSize, lineHeight, containerWidth);
   }, [resolvedText, fontFamily, fontSize, lineHeight, containerWidth]);
 
-  // --- Sync only active SVGs before paint ---
-  const prevActiveRange = useRef<[number, number]>([-1, -1]);
-  const prevSyncMode = useRef(mode);
-  const prevTimelineRef = useRef<Timeline | null>(null);
+  // --- Sync SVG glyph times before paint ---
+  // Runs every render so SVGs stay correct even when currentTime hasn't changed
+  // (e.g. after pausing, or when ref callbacks re-fire due to re-renders).
   useLayoutEffect(() => {
     if (mode !== 'svg') return;
     const entries = timeline.entries;
-    if (entries.length === 0) return;
-
-    // Full sync when switching to SVG mode or when timeline changes (including first render)
-    const timelineChanged = prevTimelineRef.current !== timeline;
-    const fullSync = prevSyncMode.current !== 'svg' || timelineChanged;
-    prevSyncMode.current = mode;
-    prevTimelineRef.current = timeline;
-
-    if (fullSync) {
-      for (let i = 0; i < entries.length; i++) {
-        const entry = entries[i]!;
-        const svg = svgRefs.current.get(i);
-        if (!svg || !entry.hasSvg) continue;
-        const localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
-        svg.setCurrentTime(localTime);
-      }
-      prevActiveRange.current = [-1, -1];
-      return;
-    }
-
-    // Find the range of glyphs that need updating:
-    // - Previously active glyphs (may need to clamp to 0 or duration)
-    // - Currently active glyphs (in-progress animation)
-    const [, prevEnd] = prevActiveRange.current;
-
-    let activeStart = entries.length;
-    let activeEnd = -1;
-
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i]!;
       if (!entry.hasSvg) continue;
-      const localTime = currentTime - entry.offset;
-      // Glyph is relevant if it's in progress or just finished
-      if (localTime >= 0 && localTime <= entry.duration + GLYPH_GAP) {
-        if (i < activeStart) activeStart = i;
-        activeEnd = i;
-      }
-    }
-
-    // Sync from index 0 up to the furthest active/previously-active glyph.
-    // This ensures all completed glyphs retain their end-state time even if
-    // pauseAnimations() is re-triggered by ref callback changes.
-    const syncEnd = Math.max(activeEnd, prevEnd >= 0 ? prevEnd : activeEnd);
-
-    for (let i = 0; i <= syncEnd; i++) {
-      const entry = entries[i]!;
       const svg = svgRefs.current.get(i);
-      if (!svg || !entry.hasSvg) continue;
+      if (!svg) continue;
       const localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
       svg.setCurrentTime(localTime);
     }
-
-    prevActiveRange.current = [activeStart, activeEnd];
-  }, [mode, currentTime, timeline]);
+  });
 
   // --- Canvas rendering ---
   const canvasRef = useRef<HTMLCanvasElement>(null);
