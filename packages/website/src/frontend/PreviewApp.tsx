@@ -1083,11 +1083,29 @@ function TextPreview({
 
   const effects = useMemo(() => {
     const result: Record<string, any> = {};
-    if (effectsState.glow.enabled) result.glow = { radius: effectsState.glow.radius, color: effectsState.glow.color };
-    if (effectsState.wobble.enabled) result.wobble = { amplitude: effectsState.wobble.amplitude, frequency: effectsState.wobble.frequency };
+    if (effectsState.glow.enabled) {
+      const g: Record<string, any> = { radius: effectsState.glow.radius, color: effectsState.glow.color };
+      if (effectsState.glow.offsetX) g.offsetX = effectsState.glow.offsetX;
+      if (effectsState.glow.offsetY) g.offsetY = effectsState.glow.offsetY;
+      result.glow = g;
+    }
+    if (effectsState.wobble.enabled) {
+      result.wobble = {
+        amplitude: effectsState.wobble.amplitude,
+        frequency: effectsState.wobble.frequency,
+        mode: effectsState.wobble.mode,
+      };
+    }
     if (effectsState.pressureWidth.enabled) result.pressureWidth = { strength: effectsState.pressureWidth.strength };
-    if (effectsState.rainbow.enabled)
-      result.rainbow = { saturation: effectsState.rainbow.saturation, lightness: effectsState.rainbow.lightness };
+    if (effectsState.taper.enabled) result.taper = { startLength: effectsState.taper.startLength, endLength: effectsState.taper.endLength };
+    if (effectsState.gradient.enabled) {
+      const g: Record<string, any> = { colors: effectsState.gradient.colors };
+      if (effectsState.gradient.colors === 'rainbow') {
+        g.saturation = effectsState.gradient.saturation;
+        g.lightness = effectsState.gradient.lightness;
+      }
+      result.gradient = g;
+    }
     for (const custom of customEffects) {
       if (custom.enabled) result[custom.key] = { effect: custom.effect, ...custom.config };
     }
@@ -1395,30 +1413,35 @@ function TextPreview({
                 </div>
                 {effectsState.glow.enabled && (
                   <div className="flex flex-col gap-1.5 pl-5">
-                    <label className="flex items-center justify-between text-[11px] text-gray-500">
-                      Radius
-                      <span className="flex items-center gap-1">
-                        <input
-                          type="range"
-                          className="w-24"
-                          min={1}
-                          max={30}
-                          step={1}
-                          value={effectsState.glow.radius}
-                          onChange={(e) => updateEffect((s) => ({ ...s, glow: { ...s.glow, radius: Number(e.target.value) } }))}
-                        />
-                        <span className="tabular-nums w-5 text-right">{effectsState.glow.radius}</span>
-                      </span>
-                    </label>
-                    <label className="flex items-center justify-between text-[11px] text-gray-500">
-                      Color
-                      <input
-                        type="color"
-                        className="w-6 h-5 rounded border border-gray-300 cursor-pointer"
-                        value={effectsState.glow.color}
-                        onChange={(e) => updateEffect((s) => ({ ...s, glow: { ...s.glow, color: e.target.value } }))}
-                      />
-                    </label>
+                    <EffectSlider
+                      label="Radius"
+                      value={effectsState.glow.radius as number}
+                      min={1}
+                      max={30}
+                      step={1}
+                      onChange={(v) => updateEffect((s) => ({ ...s, glow: { ...s.glow, radius: v } }))}
+                    />
+                    <EffectColor
+                      label="Color"
+                      value={effectsState.glow.color}
+                      onChange={(v) => updateEffect((s) => ({ ...s, glow: { ...s.glow, color: v } }))}
+                    />
+                    <EffectSlider
+                      label="Offset X"
+                      value={effectsState.glow.offsetX}
+                      min={-20}
+                      max={20}
+                      step={1}
+                      onChange={(v) => updateEffect((s) => ({ ...s, glow: { ...s.glow, offsetX: v } }))}
+                    />
+                    <EffectSlider
+                      label="Offset Y"
+                      value={effectsState.glow.offsetY}
+                      min={-20}
+                      max={20}
+                      step={1}
+                      onChange={(v) => updateEffect((s) => ({ ...s, glow: { ...s.glow, offsetY: v } }))}
+                    />
                   </div>
                 )}
                 {customEffects
@@ -1438,6 +1461,22 @@ function TextPreview({
                         value={(ce.config.color as string) ?? '#00ccff'}
                         onChange={(v) => updateCustomEffect(ce.key, { config: { ...ce.config, color: v } })}
                       />
+                      <EffectSlider
+                        label="Offset X"
+                        value={(ce.config.offsetX as number) ?? 0}
+                        min={-20}
+                        max={20}
+                        step={1}
+                        onChange={(v) => updateCustomEffect(ce.key, { config: { ...ce.config, offsetX: v } })}
+                      />
+                      <EffectSlider
+                        label="Offset Y"
+                        value={(ce.config.offsetY as number) ?? 0}
+                        min={-20}
+                        max={20}
+                        step={1}
+                        onChange={(v) => updateCustomEffect(ce.key, { config: { ...ce.config, offsetY: v } })}
+                      />
                     </CustomEffectControls>
                   ))}
               </div>
@@ -1455,35 +1494,32 @@ function TextPreview({
                 {effectsState.wobble.enabled && (
                   <div className="flex flex-col gap-1.5 pl-5">
                     <label className="flex items-center justify-between text-[11px] text-gray-500">
-                      Amplitude
-                      <span className="flex items-center gap-1">
-                        <input
-                          type="range"
-                          className="w-24"
-                          min={0.5}
-                          max={10}
-                          step={0.5}
-                          value={effectsState.wobble.amplitude}
-                          onChange={(e) => updateEffect((s) => ({ ...s, wobble: { ...s.wobble, amplitude: Number(e.target.value) } }))}
-                        />
-                        <span className="tabular-nums w-5 text-right">{effectsState.wobble.amplitude}</span>
-                      </span>
+                      Mode
+                      <select
+                        className="px-1 py-0.5 border border-gray-300 rounded text-[11px] bg-white"
+                        value={effectsState.wobble.mode}
+                        onChange={(e) => updateEffect((s) => ({ ...s, wobble: { ...s.wobble, mode: e.target.value as 'sine' | 'noise' } }))}
+                      >
+                        <option value="sine">Sine</option>
+                        <option value="noise">Noise</option>
+                      </select>
                     </label>
-                    <label className="flex items-center justify-between text-[11px] text-gray-500">
-                      Frequency
-                      <span className="flex items-center gap-1">
-                        <input
-                          type="range"
-                          className="w-24"
-                          min={1}
-                          max={20}
-                          step={1}
-                          value={effectsState.wobble.frequency}
-                          onChange={(e) => updateEffect((s) => ({ ...s, wobble: { ...s.wobble, frequency: Number(e.target.value) } }))}
-                        />
-                        <span className="tabular-nums w-5 text-right">{effectsState.wobble.frequency}</span>
-                      </span>
-                    </label>
+                    <EffectSlider
+                      label="Amplitude"
+                      value={effectsState.wobble.amplitude}
+                      min={0.5}
+                      max={10}
+                      step={0.5}
+                      onChange={(v) => updateEffect((s) => ({ ...s, wobble: { ...s.wobble, amplitude: v } }))}
+                    />
+                    <EffectSlider
+                      label="Frequency"
+                      value={effectsState.wobble.frequency}
+                      min={1}
+                      max={20}
+                      step={1}
+                      onChange={(v) => updateEffect((s) => ({ ...s, wobble: { ...s.wobble, frequency: v } }))}
+                    />
                   </div>
                 )}
               </div>
@@ -1500,72 +1536,108 @@ function TextPreview({
                 </label>
                 {effectsState.pressureWidth.enabled && (
                   <div className="flex flex-col gap-1.5 pl-5">
-                    <label className="flex items-center justify-between text-[11px] text-gray-500">
-                      Strength
-                      <span className="flex items-center gap-1">
-                        <input
-                          type="range"
-                          className="w-24"
-                          min={0}
-                          max={1}
-                          step={0.05}
-                          value={effectsState.pressureWidth.strength}
-                          onChange={(e) =>
-                            updateEffect((s) => ({
-                              ...s,
-                              pressureWidth: { ...s.pressureWidth, strength: Number(e.target.value) },
-                            }))
-                          }
-                        />
-                        <span className="tabular-nums w-7 text-right">{effectsState.pressureWidth.strength}</span>
-                      </span>
-                    </label>
+                    <EffectSlider
+                      label="Strength"
+                      value={effectsState.pressureWidth.strength}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      onChange={(v) => updateEffect((s) => ({ ...s, pressureWidth: { ...s.pressureWidth, strength: v } }))}
+                    />
                   </div>
                 )}
               </div>
 
-              {/* Rainbow */}
+              {/* Taper */}
               <div className="flex flex-col gap-2">
                 <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={effectsState.rainbow.enabled}
-                    onChange={(e) => updateEffect((s) => ({ ...s, rainbow: { ...s.rainbow, enabled: e.target.checked } }))}
+                    checked={effectsState.taper.enabled}
+                    onChange={(e) => updateEffect((s) => ({ ...s, taper: { ...s.taper, enabled: e.target.checked } }))}
                   />
-                  Rainbow
+                  Taper
                 </label>
-                {effectsState.rainbow.enabled && (
+                {effectsState.taper.enabled && (
+                  <div className="flex flex-col gap-1.5 pl-5">
+                    <EffectSlider
+                      label="Start"
+                      value={effectsState.taper.startLength}
+                      min={0}
+                      max={0.5}
+                      step={0.05}
+                      onChange={(v) => updateEffect((s) => ({ ...s, taper: { ...s.taper, startLength: v } }))}
+                    />
+                    <EffectSlider
+                      label="End"
+                      value={effectsState.taper.endLength}
+                      min={0}
+                      max={0.5}
+                      step={0.05}
+                      onChange={(v) => updateEffect((s) => ({ ...s, taper: { ...s.taper, endLength: v } }))}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Gradient */}
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={effectsState.gradient.enabled}
+                    onChange={(e) => updateEffect((s) => ({ ...s, gradient: { ...s.gradient, enabled: e.target.checked } }))}
+                  />
+                  Gradient
+                </label>
+                {effectsState.gradient.enabled && (
                   <div className="flex flex-col gap-1.5 pl-5">
                     <label className="flex items-center justify-between text-[11px] text-gray-500">
-                      Saturation
-                      <span className="flex items-center gap-1">
-                        <input
-                          type="range"
-                          className="w-24"
+                      Preset
+                      <select
+                        className="px-1 py-0.5 border border-gray-300 rounded text-[11px] bg-white"
+                        value={effectsState.gradient.colors === 'rainbow' ? 'rainbow' : 'custom'}
+                        onChange={(e) =>
+                          updateEffect((s) => ({
+                            ...s,
+                            gradient: {
+                              ...s.gradient,
+                              colors: e.target.value === 'rainbow' ? 'rainbow' : ['#ff0000', '#00ff00', '#0000ff'],
+                            },
+                          }))
+                        }
+                      >
+                        <option value="rainbow">Rainbow</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                    {effectsState.gradient.colors === 'rainbow' ? (
+                      <>
+                        <EffectSlider
+                          label="Saturation"
+                          value={effectsState.gradient.saturation}
                           min={0}
                           max={100}
                           step={5}
-                          value={effectsState.rainbow.saturation}
-                          onChange={(e) => updateEffect((s) => ({ ...s, rainbow: { ...s.rainbow, saturation: Number(e.target.value) } }))}
+                          suffix="%"
+                          onChange={(v) => updateEffect((s) => ({ ...s, gradient: { ...s.gradient, saturation: v } }))}
                         />
-                        <span className="tabular-nums w-7 text-right">{effectsState.rainbow.saturation}%</span>
-                      </span>
-                    </label>
-                    <label className="flex items-center justify-between text-[11px] text-gray-500">
-                      Lightness
-                      <span className="flex items-center gap-1">
-                        <input
-                          type="range"
-                          className="w-24"
+                        <EffectSlider
+                          label="Lightness"
+                          value={effectsState.gradient.lightness}
                           min={10}
                           max={90}
                           step={5}
-                          value={effectsState.rainbow.lightness}
-                          onChange={(e) => updateEffect((s) => ({ ...s, rainbow: { ...s.rainbow, lightness: Number(e.target.value) } }))}
+                          suffix="%"
+                          onChange={(v) => updateEffect((s) => ({ ...s, gradient: { ...s.gradient, lightness: v } }))}
                         />
-                        <span className="tabular-nums w-7 text-right">{effectsState.rainbow.lightness}%</span>
-                      </span>
-                    </label>
+                      </>
+                    ) : (
+                      <GradientColorStops
+                        colors={Array.isArray(effectsState.gradient.colors) ? effectsState.gradient.colors : ['#ff0000', '#0000ff']}
+                        onChange={(colors) => updateEffect((s) => ({ ...s, gradient: { ...s.gradient, colors } }))}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -1868,11 +1940,51 @@ function EffectColor({ label, value, onChange }: { label: string; value: string;
       {label}
       <input
         type="color"
+        {...{ alpha: 'true' }}
         className="w-6 h-5 rounded border border-gray-300 cursor-pointer"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
     </label>
+  );
+}
+
+function GradientColorStops({ colors, onChange }: { colors: string[]; onChange: (colors: string[]) => void }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {colors.map((c, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <input
+            type="color"
+            {...{ alpha: 'true' }}
+            className="w-6 h-5 rounded border border-gray-300 cursor-pointer"
+            value={c}
+            onChange={(e) => {
+              const next = [...colors];
+              next[i] = e.target.value;
+              onChange(next);
+            }}
+          />
+          <span className="text-[11px] text-gray-400 flex-1">{c}</span>
+          {colors.length > 2 && (
+            <button
+              type="button"
+              className="text-gray-400 hover:text-red-500 text-xs cursor-pointer px-0.5"
+              onClick={() => onChange(colors.filter((_, j) => j !== i))}
+            >
+              {'\u2212'}
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        className="text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer self-start"
+        onClick={() => onChange([...colors, '#888888'])}
+      >
+        + Add color
+      </button>
+    </div>
   );
 }
 

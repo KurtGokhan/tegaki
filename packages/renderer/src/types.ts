@@ -74,16 +74,17 @@ type BaseEffectConfig = { enabled?: boolean };
 export type CSSLength = number | `${number}em`;
 
 export type TegakiEffectConfigs = {
-  glow: BaseEffectConfig & { radius?: CSSLength; color?: string };
-  wobble: BaseEffectConfig & { amplitude?: number; frequency?: number };
+  glow: BaseEffectConfig & { radius?: CSSLength; color?: string; offsetX?: number; offsetY?: number };
+  wobble: BaseEffectConfig & { amplitude?: number; frequency?: number; mode?: 'sine' | 'noise' };
   pressureWidth: BaseEffectConfig & { strength?: number };
-  rainbow: BaseEffectConfig & { saturation?: number; lightness?: number };
+  taper: BaseEffectConfig & { startLength?: number; endLength?: number };
+  gradient: BaseEffectConfig & { colors?: string[] | 'rainbow'; saturation?: number; lightness?: number };
 };
 
 export type TegakiEffectName = keyof TegakiEffectConfigs;
 
 /** Effects that can only appear once (cannot be used with custom keys). */
-export type TegakiSingletonEffectName = 'pressureWidth' | 'wobble' | 'rainbow';
+export type TegakiSingletonEffectName = 'pressureWidth' | 'wobble' | 'taper' | 'gradient';
 
 /** Effects that can be duplicated with custom keys. */
 export type TegakiMultiEffectName = Exclude<TegakiEffectName, TegakiSingletonEffectName>;

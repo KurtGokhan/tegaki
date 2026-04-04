@@ -2,7 +2,7 @@ import { findEffect, findEffects, type ResolvedEffect } from './effects.ts';
 import { resolveCSSLength } from './utils.ts';
 
 /**
- * Draw a fallback glyph (plain text) with applicable effects (glow, rainbow, wobble).
+ * Draw a fallback glyph (plain text) with applicable effects (glow, gradient, wobble).
  */
 export function drawFallbackGlyph(
   ctx: CanvasRenderingContext2D,
@@ -17,7 +17,7 @@ export function drawFallbackGlyph(
 ) {
   const glowEffects = findEffects(effects, 'glow');
   const wobbleEffect = findEffect(effects, 'wobble');
-  const rainbowEffects = findEffects(effects, 'rainbow');
+  const gradientEffect = findEffect(effects, 'gradient');
 
   // Wobble offsets
   let dx = 0;
@@ -32,17 +32,19 @@ export function drawFallbackGlyph(
   const drawX = x + dx;
   const drawY = baseline + dy;
 
-  // Rainbow color
-  const fillColor =
-    rainbowEffects.length > 0
-      ? (() => {
-          const effect = rainbowEffects[0]!;
-          const saturation = effect.config.saturation ?? 80;
-          const lightness = effect.config.lightness ?? 55;
-          const hue = (seed * 137.5) % 360;
-          return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-        })()
-      : color;
+  // Gradient / rainbow color
+  let fillColor = color;
+  if (gradientEffect) {
+    const colors = gradientEffect.config.colors;
+    if (colors === 'rainbow') {
+      const saturation = gradientEffect.config.saturation ?? 80;
+      const lightness = gradientEffect.config.lightness ?? 55;
+      const hue = (seed * 137.5) % 360;
+      fillColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    } else if (Array.isArray(colors) && colors.length > 0) {
+      fillColor = colors[Math.floor(seed) % colors.length]!;
+    }
+  }
 
   ctx.save();
   ctx.font = `${fontSize}px ${fontFamily}`;
@@ -53,6 +55,8 @@ export function drawFallbackGlyph(
     ctx.save();
     ctx.shadowBlur = resolveCSSLength(glow.config.radius ?? 8, fontSize);
     ctx.shadowColor = glow.config.color ?? color;
+    ctx.shadowOffsetX = glow.config.offsetX ?? 0;
+    ctx.shadowOffsetY = glow.config.offsetY ?? 0;
     ctx.fillStyle = glow.config.color ?? color;
     ctx.fillText(char, drawX, drawY);
     ctx.restore();

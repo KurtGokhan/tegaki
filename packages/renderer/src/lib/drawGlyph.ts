@@ -17,6 +17,63 @@ interface GlyphPosition {
   descender: number;
 }
 
+// --- Color helpers ---
+
+function parseColor(color: string): [number, number, number, number] {
+  const h = color.replace('#', '');
+  if (h.length === 3) {
+    return [parseInt(h[0]! + h[0]!, 16), parseInt(h[1]! + h[1]!, 16), parseInt(h[2]! + h[2]!, 16), 1];
+  }
+  if (h.length === 4) {
+    return [parseInt(h[0]! + h[0]!, 16), parseInt(h[1]! + h[1]!, 16), parseInt(h[2]! + h[2]!, 16), parseInt(h[3]! + h[3]!, 16) / 255];
+  }
+  if (h.length === 8) {
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16), parseInt(h.slice(6, 8), 16) / 255];
+  }
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16), 1];
+}
+
+function lerpColor(a: [number, number, number, number], b: [number, number, number, number], t: number): string {
+  const r = Math.round(a[0] + (b[0] - a[0]) * t);
+  const g = Math.round(a[1] + (b[1] - a[1]) * t);
+  const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+  const al = a[3] + (b[3] - a[3]) * t;
+  if (al >= 1) return `rgb(${r},${g},${bl})`;
+  return `rgba(${r},${g},${bl},${al.toFixed(3)})`;
+}
+
+function gradientColor(progress: number, colors: string[], seed: number): string {
+  if (colors.length === 0) return '#000';
+  if (colors.length === 1) return colors[0]!;
+  const t = (((progress + seed * 0.1) % 1) + 1) % 1;
+  const scaledT = t * (colors.length - 1);
+  const i = Math.min(Math.floor(scaledT), colors.length - 2);
+  const frac = scaledT - i;
+  return lerpColor(parseColor(colors[i]!), parseColor(colors[i + 1]!), frac);
+}
+
+function rainbowColor(progress: number, saturation: number, lightness: number, seed: number): string {
+  const hue = (progress * 360 + seed * 137.5) % 360;
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+// --- Noise helper for wobble ---
+
+function hash(x: number): number {
+  let h = (x * 2654435761) | 0;
+  h = ((h >>> 16) ^ h) * 0x45d9f3b;
+  h = ((h >>> 16) ^ h) * 0x45d9f3b;
+  h = (h >>> 16) ^ h;
+  return (h & 0x7fffffff) / 0x7fffffff; // 0-1
+}
+
+function noise1d(x: number, seed: number): number {
+  const i = Math.floor(x);
+  const f = x - i;
+  const t = f * f * (3 - 2 * f); // smoothstep
+  return hash(i + seed * 7919) * (1 - t) + hash(i + 1 + seed * 7919) * t;
+}
+
 /**
  * Draw a single glyph's strokes onto a canvas context, animated up to `localTime`.
  * `localTime` is seconds relative to this glyph's start (0 = glyph begins).
@@ -39,7 +96,8 @@ export function drawGlyph(
   const glowEffects = findEffects(effects, 'glow');
   const wobbleEffect = findEffect(effects, 'wobble');
   const pressureEffect = findEffect(effects, 'pressureWidth');
-  const rainbowEffects = findEffects(effects, 'rainbow');
+  const taperEffect = findEffect(effects, 'taper');
+  const gradientEffect = findEffect(effects, 'gradient');
 
   // Pressure params (0 = uniform avg width, 1 = fully per-point width)
   const pressureAmount = pressureEffect ? Math.max(0, Math.min(pressureEffect.config.strength ?? 1, 1)) : 0;
@@ -47,14 +105,32 @@ export function drawGlyph(
   // Wobble params
   const wobbleAmplitude = wobbleEffect ? (wobbleEffect.config.amplitude ?? 1.5) : 0;
   const wobbleFrequency = wobbleEffect ? (wobbleEffect.config.frequency ?? 8) : 0;
+  const wobbleMode = wobbleEffect?.config.mode ?? 'sine';
+
+  // Taper params
+  const taperStart = taperEffect ? Math.max(0, Math.min(taperEffect.config.startLength ?? 0.15, 1)) : 0;
+  const taperEnd = taperEffect ? Math.max(0, Math.min(taperEffect.config.endLength ?? 0.15, 1)) : 0;
+
+  // Gradient params
+  const gradientColors = gradientEffect?.config.colors;
+  const isRainbow = gradientColors === 'rainbow';
+  const gradientColorStops = Array.isArray(gradientColors) ? gradientColors : undefined;
+  const gradientSaturation = gradientEffect?.config.saturation ?? 80;
+  const gradientLightness = gradientEffect?.config.lightness ?? 55;
 
   // Helper: apply wobble offset to a point in font units
   const wobbleX = (x: number, y: number, idx: number) => {
     if (!wobbleEffect) return x;
+    if (wobbleMode === 'noise') {
+      return x + wobbleAmplitude * (noise1d(y * 0.1 + idx * 0.7, seed) * 2 - 1);
+    }
     return x + wobbleAmplitude * Math.sin(wobbleFrequency * (y * 0.01 + idx * 0.7) + seed);
   };
   const wobbleY = (x: number, y: number, idx: number) => {
     if (!wobbleEffect) return y;
+    if (wobbleMode === 'noise') {
+      return y + wobbleAmplitude * (noise1d(x * 0.1 + idx * 0.5, seed * 1.3 + 1000) * 2 - 1);
+    }
     return y + wobbleAmplitude * Math.cos(wobbleFrequency * (x * 0.01 + idx * 0.5) + seed * 1.3);
   };
 
@@ -62,12 +138,20 @@ export function drawGlyph(
   const px = (x: number) => ox + x * scale;
   const py = (y: number) => oy + (y + pos.ascender) * scale;
 
-  // Helper: rainbow color from progress (0-1)
-  const rainbowColor = (progress: number, effect: ResolvedEffect<'rainbow'>) => {
-    const saturation = effect.config.saturation ?? 80;
-    const lightness = effect.config.lightness ?? 55;
-    const hue = (progress * 360 + seed * 137.5) % 360;
-    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  // Helper: get color for a given stroke progress
+  const colorAt = (progress: number): string => {
+    if (isRainbow) return rainbowColor(progress, gradientSaturation, gradientLightness, seed);
+    if (gradientColorStops) return gradientColor(progress, gradientColorStops, seed);
+    return color;
+  };
+  const hasGradient = !!gradientEffect;
+
+  // Helper: taper multiplier (0-1) for a given stroke progress
+  const taperMultiplier = (progress: number): number => {
+    let m = 1;
+    if (taperStart > 0 && progress < taperStart) m = Math.min(m, progress / taperStart);
+    if (taperEnd > 0 && progress > 1 - taperEnd) m = Math.min(m, (1 - progress) / taperEnd);
+    return m;
   };
 
   for (const stroke of glyph.strokes) {
@@ -88,13 +172,16 @@ export function drawGlyph(
       const dotX = px(wobbleX(p.x, p.y, 0));
       const dotY = py(wobbleY(p.x, p.y, 0));
       const perPointDot = Math.max(p.width, 0.5) * scale;
-      const dotWidth = baseLineWidth + (perPointDot - baseLineWidth) * pressureAmount;
+      let dotWidth = baseLineWidth + (perPointDot - baseLineWidth) * pressureAmount;
+      dotWidth *= taperMultiplier(0.5);
 
       // Glow passes for dots
       for (const glow of glowEffects) {
         ctx.save();
         ctx.shadowBlur = resolveCSSLength(glow.config.radius ?? 8, pos.fontSize);
         ctx.shadowColor = glow.config.color ?? color;
+        ctx.shadowOffsetX = (glow.config.offsetX ?? 0) * scale;
+        ctx.shadowOffsetY = (glow.config.offsetY ?? 0) * scale;
         ctx.fillStyle = glow.config.color ?? color;
         ctx.beginPath();
         if (lineCap === 'round') {
@@ -107,7 +194,7 @@ export function drawGlyph(
       }
 
       // Main dot
-      ctx.fillStyle = rainbowEffects.length > 0 ? rainbowColor(0, rainbowEffects[0]!) : color;
+      ctx.fillStyle = colorAt(0);
       ctx.beginPath();
       if (lineCap === 'round') {
         ctx.arc(dotX, dotY, dotWidth / 2, 0, Math.PI * 2);
@@ -130,7 +217,6 @@ export function drawGlyph(
     if (drawLen <= 0) continue;
 
     // --- Collect drawable segments ---
-    // Each segment is a pair of pixel-space points with metadata
     const segments: {
       x0: number;
       y0: number;
@@ -138,7 +224,7 @@ export function drawGlyph(
       y1: number;
       width0: number;
       width1: number;
-      segProgress: number; // 0-1 progress along the full stroke
+      segProgress: number;
     }[] = [];
 
     let accumulated = 0;
@@ -161,7 +247,6 @@ export function drawGlyph(
         });
         accumulated += segLen;
       } else {
-        // Partial segment
         const remaining = drawLen - accumulated;
         const frac = segLen > 0 ? remaining / segLen : 0;
         const ix = prev.x + dx * frac;
@@ -186,7 +271,7 @@ export function drawGlyph(
     const coarseSegments = segments.slice();
 
     // --- Subdivide long segments for smooth effect transitions ---
-    const effectsNeedSubdivision = pressureAmount > 0 || rainbowEffects.length > 0 || !!wobbleEffect;
+    const effectsNeedSubdivision = pressureAmount > 0 || hasGradient || !!wobbleEffect || !!taperEffect;
     const resolvedSegmentSize = segmentSize ?? (effectsNeedSubdivision ? 2 : undefined);
     if (resolvedSegmentSize != null) {
       const maxSegLen = resolvedSegmentSize * scale;
@@ -206,11 +291,10 @@ export function drawGlyph(
             y1: seg.y0 + dy * t1,
             width0: seg.width0 + (seg.width1 - seg.width0) * t0,
             width1: seg.width0 + (seg.width1 - seg.width0) * t1,
-            segProgress: seg.segProgress, // will be recalculated below
+            segProgress: seg.segProgress,
           });
         }
       }
-      // Recalculate segProgress evenly across all subdivided segments
       for (let k = 0; k < subdivided.length; k++) {
         subdivided[k]!.segProgress = subdivided.length > 1 ? k / (subdivided.length - 1) : 0;
       }
@@ -218,14 +302,17 @@ export function drawGlyph(
       segments.push(...subdivided);
     }
 
-    // Helper: compute segment line width, lerping between avg and per-point by pressureAmount
+    // Helper: compute segment line width with pressure and taper
     const segWidth = (seg: (typeof segments)[0]) => {
       const perPoint = ((seg.width0 + seg.width1) / 2) * scale;
-      return Math.max(baseLineWidth + (perPoint - baseLineWidth) * pressureAmount, 0.5 * scale);
+      const w = Math.max(baseLineWidth + (perPoint - baseLineWidth) * pressureAmount, 0.5 * scale);
+      return w * taperMultiplier(seg.segProgress);
     };
 
+    const needsPerSegment = pressureAmount > 0 || taperEffect;
+
     const drawStrokePath = () => {
-      if (pressureAmount > 0) {
+      if (needsPerSegment) {
         for (const seg of segments) {
           ctx.lineWidth = segWidth(seg);
           ctx.beginPath();
@@ -244,10 +331,10 @@ export function drawGlyph(
       }
     };
 
-    const drawRainbowPath = (effect: ResolvedEffect<'rainbow'>) => {
+    const drawGradientPath = () => {
       for (const seg of segments) {
-        ctx.strokeStyle = rainbowColor(seg.segProgress, effect);
-        if (pressureAmount > 0) ctx.lineWidth = segWidth(seg);
+        ctx.strokeStyle = colorAt(seg.segProgress);
+        if (needsPerSegment) ctx.lineWidth = segWidth(seg);
         ctx.beginPath();
         ctx.moveTo(seg.x0, seg.y0);
         ctx.lineTo(seg.x1, seg.y1);
@@ -263,6 +350,8 @@ export function drawGlyph(
       ctx.save();
       ctx.shadowBlur = resolveCSSLength(glow.config.radius ?? 8, pos.fontSize);
       ctx.shadowColor = glow.config.color ?? color;
+      ctx.shadowOffsetX = (glow.config.offsetX ?? 0) * scale;
+      ctx.shadowOffsetY = (glow.config.offsetY ?? 0) * scale;
       ctx.strokeStyle = glow.config.color ?? color;
       ctx.lineWidth = baseLineWidth;
       ctx.beginPath();
@@ -275,10 +364,8 @@ export function drawGlyph(
     }
 
     // --- Main stroke ---
-    if (rainbowEffects.length > 0) {
-      for (const rainbow of rainbowEffects) {
-        drawRainbowPath(rainbow);
-      }
+    if (hasGradient) {
+      drawGradientPath();
     } else {
       ctx.strokeStyle = color;
       drawStrokePath();

@@ -24,10 +24,11 @@ export type EffectsState = {
 };
 
 export const DEFAULT_EFFECTS_STATE: EffectsState = {
-  glow: { enabled: false, radius: 8, color: '#00ccff' },
-  wobble: { enabled: false, amplitude: 1.5, frequency: 8 },
+  glow: { enabled: false, radius: 8, color: '#00ccff', offsetX: 0, offsetY: 0 },
+  wobble: { enabled: false, amplitude: 1.5, frequency: 8, mode: 'sine' },
   pressureWidth: { enabled: true, strength: 1 },
-  rainbow: { enabled: false, saturation: 80, lightness: 55 },
+  taper: { enabled: false, startLength: 0.15, endLength: 0.15 },
+  gradient: { enabled: false, colors: 'rainbow', saturation: 80, lightness: 55 },
 };
 
 /** A duplicated (custom-keyed) effect instance. */
@@ -40,7 +41,7 @@ export interface CustomEffect {
 
 /** Default configs for creating new custom effect instances. */
 export const EFFECT_DEFAULTS: Record<TegakiMultiEffectName, Record<string, number | string>> = {
-  glow: { radius: 8, color: '#00ccff' },
+  glow: { radius: 8, color: '#00ccff', offsetX: 0, offsetY: 0 },
 };
 
 export interface UrlState {

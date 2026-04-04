@@ -14,7 +14,7 @@ export interface ResolvedEffect<K extends TegakiEffectName = TegakiEffectName> {
 export function resolveEffects(effects: Record<string, any> | undefined): ResolvedEffect[] {
   if (!effects) return [];
 
-  const knownEffects: Set<string> = new Set(['glow', 'wobble', 'pressureWidth', 'rainbow']);
+  const knownEffects: Set<string> = new Set(['glow', 'wobble', 'pressureWidth', 'taper', 'gradient']);
   const result: ResolvedEffect[] = [];
 
   for (const [key, value] of Object.entries(effects)) {

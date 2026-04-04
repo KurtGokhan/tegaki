@@ -7,13 +7,17 @@ describe.skip('TegakiEffects', () => {
   test('known key with config', () => {
     assertType({ glow: { radius: 5 } });
     assertType({ wobble: { amplitude: 2, frequency: 3 } });
-    assertType({ rainbow: { saturation: 80 } });
+    assertType({ gradient: { colors: ['#ff0000', '#00ff00'] } });
+    assertType({ gradient: { colors: 'rainbow', saturation: 80 } });
+    assertType({ taper: { startLength: 0.2, endLength: 0.1 } });
     assertType({ pressureWidth: {} });
   });
 
   test('known key with boolean shorthand', () => {
     assertType({ glow: true });
     assertType({ wobble: true });
+    assertType({ taper: true });
+    assertType({ gradient: true });
   });
 
   test('known key with explicit effect field', () => {
@@ -34,7 +38,18 @@ describe.skip('TegakiEffects', () => {
       glow: { radius: 20 },
       innerGlow: { effect: 'glow', radius: 5, order: 1 },
       wobble: true,
+      gradient: { colors: 'rainbow' },
+      taper: { startLength: 0.2 },
     });
+  });
+
+  test('glow with offset (shadow)', () => {
+    assertType({ glow: { radius: 8, offsetX: 2, offsetY: 2, color: '#000000' } });
+  });
+
+  test('wobble with noise mode', () => {
+    assertType({ wobble: { amplitude: 2, mode: 'noise' } });
+    assertType({ wobble: { amplitude: 2, mode: 'sine' } });
   });
 
   test('custom key without effect field is rejected', () => {
@@ -62,12 +77,16 @@ describe.skip('TegakiEffects', () => {
     assertType({ myPressure: { effect: 'pressureWidth', strength: 0.5 } });
     // @ts-expect-error — wobble is singleton, cannot be duplicated via custom key
     assertType({ myWobble: { effect: 'wobble', amplitude: 2 } });
-    // @ts-expect-error — rainbow is singleton, cannot be duplicated via custom key
-    assertType({ myRainbow: { effect: 'rainbow', saturation: 80 } });
+    // @ts-expect-error — gradient is singleton, cannot be duplicated via custom key
+    assertType({ myGradient: { effect: 'gradient', colors: 'rainbow' } });
+    // @ts-expect-error — taper is singleton, cannot be duplicated via custom key
+    assertType({ myTaper: { effect: 'taper', startLength: 0.2 } });
   });
 
   test('singleton effect works with its own key', () => {
     assertType({ pressureWidth: { strength: 0.5 } });
     assertType({ pressureWidth: true });
+    assertType({ taper: { startLength: 0.2 } });
+    assertType({ gradient: { colors: 'rainbow' } });
   });
 });
