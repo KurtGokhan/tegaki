@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/bedrock-sdk": "^0.26.4",
+    "@anthropic-ai/bedrock-sdk": "^0.27.0",
     "bun-plugin-tailwind": "^0.1.2",
     "fflate": "^0.8.2",
     "tailwindcss": "^4.2.2",

@@ -30,26 +30,34 @@
     "url": "https://gkurt.com"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "source": "./src/index.ts"
+    }
   },
   "files": [
     "dist/",
+    "src/",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsdown src/index.ts --dts --sourcemap",
+    "prepack": "bun run build && bun ../../scripts/prepareForRelease.ts"
   },
   "dependencies": {
-    "@chenglou/pretext": "^0.0.2",
-    "tailwind-merge": "^3.3.1"
+    "@chenglou/pretext": "^0.0.4",
+    "tailwind-merge": "^3.5.0"
   },
   "peerDependencies": {
     "react": ">=18"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
+    "tsdown": "^0.21.7",
     "typescript": "^6.0.2"
   }
 }
