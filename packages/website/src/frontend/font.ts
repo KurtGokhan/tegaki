@@ -1,4 +1,4 @@
-import font from '#output/space-grotesk/glyphs.ts';
+import font from '#output/*/bundle.ts';
 
 await font.registerFontFace();
 

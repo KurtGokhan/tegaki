@@ -431,7 +431,7 @@ export function extractTegakiBundle(input: ExtractBundleInput): TegakiBundleOutp
   }
 
   files.push({
-    path: 'glyphs.ts',
+    path: 'bundle.ts',
     content: generateGlyphsModule(
       glyphEntries,
       fontFileName,

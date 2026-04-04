@@ -30,7 +30,7 @@ Each glyph is run through a processing pipeline — flatten bezier curves, raste
 
 ```tsx
 import { TegakiRenderer } from 'tegaki';
-import font from './output/caveat/glyphs.ts';
+import font from './output/caveat/bundle.ts';
 
 await font.registerFontFace();
 
@@ -124,14 +124,14 @@ Output structure:
 output/caveat/
   font.json        # Full glyph data (coordinates, strokes, timing)
   caveat.ttf       # Original font file
-  glyphs.ts        # Import this in your app
+  bundle.ts        # Import this in your app
   svg/
     A.svg          # Animated SVG per glyph
     A.tsx          # React component per glyph
     ...
 ```
 
-Import `glyphs.ts` — it bundles all glyph components and font metadata into a `TegakiBundle`.
+Import `bundle.ts` — it bundles all glyph components and font metadata into a `TegakiBundle`.
 
 ## Pipeline
 
