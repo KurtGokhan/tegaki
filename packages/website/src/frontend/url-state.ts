@@ -1,3 +1,4 @@
+import type { TegakiEffectConfigs } from 'tegaki';
 import { DEFAULT_CHARS, DEFAULT_OPTIONS, type PipelineOptions } from 'tegaki-generator';
 
 type Stage =
@@ -18,6 +19,17 @@ type PreviewMode = 'glyph' | 'text';
 export type RenderMode = 'svg' | 'canvas';
 export type TimeMode = 'controlled' | 'uncontrolled' | 'css';
 
+export type EffectsState = {
+  [K in keyof TegakiEffectConfigs]: { enabled: boolean } & Required<TegakiEffectConfigs[K]>;
+};
+
+export const DEFAULT_EFFECTS_STATE: EffectsState = {
+  glow: { enabled: false, radius: 8, color: '#00ccff' },
+  wobble: { enabled: false, amplitude: 1.5, frequency: 8 },
+  pressureWidth: { enabled: true, strength: 1 },
+  rainbow: { enabled: false, saturation: 80, lightness: 55 },
+};
+
 export interface UrlState {
   fontFamily: string;
   chars: string;
@@ -34,6 +46,7 @@ export interface UrlState {
   renderMode: RenderMode;
   timeMode: TimeMode;
   loop: boolean;
+  effectsState: EffectsState;
 }
 
 export const URL_DEFAULTS: UrlState = {
@@ -51,6 +64,7 @@ export const URL_DEFAULTS: UrlState = {
   renderMode: 'svg',
   timeMode: 'controlled',
   loop: false,
+  effectsState: DEFAULT_EFFECTS_STATE,
 };
 
 // Short keys for compact URLs — only non-default values are written
@@ -95,6 +109,11 @@ export function parseUrlState(): UrlState {
   if (p.has('rm')) state.renderMode = p.get('rm') as RenderMode;
   if (p.has('tm')) state.timeMode = p.get('tm') as TimeMode;
   if (p.has('lo')) state.loop = p.get('lo') === '1';
+  if (p.has('fx')) {
+    try {
+      state.effectsState = { ...DEFAULT_EFFECTS_STATE, ...JSON.parse(p.get('fx')!) };
+    } catch {}
+  }
 
   // Pipeline options — read short keys
   for (const [short, long] of Object.entries(REVERSE_OPTION_KEYS)) {
@@ -128,6 +147,9 @@ export function buildUrlParams(state: UrlState): URLSearchParams {
   if (state.renderMode !== URL_DEFAULTS.renderMode) p.set('rm', state.renderMode);
   if (state.timeMode !== URL_DEFAULTS.timeMode) p.set('tm', state.timeMode);
   if (state.loop !== URL_DEFAULTS.loop) p.set('lo', '1');
+  if (JSON.stringify(state.effectsState) !== JSON.stringify(DEFAULT_EFFECTS_STATE)) {
+    p.set('fx', JSON.stringify(state.effectsState));
+  }
 
   // Pipeline options — only non-defaults
   for (const [long, short] of Object.entries(OPTION_KEYS)) {

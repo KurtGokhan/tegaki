@@ -16,7 +16,7 @@ import {
   STROKE_COLORS,
   type VisualizationStage,
 } from 'tegaki-generator';
-import { parseUrlState, type RenderMode, syncUrlState, type TimeMode } from './url-state.ts';
+import { DEFAULT_EFFECTS_STATE, type EffectsState, parseUrlState, type RenderMode, syncUrlState, type TimeMode } from './url-state.ts';
 
 type PreviewMode = 'glyph' | 'text';
 
@@ -79,6 +79,7 @@ export function PreviewApp() {
   const [renderMode, setRenderMode] = useState<RenderMode>(initialUrlState.renderMode);
   const [timeMode, setTimeMode] = useState<TimeMode>(initialUrlState.timeMode);
   const [loop, setLoop] = useState(initialUrlState.loop);
+  const [effectsState, setEffectsState] = useState<EffectsState>(initialUrlState.effectsState);
 
   // Animation state (lifted up so controls live outside the canvas area)
   const [animPlaying, setAnimPlaying] = useState(true);
@@ -229,6 +230,7 @@ export function PreviewApp() {
         renderMode,
         timeMode,
         loop,
+        effectsState,
       });
     }, 300);
     return () => clearTimeout(syncTimerRef.current);
@@ -247,6 +249,7 @@ export function PreviewApp() {
     renderMode,
     timeMode,
     loop,
+    effectsState,
   ]);
 
   // Auto-load font on mount (from URL state or default)
@@ -708,6 +711,8 @@ export function PreviewApp() {
             onTimeModeChange={setTimeMode}
             loop={loop}
             onLoopChange={setLoop}
+            effectsState={effectsState}
+            onEffectsStateChange={setEffectsState}
           />
         )}
       </main>
@@ -990,6 +995,8 @@ function TextPreview({
   onTimeModeChange: setTimeMode,
   loop,
   onLoopChange: setLoop,
+  effectsState,
+  onEffectsStateChange,
 }: {
   fontInfo: ParsedFontInfo | null;
   fontBuffer: ArrayBuffer | null;
@@ -1011,11 +1018,29 @@ function TextPreview({
   onTimeModeChange: (v: TimeMode) => void;
   loop: boolean;
   onLoopChange: (v: boolean) => void;
+  effectsState: EffectsState;
+  onEffectsStateChange: (v: EffectsState) => void;
 }) {
   const [playing, setPlaying] = useState(true);
   const [displayTime, setDisplayTime] = useState(0);
   const timeRef = useRef(0);
   const [fontReady, setFontReady] = useState(false);
+  const [showEffectsDrawer, setShowEffectsDrawer] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const updateEffect = useCallback(
+    (updater: (prev: EffectsState) => EffectsState) => onEffectsStateChange(updater(effectsState)),
+    [effectsState, onEffectsStateChange],
+  );
+
+  const effects = useMemo(() => {
+    const result: Record<string, any> = {};
+    if (effectsState.glow.enabled) result.glow = { radius: effectsState.glow.radius, color: effectsState.glow.color };
+    if (effectsState.wobble.enabled) result.wobble = { amplitude: effectsState.wobble.amplitude, frequency: effectsState.wobble.frequency };
+    if (effectsState.pressureWidth.enabled) result.pressureWidth = { strength: effectsState.pressureWidth.strength };
+    if (effectsState.rainbow.enabled)
+      result.rainbow = { saturation: effectsState.rainbow.saturation, lightness: effectsState.rainbow.lightness };
+    return Object.keys(result).length > 0 ? result : undefined;
+  }, [effectsState]);
 
   // Synchronous font change detection — reset all font-dependent state BEFORE rendering
   // so TegakiRenderer never sees stale fontReady, displayTime, or glyph components.
@@ -1174,6 +1199,15 @@ function TextPreview({
   const timeProp: TimeControlProp =
     timeMode === 'controlled' ? displayTime : timeMode === 'uncontrolled' ? { mode: 'uncontrolled', speed: animSpeed, loop } : 'css';
 
+  const activeEffectCount = effects ? Object.keys(effects).length : 0;
+
+  const handleCopyEffects = useCallback(() => {
+    const json = effects ? JSON.stringify(effects, null, 2) : '{}';
+    navigator.clipboard.writeText(json);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [effects]);
+
   return (
     <div className="flex-1 flex flex-col">
       {/* Text input */}
@@ -1187,58 +1221,271 @@ function TextPreview({
         />
       </div>
 
-      {/* Rendered text — CSS mode needs timeline-scope on a common ancestor */}
-      <div
-        className="flex-1 flex flex-col min-h-0"
-        style={timeMode === 'css' ? ({ timelineScope: '--tegaki-scroll' } as React.CSSProperties) : undefined}
-      >
-        {timeMode === 'css' && (
-          <style>
-            {`@keyframes tegaki-scroll-progress {
-              from { --tegaki-progress: 0; }
-              to { --tegaki-progress: 1; }
-            }`}
-          </style>
-        )}
+      {/* Content area: preview + optional effects drawer */}
+      <div className="flex-1 flex min-h-0">
+        {/* Rendered text — CSS mode needs timeline-scope on a common ancestor */}
+        <div
+          className="flex-1 flex flex-col min-h-0 min-w-0"
+          style={timeMode === 'css' ? ({ timelineScope: '--tegaki-scroll' } as React.CSSProperties) : undefined}
+        >
+          {timeMode === 'css' && (
+            <style>
+              {`@keyframes tegaki-scroll-progress {
+                from { --tegaki-progress: 0; }
+                to { --tegaki-progress: 1; }
+              }`}
+            </style>
+          )}
 
-        <div className="flex-1 flex items-start justify-start p-8 overflow-auto">
-          {!fontInfo && <p className="text-gray-400">Load a font to get started</p>}
-          {fontInfo && !fontReady && <p className="text-gray-500">Loading font...</p>}
-          {fontBundle && fontReady && (
-            <TegakiRenderer
-              className="w-full max-w-2xl"
-              style={{
-                fontSize: `${fontSizePx}px`,
-                lineHeight: lineHeightRatio,
-                ...(timeMode === 'css'
-                  ? ({
-                      animation: 'tegaki-scroll-progress linear both',
-                      animationTimeline: '--tegaki-scroll',
-                    } as React.CSSProperties)
-                  : undefined),
-              }}
-              text={text}
-              time={timeProp}
-              font={fontBundle}
-              mode={renderMode}
-              showOverlay={showOverlay}
-            />
+          <div className="flex-1 flex items-start justify-start p-8 overflow-auto">
+            {!fontInfo && <p className="text-gray-400">Load a font to get started</p>}
+            {fontInfo && !fontReady && <p className="text-gray-500">Loading font...</p>}
+            {fontBundle && fontReady && (
+              <TegakiRenderer
+                className="w-full max-w-2xl"
+                style={{
+                  fontSize: `${fontSizePx}px`,
+                  lineHeight: lineHeightRatio,
+                  ...(timeMode === 'css'
+                    ? ({
+                        animation: 'tegaki-scroll-progress linear both',
+                        animationTimeline: '--tegaki-scroll',
+                      } as React.CSSProperties)
+                    : undefined),
+                }}
+                text={text}
+                time={timeProp}
+                font={fontBundle}
+                mode={renderMode}
+                showOverlay={showOverlay}
+                effects={effects}
+              />
+            )}
+          </div>
+
+          {/* CSS mode: horizontal scroll bar */}
+          {timeMode === 'css' && (
+            <div
+              className="border-t border-gray-200 bg-white"
+              style={
+                {
+                  overflowX: 'scroll',
+                  scrollTimeline: '--tegaki-scroll inline',
+                } as React.CSSProperties
+              }
+            >
+              <div style={{ width: '300%', height: 1 }} />
+            </div>
           )}
         </div>
 
-        {/* CSS mode: horizontal scroll bar */}
-        {timeMode === 'css' && (
-          <div
-            className="border-t border-gray-200 bg-white"
-            style={
-              {
-                overflowX: 'scroll',
-                scrollTimeline: '--tegaki-scroll inline',
-              } as React.CSSProperties
-            }
-          >
-            <div style={{ width: '300%', height: 1 }} />
-          </div>
+        {/* Effects drawer (right side) */}
+        {showEffectsDrawer && renderMode === 'canvas' && (
+          <aside className="w-64 min-w-64 border-l border-gray-200 bg-white overflow-y-auto flex flex-col">
+            <div className="p-3 border-b border-gray-200 flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Effects</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  className={`px-2 py-0.5 text-xs rounded cursor-pointer transition-colors ${
+                    copied ? 'bg-green-100 text-green-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                  }`}
+                  onClick={handleCopyEffects}
+                  title="Copy effects as React JSX prop"
+                >
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+                {activeEffectCount > 0 && (
+                  <button
+                    type="button"
+                    className="px-2 py-0.5 text-xs rounded cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600"
+                    onClick={() => onEffectsStateChange(DEFAULT_EFFECTS_STATE)}
+                    title="Reset all effects"
+                  >
+                    Reset
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-gray-600 cursor-pointer px-1"
+                  onClick={() => setShowEffectsDrawer(false)}
+                  title="Close"
+                >
+                  {'\u2715'}
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3 flex flex-col gap-4">
+              {/* Glow */}
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={effectsState.glow.enabled}
+                    onChange={(e) => updateEffect((s) => ({ ...s, glow: { ...s.glow, enabled: e.target.checked } }))}
+                  />
+                  Glow
+                </label>
+                {effectsState.glow.enabled && (
+                  <div className="flex flex-col gap-1.5 pl-5">
+                    <label className="flex items-center justify-between text-[11px] text-gray-500">
+                      Radius
+                      <span className="flex items-center gap-1">
+                        <input
+                          type="range"
+                          className="w-24"
+                          min={1}
+                          max={30}
+                          step={1}
+                          value={effectsState.glow.radius}
+                          onChange={(e) => updateEffect((s) => ({ ...s, glow: { ...s.glow, radius: Number(e.target.value) } }))}
+                        />
+                        <span className="tabular-nums w-5 text-right">{effectsState.glow.radius}</span>
+                      </span>
+                    </label>
+                    <label className="flex items-center justify-between text-[11px] text-gray-500">
+                      Color
+                      <input
+                        type="color"
+                        className="w-6 h-5 rounded border border-gray-300 cursor-pointer"
+                        value={effectsState.glow.color}
+                        onChange={(e) => updateEffect((s) => ({ ...s, glow: { ...s.glow, color: e.target.value } }))}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              {/* Wobble */}
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={effectsState.wobble.enabled}
+                    onChange={(e) => updateEffect((s) => ({ ...s, wobble: { ...s.wobble, enabled: e.target.checked } }))}
+                  />
+                  Wobble
+                </label>
+                {effectsState.wobble.enabled && (
+                  <div className="flex flex-col gap-1.5 pl-5">
+                    <label className="flex items-center justify-between text-[11px] text-gray-500">
+                      Amplitude
+                      <span className="flex items-center gap-1">
+                        <input
+                          type="range"
+                          className="w-24"
+                          min={0.5}
+                          max={10}
+                          step={0.5}
+                          value={effectsState.wobble.amplitude}
+                          onChange={(e) => updateEffect((s) => ({ ...s, wobble: { ...s.wobble, amplitude: Number(e.target.value) } }))}
+                        />
+                        <span className="tabular-nums w-5 text-right">{effectsState.wobble.amplitude}</span>
+                      </span>
+                    </label>
+                    <label className="flex items-center justify-between text-[11px] text-gray-500">
+                      Frequency
+                      <span className="flex items-center gap-1">
+                        <input
+                          type="range"
+                          className="w-24"
+                          min={1}
+                          max={20}
+                          step={1}
+                          value={effectsState.wobble.frequency}
+                          onChange={(e) => updateEffect((s) => ({ ...s, wobble: { ...s.wobble, frequency: Number(e.target.value) } }))}
+                        />
+                        <span className="tabular-nums w-5 text-right">{effectsState.wobble.frequency}</span>
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              {/* Pressure Width */}
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={effectsState.pressureWidth.enabled}
+                    onChange={(e) => updateEffect((s) => ({ ...s, pressureWidth: { ...s.pressureWidth, enabled: e.target.checked } }))}
+                  />
+                  Pressure Width
+                </label>
+                {effectsState.pressureWidth.enabled && (
+                  <div className="flex flex-col gap-1.5 pl-5">
+                    <label className="flex items-center justify-between text-[11px] text-gray-500">
+                      Amount
+                      <span className="flex items-center gap-1">
+                        <input
+                          type="range"
+                          className="w-24"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={effectsState.pressureWidth.strength}
+                          onChange={(e) =>
+                            updateEffect((s) => ({
+                              ...s,
+                              pressureWidth: { ...s.pressureWidth, strength: Number(e.target.value) },
+                            }))
+                          }
+                        />
+                        <span className="tabular-nums w-7 text-right">{effectsState.pressureWidth.strength}</span>
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              {/* Rainbow */}
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={effectsState.rainbow.enabled}
+                    onChange={(e) => updateEffect((s) => ({ ...s, rainbow: { ...s.rainbow, enabled: e.target.checked } }))}
+                  />
+                  Rainbow
+                </label>
+                {effectsState.rainbow.enabled && (
+                  <div className="flex flex-col gap-1.5 pl-5">
+                    <label className="flex items-center justify-between text-[11px] text-gray-500">
+                      Saturation
+                      <span className="flex items-center gap-1">
+                        <input
+                          type="range"
+                          className="w-24"
+                          min={0}
+                          max={100}
+                          step={5}
+                          value={effectsState.rainbow.saturation}
+                          onChange={(e) => updateEffect((s) => ({ ...s, rainbow: { ...s.rainbow, saturation: Number(e.target.value) } }))}
+                        />
+                        <span className="tabular-nums w-7 text-right">{effectsState.rainbow.saturation}%</span>
+                      </span>
+                    </label>
+                    <label className="flex items-center justify-between text-[11px] text-gray-500">
+                      Lightness
+                      <span className="flex items-center gap-1">
+                        <input
+                          type="range"
+                          className="w-24"
+                          min={10}
+                          max={90}
+                          step={5}
+                          value={effectsState.rainbow.lightness}
+                          onChange={(e) => updateEffect((s) => ({ ...s, rainbow: { ...s.rainbow, lightness: Number(e.target.value) } }))}
+                        />
+                        <span className="tabular-nums w-7 text-right">{effectsState.rainbow.lightness}%</span>
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
         )}
       </div>
 
@@ -1403,6 +1650,21 @@ function TextPreview({
               <option value="canvas">Canvas</option>
             </select>
           </label>
+
+          {renderMode === 'canvas' && (
+            <>
+              <span className="border-l border-gray-200 h-6" />
+              <button
+                type="button"
+                className={`px-2 py-0.5 text-xs rounded cursor-pointer transition-colors ${
+                  showEffectsDrawer ? 'bg-gray-800 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                }`}
+                onClick={() => setShowEffectsDrawer(!showEffectsDrawer)}
+              >
+                Effects{activeEffectCount > 0 ? ` (${activeEffectCount})` : ''}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

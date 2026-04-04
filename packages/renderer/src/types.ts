@@ -68,20 +68,28 @@ export interface TegakiGlyphData {
   }[];
 }
 
+type BaseEffectConfig = { enabled?: boolean };
+
 export type TegakiEffectConfigs = {
-  glow: { radius?: number; color?: string };
-  wobble: { amplitude?: number; frequency?: number };
-  pressureWidth: {};
-  rainbow: { saturation?: number; lightness?: number };
+  glow: BaseEffectConfig & { radius?: number; color?: string };
+  wobble: BaseEffectConfig & { amplitude?: number; frequency?: number };
+  pressureWidth: BaseEffectConfig & { strength?: number };
+  rainbow: BaseEffectConfig & { saturation?: number; lightness?: number };
 };
 
 export type TegakiEffectName = keyof TegakiEffectConfigs;
 
-type TegakiCustomEffect = {
-  [K in TegakiEffectName]: TegakiEffectConfigs[K] & { effect: K; order?: number };
-}[TegakiEffectName];
+/** Effects that can only appear once (cannot be used with custom keys). */
+export type TegakiSingletonEffectName = 'pressureWidth';
 
-/** Validates an effects object: known keys infer `effect`, unknown keys require it. */
+/** Effects that can be duplicated with custom keys. */
+export type TegakiMultiEffectName = Exclude<TegakiEffectName, TegakiSingletonEffectName>;
+
+type TegakiCustomEffect = {
+  [K in TegakiMultiEffectName]: TegakiEffectConfigs[K] & { effect: K; order?: number };
+}[TegakiMultiEffectName];
+
+/** Validates an effects object: known keys infer `effect`, unknown keys require it (singleton effects excluded). */
 export type TegakiEffects<T> = {
   [K in keyof T]: K extends TegakiEffectName
     ? (TegakiEffectConfigs[K] & { effect?: K; order?: number }) | boolean

@@ -1,6 +1,7 @@
 import { type ComponentProps, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { TegakiBundle, TegakiEffects } from '../types.ts';
 import { drawGlyph } from './drawGlyph.ts';
+import { resolveEffects } from './effects.ts';
 import { computeTextLayout } from './textLayout.ts';
 import type { TimelineEntry } from './timeline.ts';
 import { computeTimeline } from './timeline.ts';
@@ -105,6 +106,10 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   ...props
 }: TegakiRendererProps<E>) {
   const resolvedText = text ?? coerceToString(children);
+
+  // --- Resolve effects ---
+  const resolvedEffects = useMemo(() => resolveEffects(effects as Record<string, any>), [effects]);
+  const [seed] = useState(() => Math.random() * 1000);
 
   // --- Resolve time control ---
   const timeControl: TimeControlMode[keyof TimeControlMode] =
@@ -373,6 +378,8 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
             localTime,
             font.lineCap,
             color,
+            resolvedEffects,
+            seed + charIdx,
           );
         } else if (!entry.hasSvg && currentTime >= entry.offset + entry.duration) {
           ctx.save();
@@ -388,7 +395,22 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
       }
       y += lineHeight;
     }
-  }, [mode, currentTime, timeline, layout, font, fontFamily, fontSize, lineHeight, resolvedText, emHeight, padH, padV]);
+  }, [
+    mode,
+    currentTime,
+    timeline,
+    layout,
+    font,
+    fontFamily,
+    fontSize,
+    lineHeight,
+    resolvedText,
+    emHeight,
+    padH,
+    padV,
+    resolvedEffects,
+    seed,
+  ]);
 
   // --- Rendering ---
 

@@ -56,4 +56,14 @@ describe.skip('TegakiEffects', () => {
     // @ts-expect-error — 'sparkle' is not a valid effect
     assertType({ myEffect: { effect: 'sparkle' } });
   });
+
+  test('singleton effect cannot be used with custom key', () => {
+    // @ts-expect-error — pressureWidth is singleton, cannot be duplicated via custom key
+    assertType({ myPressure: { effect: 'pressureWidth', strength: 0.5 } });
+  });
+
+  test('singleton effect works with its own key', () => {
+    assertType({ pressureWidth: { strength: 0.5 } });
+    assertType({ pressureWidth: true });
+  });
 });
