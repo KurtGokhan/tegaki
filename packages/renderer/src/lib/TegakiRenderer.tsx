@@ -461,6 +461,7 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   // --- Canvas padding ---
   const padH = PADDING_H_EM * fontSize;
   const padV = fontSize ? Math.max(MIN_PADDING_V_EM * fontSize, (MIN_LINE_HEIGHT_EM * fontSize - lineHeight) / 2) : 0;
+  const padVCss = `max(0.2em, 0.9em - 0.5lh)`;
 
   // --- Canvas rendering ---
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -567,6 +568,7 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
         maxWidth: '100%',
         width: 'auto',
         height: 'auto',
+        fontFamily,
         ...{
           [CSS_DURATION]: timeline.totalDuration,
           [CSS_TIME]: currentTime,
@@ -599,12 +601,15 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
           aria-hidden="true"
           style={{
             position: 'absolute',
-            inset: `${-padV}px ${-padH}px`,
-            width: `calc(100% + ${padH * 2}px)`,
-            height: `calc(100% + ${padV * 2}px)`,
+            inset: `calc(-1 * ${padVCss}) -0.2em`,
+            width: `calc(100% + 0.4em)`,
+            height: `calc(100% + 2 * ${padVCss})`,
             pointerEvents: 'none',
+            overflow: 'visible',
           }}
-        />
+        >
+          <span style={{ display: 'inline-block', padding: `${padVCss} 0.2em` }}>{resolvedText}</span>
+        </canvas>
 
         <div
           style={{
@@ -613,7 +618,6 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
             overflowWrap: 'break-word',
             paddingRight: 1,
             WebkitTextFillColor: showOverlay ? undefined : 'transparent',
-            fontFamily,
             color: showOverlay ? 'rgba(255, 0, 0, 0.4)' : undefined,
           }}
         >
