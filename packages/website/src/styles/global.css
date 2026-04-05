@@ -1,4 +1,4 @@
-@layer base, starlight, nova, theme, components, utilities;
+@layer base, starlight, nova, theme, components, utilities, app;
 
 @import "@astrojs/starlight-tailwind";
 @import "tailwindcss/preflight.css" layer(base);
@@ -10,9 +10,11 @@ html {
   scrollbar-gutter: stable;
 }
 
-.hero {
-  /* Override Starlight's scoped hero padding */
-  padding-block: clamp(1.5rem, calc(1rem + 3vmin), 3rem) !important;
+@layer app {
+  .hero {
+    /* Override Starlight's scoped hero padding */
+    padding-block: clamp(1.5rem, calc(1rem + 3vmin), 3rem);
+  }
 }
 
 .ruled-lines {

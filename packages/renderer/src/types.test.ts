@@ -1,7 +1,14 @@
-import { describe, test } from 'bun:test';
-import type { TegakiEffects } from './types.ts';
+import { describe, expectTypeOf, test } from 'bun:test';
+import font from 'tegaki/fonts/tangerine';
+import type { TegakiBundle, TegakiEffects } from './types.ts';
 
 function assertType<const E extends TegakiEffects<E>>(_value: E) {}
+
+describe.skip('TegakiEffects', () => {
+  test('ensure font assignable', () => {
+    expectTypeOf(font).toExtend<TegakiBundle>();
+  });
+});
 
 describe.skip('TegakiEffects', () => {
   test('known key with config', () => {

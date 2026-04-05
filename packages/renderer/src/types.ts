@@ -69,7 +69,7 @@ export interface TegakiGlyphData {
   w: number;
   t: number;
   s: {
-    p: [x: number, y: number, width: number][];
+    p: ([x: number, y: number, width: number] | number[])[];
     d: number;
     a: number;
   }[];
