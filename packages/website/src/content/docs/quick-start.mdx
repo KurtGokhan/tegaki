@@ -9,17 +9,11 @@ import { Steps, Code } from '@astrojs/starlight/components';
 
 1. **Generate font data**
 
-   Run the generator to create stroke data for the Caveat font:
-
-   ```sh
-   npx tegaki-generator generate --font "Caveat" --chars "Hello World"
-   ```
-
-   This creates a JSON file with stroke paths, widths, and timing data.
+   Use the [interactive generator](/generator/) to create stroke data for any Google Font. Configure options, then download the output bundle.
 
 2. **Import the bundle**
 
-   The generator outputs a ready-to-use bundle:
+   Add the downloaded bundle to your project and import it:
 
    ```tsx
    import bundle from './output/caveat/bundle';

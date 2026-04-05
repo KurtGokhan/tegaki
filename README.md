@@ -18,11 +18,7 @@
 
 ## How it works
 
-**1. Generate** a font bundle from any Google Font (or a local `.ttf`):
-
-```bash
-npx tegaki-generator generate "Caveat"
-```
+**1. Generate** a font bundle from any Google Font using the [Tegaki website](https://tegaki.js.org/generator/):
 
 Each glyph is run through a processing pipeline — flatten bezier curves, rasterize, skeletonize via Zhang-Suen thinning, trace polylines, compute stroke widths via distance transform, determine stroke order — and the result is a set of animated SVGs with timing data.
 
@@ -51,12 +47,6 @@ The text draws itself stroke by stroke, with accurate widths and natural timing.
 npm install tegaki
 ```
 
-The generator is a separate package, only needed at build time:
-
-```bash
-npm install -D tegaki-generator
-```
-
 ## Built-in fonts
 
 Tegaki ships with pre-generated bundles for four Google Fonts, ready to use without running the generator:
@@ -81,7 +71,7 @@ function App() {
 }
 ```
 
-These bundles include all printable ASCII characters (letters, digits, punctuation). For other fonts, use the generator.
+These bundles include all printable ASCII characters (letters, digits, punctuation). For other fonts, use the [generator on the Tegaki website](https://tegaki.js.org/generator/).
 
 All bundled fonts are licensed under the [SIL Open Font License](https://openfontlicense.org/). See [FONTS-LICENSE.md](packages/renderer/FONTS-LICENSE.md) for full attribution.
 
@@ -194,35 +184,7 @@ const { entries, totalDuration } = computeTimeline('Hello', font);
 
 ## Generating font bundles
 
-```bash
-npx tegaki-generator generate [family] [options]
-```
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `family` | Google Fonts family name | `Caveat` |
-| `-o, --output` | Output directory | `output/<family>` |
-| `-r, --resolution` | Bitmap resolution for skeletonization | `400` |
-| `-c, --chars` | Characters to process | printable ASCII |
-| `-f, --force` | Re-download cached font | `false` |
-| `-d, --debug` | Write intermediate visualizations | `false` |
-| `-l, --lineCap` | Stroke cap style (`auto`/`round`/`butt`/`square`) | `auto` |
-| `--skeletonMethod` | Algorithm (`zhang-suen` / `guo-hall` / `lee` / `medial-axis` / `thin` / `voronoi`) | `zhang-suen` |
-
-Output structure:
-
-```
-output/caveat/
-  font.json        # Full glyph data (coordinates, strokes, timing)
-  caveat.ttf       # Original font file
-  bundle.ts        # Import this in your app
-  svg/
-    A.svg          # Animated SVG per glyph
-    A.tsx          # React component per glyph
-    ...
-```
-
-Import `bundle.ts` — it bundles all glyph components and font metadata into a `TegakiBundle`.
+Use the [interactive generator on the Tegaki website](https://tegaki.js.org/generator/) to create font bundles from any Google Font. The generator lets you customize options like resolution, character set, and skeletonization algorithm, then download the output bundle to use in your app.
 
 ## Pipeline
 
@@ -244,8 +206,7 @@ Font file
 | Package | npm | Description |
 |---------|-----|-------------|
 | [`tegaki`](packages/renderer) | [![npm](https://img.shields.io/npm/v/tegaki)](https://www.npmjs.com/package/tegaki) | React component for animated handwriting |
-| [`tegaki-generator`](packages/generator) | [![npm](https://img.shields.io/npm/v/tegaki-generator)](https://www.npmjs.com/package/tegaki-generator) | CLI that generates font bundles |
-| [`@tegaki/website`](packages/website) | — | Interactive preview app |
+| [`@tegaki/website`](packages/website) | — | Website with interactive generator and preview |
 
 ## Contributing
 

@@ -15,8 +15,8 @@ Monorepo for generating and rendering handwriting animations from Google Fonts.
 ## Packages
 
 - `packages/renderer` (`tegaki`) — Published npm package. React component for rendering animated handwriting.
-- `packages/generator` (`tegaki-generator`) — CLI tool that generates glyph data from fonts.
-- `packages/website` (`@tegaki/website`) — Preview app and chat demo.
+- `packages/generator` (`tegaki-generator`) — Internal CLI tool that generates glyph data from fonts. Not published; users generate font data via the website.
+- `packages/website` (`@tegaki/website`) — Website with interactive generator, preview app, and chat demo.
 
 ## Commands
 

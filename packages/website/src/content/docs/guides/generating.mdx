@@ -1,9 +1,9 @@
 ---
 title: Generating Font Data
-description: How to use the generator CLI to create stroke data from fonts.
+description: How to use the generator to create stroke data from fonts.
 ---
 
-The `tegaki-generator` CLI processes Google Fonts through a multi-stage pipeline to produce stroke data suitable for handwriting animation.
+The Tegaki generator processes Google Fonts through a multi-stage pipeline to produce stroke data suitable for handwriting animation. Use the [interactive generator](/generator/) on the Tegaki website to generate font bundles directly in the browser.
 
 ## Pipeline
 
@@ -17,25 +17,17 @@ Each glyph goes through these stages:
 6. **Width** — Distance transform computes stroke width at each skeleton point
 7. **Stroke order** — Groups polylines into connected components, sorts top-to-bottom/left-to-right
 
-## Basic usage
-
-```sh
-npx tegaki-generator generate --font "Caveat"
-```
-
-This generates data for the default character set using the Caveat font.
-
 ## Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--font` | `Caveat` | Google Font family name |
-| `--chars` | `A-Za-z0-9` + punctuation | Characters to process |
-| `--resolution` | `400` | Bitmap resolution for rasterization |
-| `--skeleton-method` | `zhang-suen` | Skeletonization algorithm |
-| `--line-cap` | `round` | Stroke line cap style |
-| `--bezier-tolerance` | `0.5` | Flatness tolerance for bezier subdivision |
-| `--rdp-tolerance` | `1.0` | Ramer-Douglas-Peucker simplification tolerance |
+| Font | `Caveat` | Google Font family name |
+| Characters | `A-Za-z0-9` + punctuation | Characters to process |
+| Resolution | `400` | Bitmap resolution for rasterization |
+| Skeleton method | `zhang-suen` | Skeletonization algorithm |
+| Line cap | `round` | Stroke line cap style |
+| Bezier tolerance | `0.5` | Flatness tolerance for bezier subdivision |
+| RDP tolerance | `1.0` | Ramer-Douglas-Peucker simplification tolerance |
 
 ## Output format
 
