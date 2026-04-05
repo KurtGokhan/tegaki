@@ -1,5 +1,11 @@
 # tegaki
 
+## 0.3.1
+
+### Patch Changes
+
+- [`706375b`](https://github.com/KurtGokhan/tegaki/commit/706375bf056caefb8fd4c4279da9e0124535b706) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Accessibility, SSR and RSC fixes
+
 ## 0.3.0
 
 ### Minor Changes
