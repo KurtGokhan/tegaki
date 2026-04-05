@@ -41,8 +41,9 @@ export function computeTimeline(text: string, font: TegakiBundle, config?: Timel
   const entries: TimelineEntry[] = [];
   let offset = 0;
   for (const char of chars) {
-    const hasGlyph = char in font.glyphTimings;
-    const duration = hasGlyph ? (font.glyphTimings[char] ?? 1) : unknownDuration;
+    const glyph = font.glyphData[char];
+    const hasGlyph = !!glyph;
+    const duration = hasGlyph ? (glyph.t ?? 1) : unknownDuration;
     entries.push({ char, offset, duration, hasGlyph });
     offset += duration;
 

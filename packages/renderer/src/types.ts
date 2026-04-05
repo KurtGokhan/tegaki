@@ -59,12 +59,19 @@ export interface PathCommand {
   y2?: number;
 }
 
+/**
+ * Compact glyph data for rendering.
+ * - `w`: advance width
+ * - `t`: total animation duration
+ * - `s`: strokes, each with `p` (points as `[x, y, t, width]` tuples), `d` (delay), `a` (animation duration)
+ */
 export interface TegakiGlyphData {
-  advanceWidth: number;
-  strokes: {
-    points: { x: number; y: number; t: number; width: number }[];
-    delay: number;
-    animationDuration: number;
+  w: number;
+  t: number;
+  s: {
+    p: [x: number, y: number, t: number, width: number][];
+    d: number;
+    a: number;
   }[];
 }
 
@@ -108,6 +115,5 @@ export interface TegakiBundle {
   ascender: number;
   descender: number;
   glyphData: Record<string, TegakiGlyphData>;
-  glyphTimings: Record<string, number>;
   registerFontFace: () => Promise<void>;
 }

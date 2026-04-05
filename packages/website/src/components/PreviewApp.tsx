@@ -1151,7 +1151,6 @@ function TextPreview({
     if (!fontInfo || !fontUrl) return null;
 
     const glyphData: TegakiBundle['glyphData'] = {};
-    const glyphTimings: Record<string, number> = {};
     const optionsKey = JSON.stringify(options);
 
     const seen = new Set<string>();
@@ -1167,17 +1166,16 @@ function TextPreview({
       }
       if (!res) continue;
 
+      const last = res.strokesFontUnits[res.strokesFontUnits.length - 1];
       glyphData[char] = {
-        advanceWidth: res.advanceWidth,
-        strokes: res.strokesFontUnits.map((s) => ({
-          points: s.points.map((p) => ({ x: p.x, y: p.y, t: p.t, width: p.width })),
-          delay: s.delay,
-          animationDuration: s.animationDuration,
+        w: res.advanceWidth,
+        t: last ? Math.round((last.delay + last.animationDuration) * 1000) / 1000 : 0,
+        s: res.strokesFontUnits.map((s) => ({
+          p: s.points.map((p) => [p.x, p.y, p.t, p.width] as [number, number, number, number]),
+          d: s.delay,
+          a: s.animationDuration,
         })),
       };
-
-      const last = res.strokesFontUnits[res.strokesFontUnits.length - 1];
-      glyphTimings[char] = last ? Math.round((last.delay + last.animationDuration) * 1000) / 1000 : 0;
     }
 
     return {
@@ -1188,7 +1186,6 @@ function TextPreview({
       ascender: fontInfo.ascender,
       descender: fontInfo.descender,
       glyphData,
-      glyphTimings,
       registerFontFace: async () => {},
     } satisfies TegakiBundle;
   }, [fontInfo, fontUrl, text, options, resultsCache]);

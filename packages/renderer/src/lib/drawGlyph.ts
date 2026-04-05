@@ -154,24 +154,24 @@ export function drawGlyph(
     return m;
   };
 
-  for (const stroke of glyph.strokes) {
-    if (localTime < stroke.delay) continue;
-    const elapsed = localTime - stroke.delay;
-    const progress = Math.min(elapsed / stroke.animationDuration, 1);
+  for (const stroke of glyph.s) {
+    if (localTime < stroke.d) continue;
+    const elapsed = localTime - stroke.d;
+    const progress = Math.min(elapsed / stroke.a, 1);
 
-    const pts = stroke.points;
+    const pts = stroke.p;
     if (pts.length === 0) continue;
 
-    const avgWidth = pts.reduce((s, p) => s + p.width, 0) / pts.length;
+    const avgWidth = pts.reduce((s, p) => s + p[3], 0) / pts.length;
     const baseLineWidth = Math.max(avgWidth, 0.5) * scale;
 
     // --- Single-point dot ---
     if (pts.length === 1) {
       if (progress <= 0) continue;
       const p = pts[0]!;
-      const dotX = px(wobbleX(p.x, p.y, 0));
-      const dotY = py(wobbleY(p.x, p.y, 0));
-      const perPointDot = Math.max(p.width, 0.5) * scale;
+      const dotX = px(wobbleX(p[0], p[1], 0));
+      const dotY = py(wobbleY(p[0], p[1], 0));
+      const perPointDot = Math.max(p[3], 0.5) * scale;
       let dotWidth = baseLineWidth + (perPointDot - baseLineWidth) * pressureAmount;
       dotWidth *= taperMultiplier(0.5);
 
@@ -208,8 +208,8 @@ export function drawGlyph(
     // --- Compute total path length ---
     let totalLen = 0;
     for (let j = 1; j < pts.length; j++) {
-      const dx = pts[j]!.x - pts[j - 1]!.x;
-      const dy = pts[j]!.y - pts[j - 1]!.y;
+      const dx = pts[j]![0] - pts[j - 1]![0];
+      const dy = pts[j]![1] - pts[j - 1]![1];
       totalLen += Math.sqrt(dx * dx + dy * dy);
     }
 
@@ -231,33 +231,33 @@ export function drawGlyph(
     for (let j = 1; j < pts.length; j++) {
       const prev = pts[j - 1]!;
       const cur = pts[j]!;
-      const dx = cur.x - prev.x;
-      const dy = cur.y - prev.y;
+      const dx = cur[0] - prev[0];
+      const dy = cur[1] - prev[1];
       const segLen = Math.sqrt(dx * dx + dy * dy);
 
       if (accumulated + segLen <= drawLen) {
         segments.push({
-          x0: px(wobbleX(prev.x, prev.y, j - 1)),
-          y0: py(wobbleY(prev.x, prev.y, j - 1)),
-          x1: px(wobbleX(cur.x, cur.y, j)),
-          y1: py(wobbleY(cur.x, cur.y, j)),
-          width0: prev.width,
-          width1: cur.width,
+          x0: px(wobbleX(prev[0], prev[1], j - 1)),
+          y0: py(wobbleY(prev[0], prev[1], j - 1)),
+          x1: px(wobbleX(cur[0], cur[1], j)),
+          y1: py(wobbleY(cur[0], cur[1], j)),
+          width0: prev[3],
+          width1: cur[3],
           segProgress: (accumulated + segLen / 2) / totalLen,
         });
         accumulated += segLen;
       } else {
         const remaining = drawLen - accumulated;
         const frac = segLen > 0 ? remaining / segLen : 0;
-        const ix = prev.x + dx * frac;
-        const iy = prev.y + dy * frac;
-        const iw = prev.width + (cur.width - prev.width) * frac;
+        const ix = prev[0] + dx * frac;
+        const iy = prev[1] + dy * frac;
+        const iw = prev[3] + (cur[3] - prev[3]) * frac;
         segments.push({
-          x0: px(wobbleX(prev.x, prev.y, j - 1)),
-          y0: py(wobbleY(prev.x, prev.y, j - 1)),
+          x0: px(wobbleX(prev[0], prev[1], j - 1)),
+          y0: py(wobbleY(prev[0], prev[1], j - 1)),
           x1: px(wobbleX(ix, iy, j)),
           y1: py(wobbleY(ix, iy, j)),
-          width0: prev.width,
+          width0: prev[3],
           width1: iw,
           segProgress: (accumulated + remaining / 2) / totalLen,
         });

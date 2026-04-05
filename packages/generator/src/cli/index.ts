@@ -54,6 +54,7 @@ export const tegakiProgram = createPadrone('tegaki')
         // Write debug output if requested
         if (debug) {
           const debugDir = join(outputDir, 'debug');
+          await Bun.write(join(debugDir, 'font.json'), JSON.stringify(bundle.fontOutput, null, 2));
           for (const [char, result] of Object.entries(bundle.glyphResults)) {
             await writeDebugOutput(debugDir, char, result);
           }
