@@ -1,5 +1,13 @@
 # tegaki
 
+## 0.3.0
+
+### Minor Changes
+
+- [`2295113`](https://github.com/KurtGokhan/tegaki/commit/2295113f02a0d67c398258846ba5576a5c162d96) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - - Reduced font bundle data size
+  - Fix rerendering when color changes
+  - Fix padding and border issue in renderer
+
 ## 0.2.3
 
 ### Patch Changes
