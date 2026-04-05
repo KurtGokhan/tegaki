@@ -394,13 +394,13 @@ export function extractTegakiBundle(input: ExtractBundleInput): TegakiBundleOutp
 
   files.push({ path: fontFileName, content: new Uint8Array(fontBuffer) });
 
-  // Compact glyph data: short keys, points as [x, y, t, width] tuples
+  // Compact glyph data: short keys, points as [x, y, width] tuples
   const glyphDataMap: Record<
     string,
     {
       w: number;
       t: number;
-      s: { p: [number, number, number, number][]; d: number; a: number }[];
+      s: { p: [number, number, number][]; d: number; a: number }[];
     }
   > = {};
 
@@ -409,7 +409,7 @@ export function extractTegakiBundle(input: ExtractBundleInput): TegakiBundleOutp
       w: glyph.advanceWidth,
       t: glyph.totalAnimationDuration,
       s: glyph.strokes.map((s) => ({
-        p: s.points.map((p) => [p.x, p.y, p.t, p.width] as [number, number, number, number]),
+        p: s.points.map((p) => [p.x, p.y, p.width] as [number, number, number]),
         d: s.delay,
         a: s.animationDuration,
       })),

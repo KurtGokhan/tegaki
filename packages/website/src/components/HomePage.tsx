@@ -48,7 +48,7 @@ function buildBundle(fontInfo: ParsedFontInfo, fontUrl: string, text: string, ca
       w: res.advanceWidth,
       t: last ? Math.round((last.delay + last.animationDuration) * 1000) / 1000 : 0,
       s: res.strokesFontUnits.map((s) => ({
-        p: s.points.map((p) => [p.x, p.y, p.t, p.width] as [number, number, number, number]),
+        p: s.points.map((p) => [p.x, p.y, p.width] as [number, number, number]),
         d: s.delay,
         a: s.animationDuration,
       })),

@@ -63,13 +63,13 @@ export interface PathCommand {
  * Compact glyph data for rendering.
  * - `w`: advance width
  * - `t`: total animation duration
- * - `s`: strokes, each with `p` (points as `[x, y, t, width]` tuples), `d` (delay), `a` (animation duration)
+ * - `s`: strokes, each with `p` (points as `[x, y, width]` tuples), `d` (delay), `a` (animation duration)
  */
 export interface TegakiGlyphData {
   w: number;
   t: number;
   s: {
-    p: [x: number, y: number, t: number, width: number][];
+    p: [x: number, y: number, width: number][];
     d: number;
     a: number;
   }[];

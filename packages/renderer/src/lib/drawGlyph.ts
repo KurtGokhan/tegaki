@@ -162,7 +162,7 @@ export function drawGlyph(
     const pts = stroke.p;
     if (pts.length === 0) continue;
 
-    const avgWidth = pts.reduce((s, p) => s + p[3], 0) / pts.length;
+    const avgWidth = pts.reduce((s, p) => s + p[2], 0) / pts.length;
     const baseLineWidth = Math.max(avgWidth, 0.5) * scale;
 
     // --- Single-point dot ---
@@ -171,7 +171,7 @@ export function drawGlyph(
       const p = pts[0]!;
       const dotX = px(wobbleX(p[0], p[1], 0));
       const dotY = py(wobbleY(p[0], p[1], 0));
-      const perPointDot = Math.max(p[3], 0.5) * scale;
+      const perPointDot = Math.max(p[2], 0.5) * scale;
       let dotWidth = baseLineWidth + (perPointDot - baseLineWidth) * pressureAmount;
       dotWidth *= taperMultiplier(0.5);
 
@@ -241,8 +241,8 @@ export function drawGlyph(
           y0: py(wobbleY(prev[0], prev[1], j - 1)),
           x1: px(wobbleX(cur[0], cur[1], j)),
           y1: py(wobbleY(cur[0], cur[1], j)),
-          width0: prev[3],
-          width1: cur[3],
+          width0: prev[2],
+          width1: cur[2],
           segProgress: (accumulated + segLen / 2) / totalLen,
         });
         accumulated += segLen;
@@ -251,13 +251,13 @@ export function drawGlyph(
         const frac = segLen > 0 ? remaining / segLen : 0;
         const ix = prev[0] + dx * frac;
         const iy = prev[1] + dy * frac;
-        const iw = prev[3] + (cur[3] - prev[3]) * frac;
+        const iw = prev[2] + (cur[2] - prev[2]) * frac;
         segments.push({
           x0: px(wobbleX(prev[0], prev[1], j - 1)),
           y0: py(wobbleY(prev[0], prev[1], j - 1)),
           x1: px(wobbleX(ix, iy, j)),
           y1: py(wobbleY(ix, iy, j)),
-          width0: prev[3],
+          width0: prev[2],
           width1: iw,
           segProgress: (accumulated + remaining / 2) / totalLen,
         });
