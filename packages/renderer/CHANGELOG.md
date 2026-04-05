@@ -1,5 +1,18 @@
 # tegaki
 
+## 0.4.0
+
+### Minor Changes
+
+- [`2236325`](https://github.com/KurtGokhan/tegaki/commit/2236325c7119b6de47be3f479b3e01b2cae4b907) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Rework font loading and improve defaults
+
+  - **Breaking**: Remove `registerFontFace()` from `TegakiBundle`. Font registration is now handled internally by `TegakiRenderer` via the FontFace API.
+  - Add `fontFaceCSS` property to `TegakiBundle` for SSR/stylesheet-based font loading.
+  - Export `ensureFontFace()` utility for manually preloading a bundle's font.
+  - Fix font layout being calculated with wrong font metrics when switching fonts or when the font isn't loaded yet.
+  - Enable `pressureWidth` effect by default.
+  - Handle non-JS environments (SSR) more gracefully.
+
 ## 0.3.1
 
 ### Patch Changes
