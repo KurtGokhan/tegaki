@@ -116,5 +116,4 @@ export interface TegakiBundle {
   ascender: number;
   descender: number;
   glyphData: Record<string, TegakiGlyphData>;
-  registerFontFace: () => Promise<void>;
 }

@@ -1,5 +1,6 @@
 export { drawGlyph } from './lib/drawGlyph.ts';
 export {
+  ensureFontFace,
   TegakiRenderer,
   type TegakiRendererHandle,
   type TegakiRendererProps,

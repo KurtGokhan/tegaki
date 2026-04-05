@@ -57,7 +57,6 @@ export function HomePageExamples() {
         try {
           const mod = await FONT_IMPORTS[name]();
           const bundle = mod.default as unknown as TegakiBundle;
-          await bundle.registerFontFace();
           entries.push({ name, bundle });
         } catch {
           entries.push({ name, bundle: null });

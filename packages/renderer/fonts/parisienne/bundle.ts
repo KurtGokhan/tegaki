@@ -2,8 +2,6 @@
 import fontUrl from './parisienne.ttf' with { type: 'url' };
 import glyphData from './glyphData.json' with { type: 'json' };
 
-let registered: Promise<void> | null = null;
-
 const bundle = {
   family: 'Parisienne',
   lineCap: 'round',
@@ -13,14 +11,6 @@ const bundle = {
   ascender: 1875,
   descender: -915,
   glyphData,
-  registerFontFace() {
-    if (!registered) {
-      registered = new FontFace(bundle.family, `url(${fontUrl})`, { featureSettings: "'calt' 0, 'liga' 0" })
-        .load()
-        .then((loaded) => { document.fonts.add(loaded); });
-    }
-    return registered;
-  },
 } as const;
 
 export default bundle;

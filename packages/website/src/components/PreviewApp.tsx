@@ -1199,11 +1199,11 @@ function TextPreview({
       family: fontInfo.family,
       lineCap: fontInfo.lineCap,
       fontUrl,
+      fontFaceCSS: `@font-face { font-family: '${fontInfo.family}'; src: url(${fontUrl}); }`,
       unitsPerEm: fontInfo.unitsPerEm,
       ascender: fontInfo.ascender,
       descender: fontInfo.descender,
       glyphData,
-      registerFontFace: async () => {},
     } satisfies TegakiBundle;
   }, [fontInfo, fontUrl, text, options, resultsCache]);
 

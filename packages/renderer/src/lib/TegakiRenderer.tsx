@@ -20,6 +20,14 @@ const fontFaceCache = new Map<string, Promise<void>>();
  * - Not registered at all: loads it via the FontFace API.
  * Returns `null` if the font is already loaded synchronously.
  */
+/**
+ * Ensures the bundle's font face is loaded and available for rendering.
+ * Resolves immediately if the font is already loaded.
+ */
+export async function ensureFontFace(bundle: TegakiBundle): Promise<void> {
+  await ensureFont(bundle.family, bundle.fontUrl);
+}
+
 function ensureFont(family: string, url: string): Promise<void> | null {
   if (typeof document === 'undefined') return Promise.resolve();
   for (const face of document.fonts) {

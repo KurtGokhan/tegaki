@@ -2,8 +2,6 @@
 import fontUrl from './tangerine.ttf' with { type: 'url' };
 import glyphData from './glyphData.json' with { type: 'json' };
 
-let registered: Promise<void> | null = null;
-
 const bundle = {
   family: 'Tangerine',
   lineCap: 'round',
@@ -13,14 +11,6 @@ const bundle = {
   ascender: 750,
   descender: -250,
   glyphData,
-  registerFontFace() {
-    if (!registered) {
-      registered = new FontFace(bundle.family, `url(${fontUrl})`, { featureSettings: "'calt' 0, 'liga' 0" })
-        .load()
-        .then((loaded) => { document.fonts.add(loaded); });
-    }
-    return registered;
-  },
 } as const;
 
 export default bundle;

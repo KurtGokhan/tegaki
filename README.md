@@ -28,8 +28,6 @@ Each glyph is run through a processing pipeline — flatten bezier curves, raste
 import { TegakiRenderer } from 'tegaki';
 import font from './output/caveat/bundle.ts';
 
-await font.registerFontFace();
-
 function App() {
   return (
     <TegakiRenderer font={font} style={{ fontSize: '48px' }}>
@@ -59,8 +57,6 @@ Tegaki ships with pre-generated bundles for four Google Fonts, ready to use with
 ```tsx
 import { TegakiRenderer } from 'tegaki';
 import caveat from 'tegaki/fonts/caveat';
-
-await caveat.registerFontFace();
 
 function App() {
   return (
