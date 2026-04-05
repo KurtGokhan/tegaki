@@ -1,6 +1,7 @@
 export { drawGlyph } from './lib/drawGlyph.ts';
 export {
   TegakiRenderer,
+  type TegakiRendererHandle,
   type TegakiRendererProps,
   type TimeControlMode,
   type TimeControlProp,

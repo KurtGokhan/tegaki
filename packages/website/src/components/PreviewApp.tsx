@@ -1,6 +1,6 @@
 import { zipSync } from 'fflate';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { computeTimeline, type LineCap, type TegakiBundle, TegakiRenderer, type TimeControlProp } from 'tegaki';
+import { computeTimeline, type LineCap, type TegakiBundle, TegakiRenderer, type TegakiRendererHandle, type TimeControlProp } from 'tegaki';
 import {
   type BrowserSkeletonMethod,
   DEFAULT_OPTIONS,
@@ -318,7 +318,23 @@ export function PreviewApp() {
       {/* Sidebar */}
       <aside className="w-80 min-w-80 border-r border-gray-200 bg-white overflow-y-auto flex flex-col">
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Tegaki preview</h1>
+          <div className="flex items-center gap-2">
+            <a href="/tegaki/" className="text-gray-400 hover:text-gray-700 transition-colors" title="Back to docs">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </a>
+            <h1 className="text-lg font-semibold">Tegaki generator</h1>
+          </div>
           <a
             href="https://github.com/KurtGokhan/tegaki"
             target="_blank"
@@ -1040,6 +1056,7 @@ function TextPreview({
   const [fontReady, setFontReady] = useState(false);
   const [showEffectsDrawer, setShowEffectsDrawer] = useState(false);
   const [copied, setCopied] = useState(false);
+  const rendererRef = useRef<TegakiRendererHandle>(null);
   const updateEffect = useCallback(
     (updater: (prev: EffectsState) => EffectsState) => onEffectsStateChange(updater(effectsState)),
     [effectsState, onEffectsStateChange],
@@ -1286,6 +1303,7 @@ function TextPreview({
             {fontInfo && !fontReady && <p className="text-gray-500">Loading font...</p>}
             {fontBundle && fontReady && (
               <TegakiRenderer
+                ref={rendererRef}
                 className="w-full max-w-2xl"
                 style={{
                   fontSize: `${fontSizePx}px`,
@@ -1726,6 +1744,14 @@ function TextPreview({
           {/* Uncontrolled mode controls */}
           {timeMode === 'uncontrolled' && (
             <>
+              <button
+                type="button"
+                className="px-3 py-1 border border-gray-300 rounded text-sm cursor-pointer hover:bg-gray-100"
+                onClick={() => rendererRef.current?.restart()}
+              >
+                Restart
+              </button>
+
               <label className="flex items-center gap-1.5 text-xs text-gray-600">
                 Speed
                 <input

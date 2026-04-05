@@ -1,4 +1,4 @@
-import { type ComponentProps, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type ComponentProps, type Ref, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { TegakiBundle, TegakiEffects } from '../types.ts';
 import { drawFallbackGlyph } from './drawFallbackGlyph.ts';
 import { drawGlyph } from './drawGlyph.ts';
@@ -69,7 +69,33 @@ export type TimeControlMode = {
  */
 export type TimeControlProp = null | undefined | number | 'css' | TimeControlMode[keyof TimeControlMode];
 
-export interface TegakiRendererProps<E extends TegakiEffects<E> = Record<string, never>> extends Omit<ComponentProps<'div'>, 'children'> {
+/** Imperative handle exposed via the `ref` prop. */
+export interface TegakiRendererHandle {
+  /** The root DOM element. */
+  getElement(): HTMLDivElement | null;
+  /** Current animation time in seconds. */
+  getCurrentTime(): number;
+  /** Total timeline duration in seconds. */
+  getDuration(): number;
+  /** Whether the animation is currently playing (uncontrolled mode only). */
+  getIsPlaying(): boolean;
+  /** Whether the animation has reached the end. */
+  getIsComplete(): boolean;
+  /** Resume playback (uncontrolled mode only). No-op in controlled/css mode. */
+  play(): void;
+  /** Pause playback (uncontrolled mode only). No-op in controlled/css mode. */
+  pause(): void;
+  /** Jump to a specific time in seconds (uncontrolled mode only). No-op in controlled/css mode. */
+  seek(time: number): void;
+  /** Seek to 0 and play (uncontrolled mode only). No-op in controlled/css mode. */
+  restart(): void;
+}
+
+export interface TegakiRendererProps<E extends TegakiEffects<E> = Record<string, never>>
+  extends Omit<ComponentProps<'div'>, 'children' | 'ref'> {
+  /** Imperative handle ref for playback controls and DOM access. */
+  ref?: Ref<TegakiRendererHandle>;
+
   /** TegakiBundle with font data and animated glyph SVGs. */
   font?: TegakiBundle;
 
@@ -106,6 +132,7 @@ export interface TegakiRendererProps<E extends TegakiEffects<E> = Record<string,
 // --- Component ---
 
 export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string, never>>({
+  ref,
   font,
   text,
   children,
@@ -138,10 +165,21 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   const controlledTime = timeControl.mode === 'controlled' ? timeControl.value : undefined;
   const defaultTime = timeControl.mode === 'uncontrolled' ? (timeControl.initialTime ?? 0) : 0;
   const speed = timeControl.mode === 'uncontrolled' ? (timeControl.speed ?? 1) : 1;
-  const playing = timeControl.mode === 'uncontrolled' ? (timeControl.playing ?? true) : false;
+  const propPlaying = timeControl.mode === 'uncontrolled' ? (timeControl.playing ?? true) : false;
   const loop = timeControl.mode === 'uncontrolled' ? (timeControl.loop ?? false) : false;
   const catchUp = timeControl.mode === 'uncontrolled' ? (timeControl.catchUp ?? 0) : 0;
   const onTimeChange = timeControl.mode === 'uncontrolled' ? timeControl.onTimeChange : undefined;
+
+  // Imperative playing override (undefined = follow prop)
+  const [playingOverride, setPlayingOverride] = useState<boolean | undefined>(undefined);
+  const playing = playingOverride ?? propPlaying;
+
+  // Reset override when the prop changes so the prop regains control
+  const prevPropPlaying = useRef(propPlaying);
+  if (prevPropPlaying.current !== propPlaying) {
+    prevPropPlaying.current = propPlaying;
+    setPlayingOverride(undefined);
+  }
 
   // --- Internal time (uncontrolled mode) ---
   const [internalTime, setInternalTime] = useState(defaultTime);
@@ -149,7 +187,13 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   const [cssTime, setCssTime] = useState(0);
   const currentTime = isCss ? cssTime : isControlled ? controlledTime! : internalTime;
 
-  // Stable callback refs to avoid restarting the rAF loop
+  // Stable refs so the imperative handle and rAF loop always see latest values
+  const currentTimeRef = useRef(currentTime);
+  currentTimeRef.current = currentTime;
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
+  const isControlledRef = useRef(isControlled);
+  isControlledRef.current = isControlled;
   const onTimeChangeRef = useRef(onTimeChange);
   onTimeChangeRef.current = onTimeChange;
   const onCompleteRef = useRef(onComplete);
@@ -213,6 +257,34 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
       prevCompletedRef.current = false;
     }
   });
+
+  // --- Imperative handle (stable — reads from refs) ---
+  useImperativeHandle(
+    ref,
+    () => ({
+      getElement: () => rootRef.current,
+      getCurrentTime: () => currentTimeRef.current,
+      getDuration: () => totalDurationRef.current,
+      getIsPlaying: () => playingRef.current,
+      getIsComplete: () => totalDurationRef.current > 0 && currentTimeRef.current >= totalDurationRef.current,
+      play: () => {
+        if (!isControlledRef.current) setPlayingOverride(true);
+      },
+      pause: () => {
+        if (!isControlledRef.current) setPlayingOverride(false);
+      },
+      seek: (time: number) => {
+        if (!isControlledRef.current) setInternalTime(Math.max(0, Math.min(time, totalDurationRef.current)));
+      },
+      restart: () => {
+        if (!isControlledRef.current) {
+          setInternalTime(0);
+          setPlayingOverride(true);
+        }
+      },
+    }),
+    [],
+  );
 
   // --- Uncontrolled: time change notification ---
   useEffect(() => {

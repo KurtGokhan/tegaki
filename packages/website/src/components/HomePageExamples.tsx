@@ -18,16 +18,18 @@ const SHOWCASE_TEXT = 'The quick brown fox';
 
 function FontCard({ name, bundle }: { name: string; bundle: TegakiBundle | null }) {
   return (
-    <div>
-      <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500, color: '#6b7280', letterSpacing: '0.05em' }}>{name}</div>
+    <div style={{ marginTop: 0 }}>
+      <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500, color: 'light-dark(#6b7280, #9ca3af)', letterSpacing: '0.05em' }}>
+        {name}
+      </div>
       <div
         style={{
           borderRadius: 12,
-          border: '1px solid #e5e7eb',
-          backgroundColor: 'white',
+          border: '1px solid light-dark(#e5e7eb, #374151)',
+          backgroundColor: 'light-dark(white, #1f2937)',
           padding: 24,
           minHeight: 80,
-          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+          boxShadow: 'light-dark(0 1px 2px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.3))',
         }}
       >
         {bundle ? (
@@ -35,7 +37,9 @@ function FontCard({ name, bundle }: { name: string; bundle: TegakiBundle | null 
             {SHOWCASE_TEXT}
           </TegakiRenderer>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: '#9ca3af' }}>Loading font...</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'light-dark(#9ca3af, #6b7280)' }}>
+            Loading font...
+          </div>
         )}
       </div>
     </div>
@@ -69,7 +73,7 @@ export function HomePageExamples() {
   const heroBundle = fonts.find((f) => f.name === 'Caveat')?.bundle;
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif' }}>
+    <div className="not-content" style={{ fontFamily: 'system-ui, sans-serif' }}>
       {/* Hero */}
       <section style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 24px 24px' }}>
         <div
@@ -77,10 +81,10 @@ export function HomePageExamples() {
             width: '100%',
             maxWidth: 640,
             borderRadius: 16,
-            border: '1px solid #e5e7eb',
-            backgroundColor: 'white',
+            border: '1px solid light-dark(#e5e7eb, #374151)',
+            backgroundColor: 'light-dark(white, #1f2937)',
             padding: 32,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            boxShadow: 'light-dark(0 4px 12px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.3))',
           }}
         >
           {heroBundle ? (
@@ -88,14 +92,16 @@ export function HomePageExamples() {
               {HERO_TEXT}
             </TegakiRenderer>
           ) : (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0', color: '#9ca3af' }}>Preparing animation...</div>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0', color: 'light-dark(#9ca3af, #6b7280)' }}>
+              Preparing animation...
+            </div>
           )}
         </div>
       </section>
 
       {/* Font showcase */}
       <section style={{ maxWidth: 960, margin: '0 auto', padding: '0 24px 48px' }}>
-        <h2 style={{ fontSize: 24, fontWeight: 600, color: '#111827', marginBottom: 24 }}>Built-in Fonts</h2>
+        <h2 style={{ fontSize: 24, fontWeight: 600, color: 'light-dark(#111827, #f3f4f6)', marginBottom: 24 }}>Built-in Fonts</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: 24 }}>
           {fonts.map((f) => (
             <FontCard key={f.name} name={f.name} bundle={f.bundle} />
@@ -105,11 +111,15 @@ export function HomePageExamples() {
 
       {/* Static chat demo */}
       <section style={{ maxWidth: 960, margin: '0 auto', padding: '0 24px 48px' }}>
-        <h2 style={{ fontSize: 24, fontWeight: 600, color: '#111827', marginBottom: 24 }}>Chat Demo</h2>
-        <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
+        <h2 style={{ fontSize: 24, fontWeight: 600, color: 'light-dark(#111827, #f3f4f6)', marginBottom: 24 }}>Chat Demo</h2>
+        <p style={{ fontSize: 14, color: 'light-dark(#6b7280, #9ca3af)', marginBottom: 16 }}>
           Tegaki can animate text as it streams in — perfect for AI chat interfaces.
         </p>
-        {heroBundle ? <StaticChatDemo font={heroBundle} /> : <div style={{ color: '#9ca3af', padding: 32 }}>Loading...</div>}
+        {heroBundle ? (
+          <StaticChatDemo font={heroBundle} />
+        ) : (
+          <div style={{ color: 'light-dark(#9ca3af, #6b7280)', padding: 32 }}>Loading...</div>
+        )}
       </section>
     </div>
   );

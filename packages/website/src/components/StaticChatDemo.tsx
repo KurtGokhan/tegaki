@@ -8,10 +8,16 @@ const CONVERSATION = [
   { role: 'assistant' as const, content: 'Steam curls from the cup\nBitter warmth fuels the morning\nOne more sip, then code' },
 ];
 
-const SPEED = 4;
+const ASSISTANT_SPEED = 4;
+const USER_SPEED = 16;
 const DELAY_BETWEEN_MESSAGES = 1500;
 
-function StreamingTegaki({ text, font, ...props }: { text: string; font: TegakiBundle } & ComponentProps<'div'>) {
+function StreamingTegaki({
+  text,
+  font,
+  speed = ASSISTANT_SPEED,
+  ...props
+}: { text: string; font: TegakiBundle; speed?: number } & ComponentProps<'div'>) {
   const [displayTime, setDisplayTime] = useState(0);
   const timeRef = useRef(0);
   const durationRef = useRef(0);
@@ -25,7 +31,7 @@ function StreamingTegaki({ text, font, ...props }: { text: string; font: TegakiB
 
     const tick = (ts: number) => {
       if (lastTs === null) lastTs = ts;
-      const delta = ((ts - lastTs) / 1000) * SPEED;
+      const delta = ((ts - lastTs) / 1000) * speed;
       lastTs = ts;
 
       if (timeRef.current < durationRef.current) {
@@ -38,9 +44,9 @@ function StreamingTegaki({ text, font, ...props }: { text: string; font: TegakiB
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [speed]);
 
-  const { children: _, ...rest } = props;
+  const { children: _, ref, ...rest } = props;
   return <TegakiRenderer text={text} time={displayTime} font={font} {...rest} />;
 }
 
@@ -50,7 +56,6 @@ export function StaticChatDemo({ font }: { font: TegakiBundle }) {
   const [started, setStarted] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const finished = visibleCount >= CONVERSATION.length;
 
   const restart = () => {
     setVisibleCount(0);
@@ -102,10 +107,11 @@ export function StaticChatDemo({ font }: { font: TegakiBundle }) {
       style={{
         borderRadius: 12,
         overflow: 'hidden',
-        border: '1px solid #c5c7cc',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        border: '1px solid light-dark(#c5c7cc, #374151)',
+        boxShadow: 'light-dark(0 4px 12px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.3))',
         fontFamily: font.family,
-        background: 'linear-gradient(170deg, #f0f1f3 0%, #e8e9ec 40%, #e3e4e7 100%)',
+        background:
+          'light-dark(linear-gradient(170deg, #f0f1f3 0%, #e8e9ec 40%, #e3e4e7 100%), linear-gradient(170deg, #1f2937 0%, #1a2332 40%, #161d2a 100%))',
       }}
     >
       {/* Header */}
@@ -118,36 +124,34 @@ export function StaticChatDemo({ font }: { font: TegakiBundle }) {
           textTransform: 'uppercase',
           fontSize: 11,
           letterSpacing: '0.25em',
-          color: '#6b6e78',
-          borderBottom: '1px solid #c5c7cc',
-          background: 'linear-gradient(180deg, #ececef 0%, #e7e8eb 100%)',
+          color: 'light-dark(#6b6e78, #9ca3af)',
+          borderBottom: '1px solid light-dark(#c5c7cc, #374151)',
+          background: 'light-dark(linear-gradient(180deg, #ececef 0%, #e7e8eb 100%), linear-gradient(180deg, #1f2937 0%, #1a2332 100%))',
           position: 'relative',
         }}
       >
         Magic note
-        {finished && (
-          <button
-            type="button"
-            onClick={restart}
-            style={{
-              position: 'absolute',
-              right: 16,
-              background: 'none',
-              border: 'none',
-              color: '#6b6e78',
-              cursor: 'pointer',
-              fontSize: 11,
-              letterSpacing: '0.15em',
-              textTransform: 'uppercase',
-              padding: '2px 8px',
-              borderRadius: 4,
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#2a2d38')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#6b6e78')}
-          >
-            Replay
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={restart}
+          style={{
+            position: 'absolute',
+            right: 16,
+            background: 'none',
+            border: 'none',
+            color: 'light-dark(#6b6e78, #9ca3af)',
+            cursor: 'pointer',
+            fontSize: 11,
+            letterSpacing: '0.15em',
+            textTransform: 'uppercase',
+            padding: '2px 8px',
+            borderRadius: 4,
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'light-dark(#2a2d38, #e5e7eb)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'light-dark(#6b6e78, #9ca3af)')}
+        >
+          Replay
+        </button>
       </div>
 
       {/* Messages */}
@@ -165,7 +169,7 @@ export function StaticChatDemo({ font }: { font: TegakiBundle }) {
         }}
       >
         {visibleMessages.length === 0 && (
-          <p style={{ textAlign: 'center', marginTop: 48, fontSize: 14, fontStyle: 'italic', color: '#9a9ca5' }}>
+          <p style={{ textAlign: 'center', marginTop: '0.5lh', fontSize: 14, fontStyle: 'italic', color: 'light-dark(#9a9ca5, #6b7280)' }}>
             Dip your pen and begin writing...
           </p>
         )}
@@ -177,36 +181,33 @@ export function StaticChatDemo({ font }: { font: TegakiBundle }) {
               style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
             >
               {msg.role === 'assistant' ? (
-                <StreamingTegaki
-                  font={font}
-                  text={msg.content}
-                  style={{
-                    maxWidth: '75%',
-                    fontSize: 16,
-                    lineHeight: 'inherit',
-                    color: '#151820',
-                    background: 'linear-gradient(135deg, rgba(252,252,254,0.60) 0%, rgba(245,245,248,0.40) 100%)',
-                    borderLeft: '2px solid rgba(80, 82, 95, 0.2)',
-                    borderRadius: 2,
-                    padding: '0.5lh 1.25rem',
-                  }}
-                />
-              ) : (
                 <div
                   style={{
                     maxWidth: '75%',
-                    fontSize: 16,
-                    lineHeight: 'inherit',
-                    whiteSpace: 'pre-wrap',
-                    fontStyle: 'italic',
-                    color: '#1e2030',
-                    background: 'linear-gradient(135deg, rgba(228, 229, 234, 0.60) 0%, rgba(222, 223, 228, 0.40) 100%)',
-                    borderRight: '2px solid rgba(80, 82, 95, 0.2)',
+                    color: 'light-dark(#151820, #e5e7eb)',
+                    background:
+                      'light-dark(linear-gradient(135deg, rgba(252,252,254,0.60) 0%, rgba(245,245,248,0.40) 100%), linear-gradient(135deg, rgba(40,45,55,0.60) 0%, rgba(35,40,50,0.40) 100%))',
+                    borderLeft: '2px solid light-dark(rgba(80, 82, 95, 0.2), rgba(200, 205, 215, 0.2))',
                     borderRadius: 2,
                     padding: '0.5lh 1.25rem',
                   }}
                 >
-                  {msg.content}
+                  <StreamingTegaki font={font} text={msg.content} style={{ fontSize: 16, lineHeight: 'inherit' }} />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    maxWidth: '75%',
+                    fontStyle: 'italic',
+                    color: 'light-dark(#1e2030, #d1d5db)',
+                    background:
+                      'light-dark(linear-gradient(135deg, rgba(228, 229, 234, 0.60) 0%, rgba(222, 223, 228, 0.40) 100%), linear-gradient(135deg, rgba(30,35,45,0.60) 0%, rgba(25,30,40,0.40) 100%))',
+                    borderRight: '2px solid light-dark(rgba(80, 82, 95, 0.2), rgba(200, 205, 215, 0.2))',
+                    borderRadius: 2,
+                    padding: '0.5lh 1.25rem',
+                  }}
+                >
+                  <StreamingTegaki font={font} text={msg.content} speed={USER_SPEED} style={{ fontSize: 16, lineHeight: 'inherit' }} />
                 </div>
               )}
             </div>
@@ -218,8 +219,8 @@ export function StaticChatDemo({ font }: { font: TegakiBundle }) {
       <div
         style={{
           padding: '12px 24px',
-          borderTop: '1px solid #c5c7cc',
-          background: 'linear-gradient(0deg, #e7e8eb 0%, #ececef 100%)',
+          borderTop: '1px solid light-dark(#c5c7cc, #374151)',
+          background: 'light-dark(linear-gradient(0deg, #e7e8eb 0%, #ececef 100%), linear-gradient(0deg, #1a2332 0%, #1f2937 100%))',
         }}
       >
         <div
@@ -229,9 +230,9 @@ export function StaticChatDemo({ font }: { font: TegakiBundle }) {
             padding: '10px 16px',
             fontSize: 14,
             fontStyle: 'italic',
-            color: '#9a9ca5',
-            background: 'rgba(252, 252, 253, 0.85)',
-            boxShadow: '1px 2px 6px rgba(80, 82, 90, 0.1)',
+            color: 'light-dark(#9a9ca5, #6b7280)',
+            background: 'light-dark(rgba(252, 252, 253, 0.85), rgba(30, 35, 45, 0.85))',
+            boxShadow: 'light-dark(1px 2px 6px rgba(80, 82, 90, 0.1), 1px 2px 6px rgba(0, 0, 0, 0.3))',
           }}
         >
           Ask something...

@@ -31,31 +31,7 @@ Each glyph goes through these stages:
 
 ## Output format
 
-The generator outputs a JSON file containing font metrics and per-glyph stroke data:
-
-```json
-{
-  "font": {
-    "family": "Caveat",
-    "unitsPerEm": 1000,
-    "ascender": 960,
-    "descender": -300
-  },
-  "glyphs": {
-    "A": {
-      "advanceWidth": 502,
-      "strokes": [
-        {
-          "points": [{ "x": 100, "y": 200, "t": 0, "width": 45.2 }],
-          "order": 0
-        }
-      ]
-    }
-  }
-}
-```
-
-Each stroke point includes: `x`, `y` (font units), `t` (0-1 animation progress), and `width` (stroke diameter).
+The generator outputs a compressed format with short keys to minimize bundle size. Per-glyph data includes `w` (advance width), `t` (total animation duration), and `s` (strokes). Each stroke has `p` (points as `[x, y, width]` tuples), `d` (delay), and `a` (animation duration). See the `TegakiGlyphData` type for full details.
 
 ## Interactive generator
 

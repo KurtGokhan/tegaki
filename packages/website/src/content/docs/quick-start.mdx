@@ -7,19 +7,23 @@ import { Steps, Code } from '@astrojs/starlight/components';
 
 <Steps>
 
-1. **Generate font data**
+1. **Pick a font bundle**
 
-   Use the [interactive generator](/generator/) to create stroke data for any Google Font. Configure options, then download the output bundle.
-
-2. **Import the bundle**
-
-   Add the downloaded bundle to your project and import it:
+   Use one of the built-in font bundles:
 
    ```tsx
-   import bundle from './output/caveat/bundle';
+   import bundle from 'tegaki/fonts/caveat';
    ```
 
-3. **Render the animation**
+   Built-in fonts: `caveat`, `italianno`, `tangerine`, `parisienne`.
+
+   Want a different font? Use the [interactive generator](/tegaki/generator/) to create stroke data for any Google Font, then import the downloaded bundle instead:
+
+   ```tsx
+   import bundle from './output/my-font/bundle';
+   ```
+
+2. **Render the animation**
 
    Use the `TegakiRenderer` component:
 
