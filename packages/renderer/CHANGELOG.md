@@ -1,5 +1,11 @@
 # tegaki
 
+## 0.5.0
+
+### Minor Changes
+
+- [`dc581bf`](https://github.com/KurtGokhan/tegaki/commit/dc581bf2e68324ba810c01aea3b7d5c646462a42) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Fix font bundle types and make sure they are assignable to the expected type.
+
 ## 0.4.0
 
 ### Minor Changes

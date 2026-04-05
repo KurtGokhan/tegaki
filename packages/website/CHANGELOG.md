@@ -1,5 +1,13 @@
 # @tegaki/website
 
+## 0.5.0
+
+### Patch Changes
+
+- Updated dependencies [[`dc581bf`](https://github.com/KurtGokhan/tegaki/commit/dc581bf2e68324ba810c01aea3b7d5c646462a42)]:
+  - tegaki@0.5.0
+  - tegaki-generator@0.5.0
+
 ## 0.4.0
 
 ### Patch Changes
