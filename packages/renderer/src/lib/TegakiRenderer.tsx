@@ -511,49 +511,51 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
         },
       }}
     >
-      {/* Sentinel: inherits font-size & line-height; its height changes when either changes */}
-      <span
-        ref={sentinelRef}
-        aria-hidden
-        style={{
-          position: 'absolute',
-          width: 0,
-          overflow: 'hidden',
-          pointerEvents: 'none',
-          fontSize: 'inherit',
-          lineHeight: 'inherit',
-          visibility: 'hidden',
-          transition: isCss
-            ? `font-size 0.001s, line-height 0.001s, color 0.001s, ${CSS_PROGRESS} 0.001s`
-            : 'font-size 0.001s, line-height 0.001s, color 0.001s',
-        }}
-      >
-        {'\u00A0'}
-      </span>
-      <canvas
-        ref={canvasRef}
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: `${-padV}px ${-padH}px`,
-          width: `calc(100% + ${padH * 2}px)`,
-          height: `calc(100% + ${padV * 2}px)`,
-          pointerEvents: 'none',
-        }}
-      />
+      <div style={{ position: 'relative' }}>
+        {/* Sentinel: inherits font-size & line-height; its height changes when either changes */}
+        <span
+          ref={sentinelRef}
+          aria-hidden
+          style={{
+            position: 'absolute',
+            width: 0,
+            overflow: 'hidden',
+            pointerEvents: 'none',
+            fontSize: 'inherit',
+            lineHeight: 'inherit',
+            visibility: 'hidden',
+            transition: isCss
+              ? `font-size 0.001s, line-height 0.001s, color 0.001s, ${CSS_PROGRESS} 0.001s`
+              : 'font-size 0.001s, line-height 0.001s, color 0.001s',
+          }}
+        >
+          {'\u00A0'}
+        </span>
+        <canvas
+          ref={canvasRef}
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: `${-padV}px ${-padH}px`,
+            width: `calc(100% + ${padH * 2}px)`,
+            height: `calc(100% + ${padV * 2}px)`,
+            pointerEvents: 'none',
+          }}
+        />
 
-      <div
-        style={{
-          userSelect: 'auto',
-          whiteSpace: 'pre-wrap',
-          overflowWrap: 'break-word',
-          paddingRight: 1,
-          WebkitTextFillColor: showOverlay ? undefined : 'transparent',
-          fontFamily,
-          color: showOverlay ? 'rgba(255, 0, 0, 0.4)' : undefined,
-        }}
-      >
-        {resolvedText}
+        <div
+          style={{
+            userSelect: 'auto',
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'break-word',
+            paddingRight: 1,
+            WebkitTextFillColor: showOverlay ? undefined : 'transparent',
+            fontFamily,
+            color: showOverlay ? 'rgba(255, 0, 0, 0.4)' : undefined,
+          }}
+        >
+          {resolvedText}
+        </div>
       </div>
     </div>
   );

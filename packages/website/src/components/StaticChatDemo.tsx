@@ -181,9 +181,13 @@ export function StaticChatDemo({ font }: { font: TegakiBundle }) {
               style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
             >
               {msg.role === 'assistant' ? (
-                <div
+                <StreamingTegaki
+                  font={font}
+                  text={msg.content}
                   style={{
                     maxWidth: '75%',
+                    fontSize: 16,
+                    lineHeight: 'inherit',
                     color: 'light-dark(#151820, #e5e7eb)',
                     background:
                       'light-dark(linear-gradient(135deg, rgba(252,252,254,0.60) 0%, rgba(245,245,248,0.40) 100%), linear-gradient(135deg, rgba(40,45,55,0.60) 0%, rgba(35,40,50,0.40) 100%))',
@@ -191,13 +195,16 @@ export function StaticChatDemo({ font }: { font: TegakiBundle }) {
                     borderRadius: 2,
                     padding: '0.5lh 1.25rem',
                   }}
-                >
-                  <StreamingTegaki font={font} text={msg.content} style={{ fontSize: 16, lineHeight: 'inherit' }} />
-                </div>
+                />
               ) : (
-                <div
+                <StreamingTegaki
+                  font={font}
+                  text={msg.content}
+                  speed={USER_SPEED}
                   style={{
                     maxWidth: '75%',
+                    fontSize: 16,
+                    lineHeight: 'inherit',
                     fontStyle: 'italic',
                     color: 'light-dark(#1e2030, #d1d5db)',
                     background:
@@ -206,9 +213,7 @@ export function StaticChatDemo({ font }: { font: TegakiBundle }) {
                     borderRadius: 2,
                     padding: '0.5lh 1.25rem',
                   }}
-                >
-                  <StreamingTegaki font={font} text={msg.content} speed={USER_SPEED} style={{ fontSize: 16, lineHeight: 'inherit' }} />
-                </div>
+                />
               )}
             </div>
           ))}
