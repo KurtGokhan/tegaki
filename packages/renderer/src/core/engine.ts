@@ -66,7 +66,8 @@ export type TimeControlProp = null | undefined | number | 'css' | TimeControlMod
 
 export interface TegakiEngineOptions {
   text?: string;
-  font?: TegakiBundle;
+  /** A font bundle, or a registered bundle name (see {@link TegakiEngine.registerBundle}). */
+  font?: TegakiBundle | string;
   time?: TimeControlProp;
   effects?: TegakiEffects<Record<string, any>>;
   timing?: TimelineConfig;
@@ -85,11 +86,12 @@ const PAD_V_CSS = 'max(0.2em, 0.9em - 0.5lh)';
 
 function buildElements<T>(options: TegakiEngineOptions, h: CreateElementFn<T>): T {
   const text = options.text ?? '';
-  const fontFamily = options.font?.family;
+  const font = resolveBundle(options.font);
+  const fontFamily = font?.family;
   const isCss = options.time === 'css' || (typeof options.time === 'object' && options.time?.mode === 'css');
   const showOverlay = options.showOverlay;
 
-  const duration = text && options.font ? computeTimeline(text, options.font, options.timing).totalDuration : 0;
+  const duration = text && font ? computeTimeline(text, font, options.timing).totalDuration : 0;
   const time =
     typeof options.time === 'number'
       ? options.time
@@ -224,7 +226,29 @@ function resolveTimeControl(prop: TimeControlProp): TimeControlMode[keyof TimeCo
 // TegakiEngine
 // ---------------------------------------------------------------------------
 
+function resolveBundle(font: TegakiBundle | string | undefined): TegakiBundle | undefined {
+  if (typeof font === 'string') {
+    const bundle = TegakiEngine.getBundle(font);
+    if (!bundle) throw new Error(`TegakiEngine: no bundle registered for "${font}". Call TegakiEngine.registerBundle() first.`);
+    return bundle;
+  }
+  return font;
+}
+
 export class TegakiEngine {
+  // --- Bundle registry ---
+  private static _bundles = new Map<string, TegakiBundle>();
+
+  /** Register a font bundle so it can be referenced by family name. */
+  static registerBundle(bundle: TegakiBundle): void {
+    TegakiEngine._bundles.set(bundle.family, bundle);
+  }
+
+  /** Look up a registered bundle by family name. */
+  static getBundle(family: string): TegakiBundle | undefined {
+    return TegakiEngine._bundles.get(family);
+  }
+
   // --- DOM elements ---
   private _rootEl: HTMLDivElement;
   private _sentinelEl: HTMLSpanElement;
@@ -396,11 +420,14 @@ export class TegakiEngine {
       dirtyLayout = true;
     }
 
-    if ('font' in options && options.font !== this._font) {
-      this._loadFont(options.font ?? null);
-      dirtyTimeline = true;
-      dirtyLayout = true;
-      dirtyPlayback = true;
+    if ('font' in options) {
+      const resolved = resolveBundle(options.font) ?? null;
+      if (resolved !== this._font) {
+        this._loadFont(resolved);
+        dirtyTimeline = true;
+        dirtyLayout = true;
+        dirtyPlayback = true;
+      }
     }
 
     if ('time' in options) {

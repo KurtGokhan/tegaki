@@ -1,16 +1,32 @@
 ---
 import { TegakiEngine, type TegakiEngineOptions } from '../core/index.ts';
+import type { TegakiBundle } from '../types.ts';
 
 interface Props extends Omit<TegakiEngineOptions, 'onComplete'> {
+  /** When true, registers the font bundle for client-side lookup by name. If no text is provided, renders nothing else. */
+  bundle?: boolean;
+  /** When true, injects an @font-face rule so the browser starts loading the font immediately. */
+  loadFont?: boolean;
   class?: string;
   [key: string]: any;
 }
 
-const { text, font, time, effects, timing, segmentSize, showOverlay, class: className, ...attrs } = Astro.props;
+const { text, font, bundle: registerBundle, loadFont, time, effects, timing, segmentSize, showOverlay, class: className, ...attrs } = Astro.props;
+
+// Resolve the font bundle for SSR
+let resolvedFont: TegakiBundle | undefined;
+if (typeof font === 'string') {
+  resolvedFont = TegakiEngine.getBundle(font);
+} else if (font) {
+  resolvedFont = font;
+  TegakiEngine.registerBundle(font);
+}
+
+const shouldRender = !!text || !(registerBundle || loadFont);
 
 const engineOptions: Omit<TegakiEngineOptions, 'onComplete'> = {
   text,
-  font,
+  font: resolvedFont,
   time,
   effects: effects as Record<string, any>,
   timing,
@@ -55,20 +71,56 @@ function htmlCreateElement(tag: string, props: Record<string, any>, ...children:
   return `${open}${content}</${tag}>`;
 }
 
-const innerHtml = TegakiEngine.renderElements(engineOptions, htmlCreateElement);
+const innerHtml = shouldRender ? TegakiEngine.renderElements(engineOptions, htmlCreateElement) : '';
+
+// For serialization, replace the full bundle with just the family name.
+const clientOptions = {
+  ...engineOptions,
+  font: resolvedFont?.family,
+};
 ---
 
-<div class={className} {...attrs} data-tegaki-container set:html={innerHtml} />
-<script is:inline type="application/json" data-tegaki-options set:html={JSON.stringify(engineOptions)} />
+{loadFont && resolvedFont?.fontFaceCSS && (
+  <style is:inline set:html={resolvedFont.fontFaceCSS} />
+)}
+
+{registerBundle && resolvedFont && (
+  <script is:inline type="application/json" data-tegaki-bundle set:html={JSON.stringify(resolvedFont)} />
+)}
+
+{shouldRender && (
+  <div class={className} {...attrs} data-tegaki-options={JSON.stringify(clientOptions)} set:html={innerHtml} />
+)}
 
 <script>
   import { TegakiEngine } from 'tegaki/core';
 
-  document.querySelectorAll<HTMLElement>('[data-tegaki-container]').forEach((container) => {
-    const optionsEl = container.nextElementSibling as HTMLScriptElement | null;
-    const options = optionsEl?.dataset.tegakiOptions != null ? JSON.parse(optionsEl.textContent || '{}') : {};
+  function hydrateBundle(el: Element) {
+    TegakiEngine.registerBundle(JSON.parse(el.textContent || '{}'));
+  }
 
+  function hydrateContainer(container: HTMLElement) {
+    if (container.dataset.tegakiHydrated) return;
+    container.dataset.tegakiHydrated = '';
+    const options = JSON.parse(container.dataset.tegakiOptions || '{}');
     const engine = new TegakiEngine(container, { adopt: true, ...options });
     container.dispatchEvent(new CustomEvent('tegaki:ready', { detail: { engine }, bubbles: true }));
-  });
+  }
+
+  // Hydrate existing elements
+  document.querySelectorAll<HTMLScriptElement>('[data-tegaki-bundle]').forEach(hydrateBundle);
+  document.querySelectorAll<HTMLElement>('[data-tegaki-options]').forEach(hydrateContainer);
+
+  // Watch for dynamically added elements (View Transitions, client-side routing, etc.)
+  new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (!(node instanceof HTMLElement)) continue;
+        if (node.matches('[data-tegaki-bundle]')) hydrateBundle(node);
+        if (node.matches('[data-tegaki-options]')) hydrateContainer(node);
+        node.querySelectorAll<HTMLScriptElement>('[data-tegaki-bundle]').forEach(hydrateBundle);
+        node.querySelectorAll<HTMLElement>('[data-tegaki-options]').forEach(hydrateContainer);
+      }
+    }
+  }).observe(document.body, { childList: true, subtree: true });
 </script>
