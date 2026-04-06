@@ -5,7 +5,7 @@
 <h3 align="center">Handwriting animation for any font</h3>
 
 <p align="center">
-  Tegaki (手書き) generates stroke data from fonts and renders animated handwriting in React.<br />
+  Tegaki (手書き) turns any Google Font into animated handwriting.<br />
   No manual path authoring. No native dependencies. Just pick a font.
 </p>
 
@@ -14,45 +14,21 @@
   <a href="https://github.com/KurtGokhan/tegaki/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/tegaki" alt="license" /></a>
 </p>
 
+<p align="center">
+  <img src="media/hello-world.svg" alt="Hello World handwriting animation" width="500" />
+</p>
+
 ---
 
-## How it works
+## Quick Start
 
-**1. Generate** a font bundle from any Google Font using the [Tegaki website](https://tegaki.js.org/generator/):
-
-Each glyph is run through a processing pipeline — flatten bezier curves, rasterize, skeletonize via Zhang-Suen thinning, trace polylines, compute stroke widths via distance transform, determine stroke order — and the result is a set of animated SVGs with timing data.
-
-**2. Render** the animated text in React:
-
-```tsx
-import { TegakiRenderer } from 'tegaki';
-import font from './output/caveat/bundle.ts';
-
-function App() {
-  return (
-    <TegakiRenderer font={font} style={{ fontSize: '48px' }}>
-      Hello World
-    </TegakiRenderer>
-  );
-}
-```
-
-The text draws itself stroke by stroke, with accurate widths and natural timing.
-
-## Install
+**1. Install**
 
 ```bash
 npm install tegaki
 ```
 
-## Built-in fonts
-
-Tegaki ships with pre-generated bundles for four Google Fonts, ready to use without running the generator:
-
-- **Caveat** — `tegaki/fonts/caveat`
-- **Italianno** — `tegaki/fonts/italianno`
-- **Tangerine** — `tegaki/fonts/tangerine`
-- **Parisienne** — `tegaki/fonts/parisienne`
+**2. Use** (React example)
 
 ```tsx
 import { TegakiRenderer } from 'tegaki';
@@ -67,151 +43,48 @@ function App() {
 }
 ```
 
-These bundles include all printable ASCII characters (letters, digits, punctuation). For other fonts, use the [generator on the Tegaki website](https://tegaki.js.org/generator/).
+That's it. The text draws itself stroke by stroke with natural timing.
 
-All bundled fonts are licensed under the [SIL Open Font License](https://openfontlicense.org/). See [FONTS-LICENSE.md](packages/renderer/FONTS-LICENSE.md) for full attribution.
+## Framework Support
 
-## `<TegakiRenderer>` props
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `font` | `TegakiBundle` | — | Font bundle with animated glyph SVGs |
-| `text` | `string` | — | Text to animate (or pass as `children`) |
-| `children` | `string \| number` | — | Text content, coerced to string |
-| `time` | `TimeControlProp` | — | Time control mode (see below) |
-| `onComplete` | `() => void` | — | Called when animation reaches the end |
-| `mode` | `'svg' \| 'canvas'` | `'svg'` | Rendering mode |
-| `showOverlay` | `boolean` | `false` | Show debug text overlay |
-
-Plus all standard `<div>` props (`className`, `style`, etc.).
-
-### Time control modes
-
-The `time` prop accepts three modes via a discriminated union:
-
-| Value | Mode | Description |
-|-------|------|-------------|
-| *omitted* | Uncontrolled | Auto-plays with default settings |
-| `number` | Controlled | Shorthand for `{ mode: 'controlled', value: n }` |
-| `'css'` | CSS | Shorthand for `{ mode: 'css' }` |
-| `{ mode: 'controlled', value }` | Controlled | You drive the time directly |
-| `{ mode: 'uncontrolled', ... }` | Uncontrolled | Component manages playback |
-| `{ mode: 'css' }` | CSS | Driven by `--tegaki-progress` CSS property |
-
-#### Uncontrolled
-
-The component manages its own playback — auto-plays on mount, responds to `speed`, `playing`, and `loop`.
+Tegaki works with all major frameworks:
 
 ```tsx
-// Default: auto-play at 1x
-<TegakiRenderer font={font}>Hello</TegakiRenderer>
-
-// With options
-<TegakiRenderer font={font} time={{ mode: 'uncontrolled', speed: 2, loop: true }}>
-  Hello
-</TegakiRenderer>
+import { TegakiRenderer } from 'tegaki/react';   // React
+import { TegakiRenderer } from 'tegaki/svelte';  // Svelte
+import { TegakiRenderer } from 'tegaki/vue';     // Vue
+import { TegakiRenderer } from 'tegaki/solid';   // SolidJS
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `initialTime` | `number` | `0` | Starting time in seconds |
-| `speed` | `number` | `1` | Playback speed multiplier |
-| `playing` | `boolean` | `true` | Whether animation is playing |
-| `loop` | `boolean` | `false` | Restart when animation ends |
-| `onTimeChange` | `(time: number) => void` | — | Called each frame with current time |
-
-#### Controlled
-
-You provide the exact time. Useful for syncing with a slider, streaming text, or external state.
-
-```tsx
-<TegakiRenderer font={font} time={currentTime}>Hello</TegakiRenderer>
+```astro
+---
+import TegakiRenderer from 'tegaki/astro';       // Astro
+---
 ```
-
-#### CSS
-
-Animation progress is driven by the `--tegaki-progress` CSS custom property (0–1). This enables pure-CSS control via animations, transitions, or scroll-timeline — no JS bridge needed.
-
-```tsx
-<TegakiRenderer font={font} time="css" style={...}>Hello</TegakiRenderer>
-```
-
-```css
-/* Example: scroll-driven animation */
-.scroll-container {
-  overflow-x: scroll;
-  scroll-timeline: --tegaki inline;
-}
-
-.tegaki-wrapper {
-  animation: tegaki-reveal linear both;
-  animation-timeline: --tegaki;
-}
-
-@keyframes tegaki-reveal {
-  from { --tegaki-progress: 0; }
-  to   { --tegaki-progress: 1; }
-}
-```
-
-### CSS custom properties
-
-The component exposes these CSS custom properties on its root element in all modes:
-
-| Property | Direction | Description |
-|----------|-----------|-------------|
-| `--tegaki-duration` | Output | Total animation length in seconds |
-| `--tegaki-time` | Output | Current time in seconds |
-| `--tegaki-progress` | Input (CSS mode) / Output | Current progress (0–1) |
-
-All three are registered via `CSS.registerProperty` as `<number>` with `inherits: true`, making them animatable and transitionable.
-
-### `computeTimeline(text, font)`
-
-Returns timing info for a string without rendering anything:
 
 ```ts
-import { computeTimeline } from 'tegaki';
-
-const { entries, totalDuration } = computeTimeline('Hello', font);
-// totalDuration: 2.45 (seconds)
-// entries: [{ char: 'H', offset: 0, duration: 0.52, hasSvg: true }, ...]
+import { TegakiEngine } from 'tegaki/core';      // Vanilla JS
 ```
 
-## Generating font bundles
+## Built-in Fonts
 
-Use the [interactive generator on the Tegaki website](https://tegaki.js.org/generator/) to create font bundles from any Google Font. The generator lets you customize options like resolution, character set, and skeletonization algorithm, then download the output bundle to use in your app.
+Four handwriting fonts are bundled and ready to use:
 
-## Pipeline
+- **Caveat** — `tegaki/fonts/caveat`
+- **Italianno** — `tegaki/fonts/italianno`
+- **Tangerine** — `tegaki/fonts/tangerine`
+- **Parisienne** — `tegaki/fonts/parisienne`
 
-The entire processing pipeline is pure TypeScript — no canvas, no native image libraries, no Python. It runs identically in Node/Bun and in the browser.
+For other Google Fonts, use the [interactive generator](https://gkurt.com/tegaki/generator/) to create a custom bundle.
 
-```
-Font file
-  → Flatten bezier curves to polylines
-  → Rasterize to binary bitmap (scanline fill, nonzero winding)
-  → Skeletonize to 1px-wide skeleton (Zhang-Suen thinning)
-  → Trace skeleton into polylines (spur pruning + RDP simplification)
-  → Compute stroke width at each point (distance transform)
-  → Order strokes top-to-bottom, left-to-right
-  → Generate animated SVG with per-stroke timing
-```
+## Documentation
 
-## Packages
+Visit **[gkurt.com/tegaki](https://gkurt.com/tegaki)** for full documentation:
 
-| Package | npm | Description |
-|---------|-----|-------------|
-| [`tegaki`](packages/renderer) | [![npm](https://img.shields.io/npm/v/tegaki)](https://www.npmjs.com/package/tegaki) | React component for animated handwriting |
-| [`@tegaki/website`](packages/website) | — | Website with interactive generator and preview |
-
-## Contributing
-
-```bash
-bun install          # Install dependencies
-bun dev              # Start dev server (website)
-bun start            # Run the CLI (generator)
-bun checks           # Lint + typecheck + tests
-```
+- [Getting Started](https://gkurt.com/tegaki/docs/getting-started/)
+- [Framework Guides](https://gkurt.com/tegaki/docs/frameworks/react/) (React, Svelte, Vue, SolidJS, Astro, Vanilla)
+- [Generating Fonts](https://gkurt.com/tegaki/docs/guides/generating-fonts/)
+- [API Reference](https://gkurt.com/tegaki/docs/api/tegaki-renderer/)
 
 ## License
 
