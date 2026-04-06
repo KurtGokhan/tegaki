@@ -81,10 +81,10 @@ For other Google Fonts, use the [interactive generator](https://gkurt.com/tegaki
 
 Visit **[gkurt.com/tegaki](https://gkurt.com/tegaki)** for full documentation:
 
-- [Getting Started](https://gkurt.com/tegaki/docs/getting-started/)
-- [Framework Guides](https://gkurt.com/tegaki/docs/frameworks/react/) (React, Svelte, Vue, SolidJS, Astro, Vanilla)
-- [Generating Fonts](https://gkurt.com/tegaki/docs/guides/generating-fonts/)
-- [API Reference](https://gkurt.com/tegaki/docs/api/tegaki-renderer/)
+- [Getting Started](https://gkurt.com/tegaki/getting-started/)
+- [Framework Guides](https://gkurt.com/tegaki/frameworks/react/) (React, Svelte, Vue, SolidJS, Astro, Vanilla)
+- [Generating Fonts](https://gkurt.com/tegaki/guides/generating-fonts/)
+- [API Reference](https://gkurt.com/tegaki/api/tegaki-renderer/)
 
 ## License
 

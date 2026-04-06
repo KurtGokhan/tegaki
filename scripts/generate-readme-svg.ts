@@ -3,7 +3,7 @@
  * Uses CSS animations (not SMIL) for GitHub compatibility.
  * Usage: bun scripts/generate-readme-svg.ts
  */
-import glyphData from '../packages/renderer/fonts/caveat/glyphData.json' with { type: 'json' };
+import glyphData from '../packages/renderer/fonts/tangerine/glyphData.json' with { type: 'json' };
 
 const text = 'Hello World';
 const ascender = 960;
@@ -67,14 +67,29 @@ for (const char of text) {
   cursorX += glyph.w + charGap;
 }
 
-const totalWidth = cursorX - charGap;
 const totalDuration = globalTime + 1.5; // add hold time at the end
 const cycleDuration = totalDuration + 1.0; // add pause before loop
 
-const vx = -40;
-const vy = -ascender - 40;
-const vw = totalWidth + 80;
-const vh = emHeight + 80;
+// Compute actual bounding box from stroke points + their widths
+let minX = Infinity;
+let minY = Infinity;
+let maxX = -Infinity;
+let maxY = -Infinity;
+for (const stroke of allStrokes) {
+  for (const p of stroke.points) {
+    const halfW = p.width / 2;
+    minX = Math.min(minX, p.x - halfW);
+    minY = Math.min(minY, p.y - halfW);
+    maxX = Math.max(maxX, p.x + halfW);
+    maxY = Math.max(maxY, p.y + halfW);
+  }
+}
+
+const pad = 20;
+const vx = minX - pad;
+const vy = minY - pad;
+const vw = maxX - minX + pad * 2;
+const vh = maxY - minY + pad * 2;
 
 // Build CSS keyframes for each stroke
 const styles: string[] = [];
