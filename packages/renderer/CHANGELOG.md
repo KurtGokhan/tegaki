@@ -1,5 +1,11 @@
 # tegaki
 
+## 0.6.0
+
+### Minor Changes
+
+- [`9288227`](https://github.com/KurtGokhan/tegaki/commit/9288227945a7623158990744809dc7d711536a7a) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Tegaki is framework agnostic now
+
 ## 0.5.0
 
 ### Minor Changes
