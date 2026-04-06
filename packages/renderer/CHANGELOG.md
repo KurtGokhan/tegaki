@@ -1,5 +1,11 @@
 # tegaki
 
+## 0.7.0
+
+### Minor Changes
+
+- [`be540e1`](https://github.com/KurtGokhan/tegaki/commit/be540e13d47804b2068ee111f0297ef4809d6550) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Remove extra wrapper div from TegakiRenderer DOM output. The engine now uses the adapter's container element directly as its root (`data-tegaki="root"`), eliminating a redundant nested div. This fixes CSS-controlled animations where styles applied to the `<TegakiRenderer>` component (like `animation-timeline`) weren't reaching the engine's root element. `renderElements` now returns `{ rootProps, content }` instead of a single element tree.
+
 ## 0.6.0
 
 ### Minor Changes
