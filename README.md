@@ -1,18 +1,20 @@
-<p align="center">
-  <img src="media/tegaki-card.png" alt="Tegaki" width="640" />
-</p>
-
-<h3 align="center">Handwriting animation for any font</h3>
-
-<p align="center">
-  Tegaki (手書き) turns any Google Font into animated handwriting.<br />
-  No manual path authoring. No native dependencies. Just pick a font.
-</p>
-
-<p align="center">
-  <a href="https://www.npmjs.com/package/tegaki"><img src="https://img.shields.io/npm/v/tegaki" alt="npm" /></a>
-  <a href="https://github.com/KurtGokhan/tegaki/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/tegaki" alt="license" /></a>
-</p>
+<table>
+  <tr>
+    <td width="80%">
+      <h1>Tegaki</h1>
+      <p>Handwriting animation for any font</p>
+      <p>
+        Tegaki (手書き) turns any Google Font into animated handwriting.<br />
+        No manual path authoring. No native dependencies. Just pick a font.
+      </p>
+      <p>
+        <a href="https://www.npmjs.com/package/tegaki"><img src="https://img.shields.io/npm/v/tegaki" alt="npm" /></a>
+        <a href="https://github.com/KurtGokhan/tegaki/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/tegaki" alt="license" /></a>
+      </p>
+    </td>
+    <td valign="top" align="right"><img src="media/tegaki.svg" alt="Tegaki" width="128" /></td>
+  </tr>
+</table>
 
 <p align="center">
   <img src="media/hello-world.svg" alt="Hello World handwriting animation" width="500" />
