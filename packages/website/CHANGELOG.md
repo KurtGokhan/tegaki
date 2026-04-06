@@ -1,5 +1,13 @@
 # @tegaki/website
 
+## 0.8.0
+
+### Patch Changes
+
+- Updated dependencies [[`4068d1c`](https://github.com/KurtGokhan/tegaki/commit/4068d1c74413e302b73375897aa9377c215a087a), [`b0dabe4`](https://github.com/KurtGokhan/tegaki/commit/b0dabe4ede42564ca2fadf68a3db23a94c55d163)]:
+  - tegaki@0.8.0
+  - tegaki-generator@0.8.0
+
 ## 0.7.0
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # tegaki
 
+## 0.8.0
+
+### Minor Changes
+
+- [`b0dabe4`](https://github.com/KurtGokhan/tegaki/commit/b0dabe4ede42564ca2fadf68a3db23a94c55d163) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add Web Components adapter (`tegaki/wc`) with `<tegaki-renderer>` custom element and docs page.
+
+### Patch Changes
+
+- [`4068d1c`](https://github.com/KurtGokhan/tegaki/commit/4068d1c74413e302b73375897aa9377c215a087a) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Fix user-provided inline styles being overridden by engine root styles in Astro, Svelte, and Solid adapters.
+
 ## 0.7.0
 
 ### Minor Changes
