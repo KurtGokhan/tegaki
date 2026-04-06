@@ -2,7 +2,7 @@
   "name": "tegaki",
   "version": "0.5.0",
   "type": "module",
-  "description": "React component for rendering animated handwriting from any font",
+  "description": "Framework-agnostic animated handwriting renderer with React adapter",
   "keywords": [
     "handwriting",
     "animation",
@@ -36,6 +36,19 @@
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
     },
+    "./core": {
+      "tegaki@dev": "./src/core/index.ts",
+      "source": "./src/core/index.ts",
+      "types": "./dist/core/index.d.mts",
+      "import": "./dist/core/index.mjs"
+    },
+    "./react": {
+      "tegaki@dev": "./src/react/index.ts",
+      "source": "./src/react/index.ts",
+      "types": "./dist/react/index.d.mts",
+      "import": "./dist/react/index.mjs"
+    },
+    "./astro": "./src/astro/TegakiRenderer.astro",
     "./fonts/caveat": "./fonts/caveat/bundle.ts",
     "./fonts/italianno": "./fonts/italianno/bundle.ts",
     "./fonts/tangerine": "./fonts/tangerine/bundle.ts",
@@ -52,7 +65,7 @@
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsdown src/index.ts --dts --sourcemap",
+    "build": "tsdown src/index.ts src/core/index.ts src/react/index.ts --dts --sourcemap",
     "prepack": "bun run build && bun ../../scripts/prepareForRelease.ts",
     "generate-fonts": "bun --filter tegaki-generator start generate Caveat --output ../renderer/fonts/caveat && bun --filter tegaki-generator start generate Italianno --output ../renderer/fonts/italianno && bun --filter tegaki-generator start generate Tangerine --output ../renderer/fonts/tangerine && bun --filter tegaki-generator start generate Parisienne --output ../renderer/fonts/parisienne"
   },
@@ -61,6 +74,11 @@
   },
   "peerDependencies": {
     "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/react": "^19.2.14",

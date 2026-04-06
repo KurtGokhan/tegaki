@@ -1,0 +1,74 @@
+---
+import { TegakiEngine, type TegakiEngineOptions } from '../core/index.ts';
+
+interface Props extends Omit<TegakiEngineOptions, 'onComplete'> {
+  class?: string;
+  [key: string]: any;
+}
+
+const { text, font, time, effects, timing, segmentSize, showOverlay, class: className, ...attrs } = Astro.props;
+
+const engineOptions: Omit<TegakiEngineOptions, 'onComplete'> = {
+  text,
+  font,
+  time,
+  effects: effects as Record<string, any>,
+  timing,
+  segmentSize,
+  showOverlay,
+};
+
+function styleToString(style: Record<string, any>): string {
+  return Object.entries(style)
+    .filter(([, v]) => v != null)
+    .map(([k, v]) => {
+      const prop = k.startsWith('--') ? k : k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+      const val = typeof v === 'number' && !k.startsWith('--') ? `${v}px` : String(v);
+      return `${prop}:${val}`;
+    })
+    .join(';');
+}
+
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function htmlCreateElement(tag: string, props: Record<string, any>, ...children: string[]): string {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(props)) {
+    if (value == null || value === false) continue;
+    if (key === 'style' && typeof value === 'object') {
+      const css = styleToString(value);
+      if (css) parts.push(`style="${escapeAttr(css)}"`);
+    } else if (typeof value === 'boolean') {
+      parts.push(key);
+    } else {
+      parts.push(`${key}="${escapeAttr(String(value))}"`);
+    }
+  }
+  const open = parts.length > 0 ? `<${tag} ${parts.join(' ')}>` : `<${tag}>`;
+  const content = children.map((c) => (typeof c === 'string' && !c.startsWith('<') ? escapeHtml(c) : c)).join('');
+  return `${open}${content}</${tag}>`;
+}
+
+const innerHtml = TegakiEngine.renderElements(engineOptions, htmlCreateElement);
+---
+
+<div class={className} {...attrs} data-tegaki-container set:html={innerHtml} />
+<script is:inline type="application/json" data-tegaki-options set:html={JSON.stringify(engineOptions)} />
+
+<script>
+  import { TegakiEngine } from 'tegaki/core';
+
+  document.querySelectorAll<HTMLElement>('[data-tegaki-container]').forEach((container) => {
+    const optionsEl = container.nextElementSibling as HTMLScriptElement | null;
+    const options = optionsEl?.dataset.tegakiOptions != null ? JSON.parse(optionsEl.textContent || '{}') : {};
+
+    const engine = new TegakiEngine(container, { adopt: true, ...options });
+    container.dispatchEvent(new CustomEvent('tegaki:ready', { detail: { engine }, bubbles: true }));
+  });
+</script>
