@@ -1,5 +1,6 @@
 [install]
 linker = "isolated"
+conditions = ["tegaki@dev"]
 
 [test]
 onlyFailures = true
