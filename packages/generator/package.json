@@ -40,7 +40,7 @@
   "scripts": {
     "start": "bun --conditions=tegaki@dev src/cli/index.ts",
     "compile": "bun build --compile --minify --outfile dist src/cli/index.ts",
-    "test": "bun test",
+    "test": "bun --conditions=tegaki@dev test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

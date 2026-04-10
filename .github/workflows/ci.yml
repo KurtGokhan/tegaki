@@ -51,4 +51,4 @@ jobs:
       - run: bun i
       - run: bun check
       - run: bun typecheck
-      - run: bun test
+      - run: bun run test

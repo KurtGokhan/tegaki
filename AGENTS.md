@@ -23,7 +23,7 @@ Monorepo for generating and rendering handwriting animations from Google Fonts.
 ```bash
 bun start          # Run the CLI (generator)
 bun dev            # Watch mode (website)
-bun test           # Run tests (all packages)
+bun run test       # Run tests (all packages)
 bun typecheck      # TypeScript checks (all packages)
 bun check          # Biome lint + format check
 bun fix            # Biome auto-fix

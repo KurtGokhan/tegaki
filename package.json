@@ -10,6 +10,7 @@
   "scripts": {
     "start": "bun --filter tegaki-generator start",
     "dev": "bun --filter @tegaki/website dev",
+    "test": "bun --conditions=tegaki@dev test",
     "build:website": "bun --filter @tegaki/website build",
     "compile": "bun --filter tegaki-generator compile --external ink",
     "typecheck": "tsgo",
@@ -17,7 +18,7 @@
     "format": "biome format",
     "check": "biome check",
     "fix": "biome check --write --unsafe",
-    "checks": "bun check && bun typecheck && bun --conditions=tegaki@dev test",
+    "checks": "bun check && bun typecheck && bun run test",
     "prepare": "husky",
     "changeset": "changeset",
     "changeset:version": "changeset version",
