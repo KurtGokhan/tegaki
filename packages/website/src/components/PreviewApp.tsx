@@ -77,6 +77,7 @@ export function PreviewApp() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const fontInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const fontListFetched = useRef(false);
 
   const filteredFonts = useMemo(() => {
     if (!fontInput.trim()) return [];
@@ -84,18 +85,18 @@ export function PreviewApp() {
     return allFonts.filter((f) => f.family.toLowerCase().includes(query)).slice(0, 12);
   }, [fontInput, allFonts]);
 
-  // Fetch font list from Fontsource for autocomplete
-  useEffect(() => {
-    let cancelled = false;
+  // Fetch font list from Fontsource for autocomplete (lazy, on first interaction)
+  const fetchFontList = useCallback(() => {
+    if (fontListFetched.current) return;
+    fontListFetched.current = true;
     fetch('https://api.fontsource.org/v1/fonts?subsets=latin&type=google')
       .then((r) => r.json())
       .then((data: { family: string; category: string }[]) => {
-        if (!cancelled) setAllFonts(data.map((f) => ({ family: f.family, category: f.category })));
+        setAllFonts(data.map((f) => ({ family: f.family, category: f.category })));
       })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+      .catch(() => {
+        fontListFetched.current = false;
+      });
   }, []);
 
   // Close suggestions when clicking outside
@@ -422,7 +423,10 @@ export function PreviewApp() {
                     setFontInput(e.target.value);
                     setShowSuggestions(true);
                   }}
-                  onFocus={() => fontInput.trim() && setShowSuggestions(true)}
+                  onFocus={() => {
+                    fetchFontList();
+                    if (fontInput.trim()) setShowSuggestions(true);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && fontInput.trim()) {
                       setShowSuggestions(false);
