@@ -17,7 +17,7 @@
     "format": "biome format",
     "check": "biome check",
     "fix": "biome check --write --unsafe",
-    "checks": "bun check && bun typecheck && bun test",
+    "checks": "bun check && bun typecheck && bun --conditions=tegaki@dev test",
     "prepare": "husky",
     "changeset": "changeset",
     "changeset:version": "changeset version",
