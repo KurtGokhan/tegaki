@@ -1,5 +1,15 @@
 # tegaki
 
+## 0.9.0
+
+### Minor Changes
+
+- [#12](https://github.com/KurtGokhan/tegaki/pull/12) [`e43197f`](https://github.com/KurtGokhan/tegaki/commit/e43197f5719368bed5280aa106c8fcb7afe05b4e) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add CDN-friendly font bundles and `createBundle` helper
+
+  - Built font bundles now use `new URL(..., import.meta.url)` instead of bundler-specific import attributes, making them work natively in browsers and on CDN services like esm.sh and jsDelivr
+  - Glyph data JSON is inlined in the built output so no import attributes are needed at runtime
+  - Added `createBundle()` to `tegaki/core` and `tegaki/wc` for manually assembling a font bundle from fetched glyph data and a font URL
+
 ## 0.8.0
 
 ### Minor Changes
