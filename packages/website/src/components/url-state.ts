@@ -69,7 +69,7 @@ export const URL_DEFAULTS: UrlState = {
   chars: DEFAULT_CHARS,
   selectedChar: 'A',
   activeStage: 'final',
-  previewMode: 'glyph',
+  previewMode: 'text',
   previewText: 'Hello World',
   options: DEFAULT_OPTIONS,
   animSpeed: 1,

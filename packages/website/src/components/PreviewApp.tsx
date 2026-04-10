@@ -66,10 +66,53 @@ const SKELETON_METHODS: { value: BrowserSkeletonMethod; label: string }[] = [
 export function PreviewApp() {
   const [initialUrlState] = useState(parseUrlState);
   const [fontFamily, setFontFamily] = useState(initialUrlState.fontFamily);
+  const [fontInput, setFontInput] = useState('');
   const [fontInfo, setFontInfo] = useState<ParsedFontInfo | null>(null);
   const [fontBuffer, setFontBuffer] = useState<ArrayBuffer | null>(null);
   const [fontLoading, setFontLoading] = useState(false);
   const [fontError, setFontError] = useState('');
+
+  // Autocomplete state
+  const [allFonts, setAllFonts] = useState<{ family: string; category: string }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const fontInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  const filteredFonts = useMemo(() => {
+    if (!fontInput.trim()) return [];
+    const query = fontInput.toLowerCase();
+    return allFonts.filter((f) => f.family.toLowerCase().includes(query)).slice(0, 12);
+  }, [fontInput, allFonts]);
+
+  // Fetch font list from Fontsource for autocomplete
+  useEffect(() => {
+    let cancelled = false;
+    fetch('https://api.fontsource.org/v1/fonts?subsets=latin&type=google')
+      .then((r) => r.json())
+      .then((data: { family: string; category: string }[]) => {
+        if (!cancelled) setAllFonts(data.map((f) => ({ family: f.family, category: f.category })));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(e.target as Node) &&
+        fontInputRef.current &&
+        !fontInputRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
   const [chars, setChars] = useState(initialUrlState.chars);
   const [selectedChar, setSelectedChar] = useState(initialUrlState.selectedChar);
   const [activeStage, setActiveStage] = useState<Stage>(initialUrlState.activeStage);
@@ -118,6 +161,7 @@ export function PreviewApp() {
       const info = parseFont(buffer);
       setFontInfo(info);
       setFontBuffer(buffer);
+      setFontFamily(family);
     } catch (e) {
       setFontError((e as Error).message);
       setFontInfo(null);
@@ -360,30 +404,63 @@ export function PreviewApp() {
                   className={`px-2 py-0.5 text-xs rounded cursor-pointer transition-colors ${
                     fontInfo?.family === f ? 'bg-gray-800 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                   }`}
-                  onClick={() => {
-                    setFontFamily(f);
-                    loadFont(f);
-                  }}
+                  onClick={() => loadFont(f)}
                   disabled={fontLoading}
                 >
                   {f}
                 </button>
               ))}
             </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                value={fontFamily}
-                onChange={(e) => setFontFamily(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && loadFont(fontFamily)}
-                placeholder="Google Fonts family"
-              />
+            <div className="relative flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  ref={fontInputRef}
+                  type="text"
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                  value={fontInput}
+                  onChange={(e) => {
+                    setFontInput(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => fontInput.trim() && setShowSuggestions(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && fontInput.trim()) {
+                      setShowSuggestions(false);
+                      loadFont(fontInput.trim());
+                    }
+                    if (e.key === 'Escape') setShowSuggestions(false);
+                  }}
+                  placeholder="Search Google Fonts..."
+                />
+                {showSuggestions && filteredFonts.length > 0 && (
+                  <div
+                    ref={suggestionsRef}
+                    className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-60 overflow-y-auto"
+                  >
+                    {filteredFonts.map((f) => (
+                      <button
+                        type="button"
+                        key={f.family}
+                        className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 flex items-center justify-between cursor-pointer"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setFontInput(f.family);
+                          setShowSuggestions(false);
+                          loadFont(f.family);
+                        }}
+                      >
+                        <span>{f.family}</span>
+                        <span className="text-xs text-gray-400">{f.category}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 className="px-3 py-1 bg-gray-800 text-white rounded text-sm hover:bg-gray-700 disabled:opacity-50"
-                onClick={() => loadFont(fontFamily)}
-                disabled={fontLoading}
+                onClick={() => fontInput.trim() && loadFont(fontInput.trim())}
+                disabled={fontLoading || !fontInput.trim()}
               >
                 {fontLoading ? '...' : 'Load'}
               </button>

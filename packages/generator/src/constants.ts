@@ -6,22 +6,20 @@ export const DEFAULT_FONT_FAMILY = 'Caveat';
 
 export const EXAMPLE_FONTS = [
   'Caveat',
+  'Dancing Script',
+  'Great Vibes',
+  'Indie Flower',
   'Italianno',
-  'Tangerine',
+  'Kalam',
   'Nothing You Could Do',
-  'Emblema One',
-  'Fira Sans',
-  'Inter',
-  'Roboto',
-  'Open Sans',
-  'Lato',
-  'Montserrat',
-  'Oswald',
-  'Raleway',
-  'Merriweather',
-  'Playfair Display',
-  'Source Code Pro',
+  'Pacifico',
   'Parisienne',
+  'Patrick Hand',
+  'Permanent Marker',
+  'Sacramento',
+  'Satisfy',
+  'Shadows Into Light',
+  'Tangerine',
 ];
 
 export const CACHE_DIR = '.cache/fonts';
