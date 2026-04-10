@@ -118,6 +118,31 @@ For cleaner imports, use an [import map](https://developer.mozilla.org/en-US/doc
 
 This lets you write the same import paths you'd use with a bundler, while loading from the CDN at runtime.
 
+### Loading font data manually with `createBundle`
+
+If the pre-built font bundles don't work in your environment, or you want to load font data from a custom URL, use `createBundle` to assemble a bundle from its parts:
+
+```html
+<script type="module">
+  import { registerTegakiElement, TegakiEngine, createBundle } from 'https://esm.sh/tegaki/wc';
+
+  const caveat = createBundle({
+    family: 'Caveat',
+    fontUrl: 'https://cdn.jsdelivr.net/npm/tegaki/fonts/caveat/caveat.ttf',
+    glyphData: await fetch('https://cdn.jsdelivr.net/npm/tegaki/fonts/caveat/glyphData.json')
+      .then(r => r.json()),
+    unitsPerEm: 1000,
+    ascender: 960,
+    descender: -300,
+  });
+
+  TegakiEngine.registerBundle(caveat);
+  registerTegakiElement();
+</script>
+```
+
+This is also useful for loading custom font bundles generated with the [interactive generator](/tegaki/generator/).
+
 ### Full standalone example
 
 Here's a complete HTML file you can save and open directly in a browser:
