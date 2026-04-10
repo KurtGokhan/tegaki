@@ -44,6 +44,107 @@ TegakiEngine.registerBundle(caveat);
 registerTegakiElement();
 ```
 
+## Using via CDN
+
+You can use Tegaki directly from a CDN without any build tools or package manager. This is the fastest way to get started — just add a `<script>` tag to any HTML page.
+
+### esm.sh (recommended)
+
+[esm.sh](https://esm.sh) serves npm packages as ES modules and bundles dependencies automatically:
+
+```html
+<tegaki-renderer font="Caveat" text="Hello from a CDN!" loop style="font-size: 48px">
+</tegaki-renderer>
+
+<script type="module">
+  import { registerTegakiElement, TegakiEngine } from 'https://esm.sh/tegaki/wc';
+  import caveat from 'https://esm.sh/tegaki/fonts/caveat';
+
+  TegakiEngine.registerBundle(caveat);
+  registerTegakiElement();
+</script>
+```
+
+To pin a specific version, add it to the URL:
+
+```js
+import { registerTegakiElement, TegakiEngine } from 'https://esm.sh/tegaki@0.8.0/wc';
+import caveat from 'https://esm.sh/tegaki@0.8.0/fonts/caveat';
+```
+
+### jsDelivr
+
+[jsDelivr](https://www.jsdelivr.com/) can serve package files directly via its ESM endpoint:
+
+```html
+<script type="module">
+  import { registerTegakiElement, TegakiEngine } from 'https://esm.run/tegaki/wc';
+  import caveat from 'https://esm.run/tegaki/fonts/caveat';
+
+  TegakiEngine.registerBundle(caveat);
+  registerTegakiElement();
+</script>
+```
+
+:::note
+`esm.run` is jsDelivr's ESM-specific domain. It resolves package exports and bundles dependencies automatically, just like esm.sh.
+:::
+
+### Import maps
+
+For cleaner imports, use an [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/script/type/importmap) to map bare specifiers to CDN URLs:
+
+```html
+<script type="importmap">
+{
+  "imports": {
+    "tegaki/wc": "https://esm.sh/tegaki/wc",
+    "tegaki/fonts/caveat": "https://esm.sh/tegaki/fonts/caveat"
+  }
+}
+</script>
+
+<tegaki-renderer font="Caveat" text="Hello World" loop style="font-size: 48px">
+</tegaki-renderer>
+
+<script type="module">
+  import { registerTegakiElement, TegakiEngine } from 'tegaki/wc';
+  import caveat from 'tegaki/fonts/caveat';
+
+  TegakiEngine.registerBundle(caveat);
+  registerTegakiElement();
+</script>
+```
+
+This lets you write the same import paths you'd use with a bundler, while loading from the CDN at runtime.
+
+### Full standalone example
+
+Here's a complete HTML file you can save and open directly in a browser:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tegaki CDN Example</title>
+</head>
+<body>
+  <tegaki-renderer font="Caveat" text="Handwriting from a CDN!" loop style="font-size: 64px">
+  </tegaki-renderer>
+
+  <script type="module">
+    import { registerTegakiElement, TegakiEngine } from 'https://esm.sh/tegaki/wc';
+    import caveat from 'https://esm.sh/tegaki/fonts/caveat';
+
+    TegakiEngine.registerBundle(caveat);
+    registerTegakiElement();
+  </script>
+</body>
+</html>
+```
+
 ## Basic example
 
 ```html
