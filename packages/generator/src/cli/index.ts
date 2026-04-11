@@ -21,11 +21,13 @@ export const tegakiProgram = createPadrone('tegaki')
         const progress = ctx.context.progress;
         const { family, output, force, debug, chars, ...pipelineOptions } = args;
 
-        // Download and read font
+        // Download and read font (may return multiple subset files for CJK fonts)
         progress?.update(`Downloading font "${family}"...`);
-        const fontPath = await downloadFont(family, { force });
-        const fontBuffer = await Bun.file(fontPath).arrayBuffer();
-        const fontFileName = basename(fontPath);
+        const fontPaths = await downloadFont(family, { force, chars });
+        const fontBuffer = await Bun.file(fontPaths[0]!).arrayBuffer();
+        const extraFontBuffers =
+          fontPaths.length > 1 ? await Promise.all(fontPaths.slice(1).map((p) => Bun.file(p).arrayBuffer())) : undefined;
+        const fontFileName = basename(fontPaths[0]!);
 
         // Extract bundle (pure — no file I/O)
         progress?.update('Processing font...');
@@ -34,6 +36,7 @@ export const tegakiProgram = createPadrone('tegaki')
           fontFileName,
           chars,
           options: pipelineOptions as PipelineOptions,
+          extraFontBuffers,
           onProgress: (msg, p) => {
             if (p !== undefined) {
               progress?.update({ message: msg, progress: p });

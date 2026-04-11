@@ -115,6 +115,8 @@ export interface ParsedFontInfo {
   descender: number;
   lineCap: LineCap;
   font: opentype.Font;
+  /** Additional subset fonts (e.g. CJK subsets from Google Fonts) */
+  extraFonts?: opentype.Font[];
 }
 
 // ── Bundle types ──────────────────────────────────────────────────────────
@@ -132,6 +134,8 @@ export interface ExtractBundleInput {
   chars: string;
   options: PipelineOptions;
   onProgress?: (message: string, progress?: number) => void;
+  /** Additional font buffers for extra subsets (e.g. CJK subsets from Google Fonts) */
+  extraFontBuffers?: ArrayBuffer[];
 }
 
 export interface TegakiBundleOutput {
@@ -144,8 +148,9 @@ export interface TegakiBundleOutput {
 // ── Pipeline functions ─────────────────────────────────────────────────────
 
 /** Parse a font from an ArrayBuffer (browser-compatible) */
-export function parseFont(buffer: ArrayBuffer): ParsedFontInfo {
+export function parseFont(buffer: ArrayBuffer, extraBuffers?: ArrayBuffer[]): ParsedFontInfo {
   const font = opentype.parse(buffer);
+  const extraFonts = extraBuffers?.map((b) => opentype.parse(b));
   return {
     family: font.names.fontFamily?.en ?? 'Unknown',
     style: font.names.fontSubfamily?.en ?? 'Regular',
@@ -154,6 +159,7 @@ export function parseFont(buffer: ArrayBuffer): ParsedFontInfo {
     descender: font.descender,
     lineCap: inferLineCap(font),
     font,
+    extraFonts: extraFonts?.length ? extraFonts : undefined,
   };
 }
 
@@ -175,7 +181,7 @@ function computePathBBox(subPaths: Point[][]): BBox {
 
 /** Run the full processing pipeline for a single glyph */
 export function processGlyph(fontInfo: ParsedFontInfo, char: string, options: PipelineOptions): PipelineResult | null {
-  const rawGlyph = extractGlyph(fontInfo.font, char);
+  const rawGlyph = extractGlyph(fontInfo.font, char, fontInfo.extraFonts);
   if (!rawGlyph) return null;
 
   const lineCap: LineCap = options.lineCap === 'auto' ? fontInfo.lineCap : options.lineCap;
@@ -328,8 +334,8 @@ export const generateArgsSchema = z.object({
 // ── Bundle extraction (pure — no file I/O) ────────────────────────────────
 
 export function extractTegakiBundle(input: ExtractBundleInput): TegakiBundleOutput {
-  const { fontBuffer, fontFileName, chars: charsStr, options, onProgress } = input;
-  const fontInfo = parseFont(fontBuffer);
+  const { fontBuffer, fontFileName, chars: charsStr, options, onProgress, extraFontBuffers } = input;
+  const fontInfo = parseFont(fontBuffer, extraFontBuffers);
 
   const lineCap: LineCap = options.lineCap === 'auto' ? fontInfo.lineCap : options.lineCap;
 

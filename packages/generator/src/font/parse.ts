@@ -9,6 +9,8 @@ export interface ParsedFont {
   descender: number;
   lineCap: LineCap;
   font: opentype.Font;
+  /** Additional subset fonts (e.g. CJK subsets from Google Fonts) */
+  extraFonts?: opentype.Font[];
 }
 
 export interface RawGlyphData {
@@ -54,9 +56,17 @@ export function inferLineCap(font: opentype.Font): LineCap {
   return 'round';
 }
 
-export async function loadFont(fontPath: string): Promise<ParsedFont> {
-  const buffer = await Bun.file(fontPath).arrayBuffer();
-  const font = opentype.parse(buffer);
+export async function loadFont(fontPath: string): Promise<ParsedFont>;
+export async function loadFont(fontPaths: string[]): Promise<ParsedFont>;
+export async function loadFont(fontPathOrPaths: string | string[]): Promise<ParsedFont> {
+  const paths = Array.isArray(fontPathOrPaths) ? fontPathOrPaths : [fontPathOrPaths];
+  const fonts = await Promise.all(
+    paths.map(async (p) => {
+      const buffer = await Bun.file(p).arrayBuffer();
+      return opentype.parse(buffer);
+    }),
+  );
+  const font = fonts[0]!;
 
   return {
     family: font.names.fontFamily?.en ?? 'Unknown',
@@ -66,14 +76,30 @@ export async function loadFont(fontPath: string): Promise<ParsedFont> {
     descender: font.descender,
     lineCap: inferLineCap(font),
     font,
+    extraFonts: fonts.length > 1 ? fonts.slice(1) : undefined,
   };
 }
 
-export function extractGlyph(font: opentype.Font, char: string): RawGlyphData | null {
-  const glyph = font.charToGlyph(char);
+export function extractGlyph(font: opentype.Font, char: string, extraFonts?: opentype.Font[]): RawGlyphData | null {
+  let glyph = font.charToGlyph(char);
+  let activeFont = font;
+
+  // If the primary font doesn't have the glyph, try extra subset fonts.
+  // This handles CJK fonts where Google Fonts serves separate TTF files per Unicode range.
+  if ((!glyph || glyph.index === 0) && extraFonts) {
+    for (const f of extraFonts) {
+      const g = f.charToGlyph(char);
+      if (g && g.index !== 0) {
+        glyph = g;
+        activeFont = f;
+        break;
+      }
+    }
+  }
+
   if (!glyph || glyph.index === 0) return null;
 
-  const path = glyph.getPath(0, 0, font.unitsPerEm);
+  const path = glyph.getPath(0, 0, activeFont.unitsPerEm);
   const bb = glyph.getBoundingBox();
 
   const commands: PathCommand[] = path.commands.map((cmd) => {
