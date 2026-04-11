@@ -131,8 +131,8 @@ function buildChildren<T>(options: TegakiEngineOptions, h: CreateElementFn<T>): 
   const showOverlay = options.showOverlay;
 
   return h(
-    'div',
-    { style: { position: 'relative' } },
+    'span',
+    { style: { display: 'block', position: 'relative' } },
     h('span', {
       'data-tegaki': 'sentinel',
       'aria-hidden': 'true',
@@ -173,10 +173,11 @@ function buildChildren<T>(options: TegakiEngineOptions, h: CreateElementFn<T>): 
       ),
     ),
     h(
-      'div',
+      'span',
       {
         'data-tegaki': 'overlay',
         style: {
+          display: 'block',
           userSelect: 'auto',
           whiteSpace: 'pre-wrap',
           overflowWrap: 'break-word',
@@ -266,7 +267,7 @@ export class TegakiEngine {
   private _contentEl: HTMLElement | null = null; // non-null only in non-adopt mode
   private _sentinelEl: HTMLSpanElement;
   private _canvasEl: HTMLCanvasElement;
-  private _overlayEl: HTMLDivElement;
+  private _overlayEl: HTMLElement;
   private _canvasFallbackEl: HTMLSpanElement;
 
   // --- Options ---
@@ -359,7 +360,7 @@ export class TegakiEngine {
     this._sentinelEl = container.querySelector('[data-tegaki="sentinel"]') as HTMLSpanElement;
     this._canvasEl = container.querySelector('[data-tegaki="canvas"]') as HTMLCanvasElement;
     this._canvasFallbackEl = container.querySelector('[data-tegaki="canvas-fallback"]') as HTMLSpanElement;
-    this._overlayEl = container.querySelector('[data-tegaki="overlay"]') as HTMLDivElement;
+    this._overlayEl = container.querySelector('[data-tegaki="overlay"]') as HTMLElement;
 
     // --- ResizeObserver ---
     this._resizeObserver = new ResizeObserver(this._onResize);
@@ -579,8 +580,10 @@ export class TegakiEngine {
     // CSS custom properties
     this._updateCssProperties();
 
-    // Overlay text
-    this._overlayEl.textContent = this._text;
+    // Overlay text (guard to preserve cursor position when contentEditable)
+    if (this._overlayEl.textContent !== this._text) {
+      this._overlayEl.textContent = this._text;
+    }
     this._canvasFallbackEl.textContent = this._text;
   }
 

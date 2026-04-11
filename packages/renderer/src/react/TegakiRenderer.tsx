@@ -1,6 +1,16 @@
 'use client';
 
-import { type ComponentProps, createElement, type ReactNode, type Ref, useEffect, useImperativeHandle, useRef } from 'react';
+import {
+  type ComponentPropsWithoutRef,
+  createElement,
+  type ElementType,
+  type ReactNode,
+  type Ref,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { TegakiEngine, type TegakiEngineOptions } from '../core/engine.ts';
 import type { Coercible } from '../lib/utils.ts';
 import { coerceToString } from '../lib/utils.ts';
@@ -11,12 +21,10 @@ export interface TegakiRendererHandle {
   /** The underlying engine instance. `null` before mount and after unmount. */
   readonly engine: TegakiEngine | null;
   /** The container DOM element. */
-  readonly element: HTMLDivElement | null;
+  readonly element: HTMLElement | null;
 }
 
-export interface TegakiRendererProps<E extends TegakiEffects<E> = Record<string, never>>
-  extends Omit<TegakiEngineOptions, 'effects'>,
-    Omit<ComponentProps<'div'>, 'children' | 'ref'> {
+interface TegakiRendererBaseProps<E extends TegakiEffects<E> = Record<string, never>> extends Omit<TegakiEngineOptions, 'effects'> {
   /** Imperative handle ref for playback controls and DOM access. */
   ref?: Ref<TegakiRendererHandle>;
 
@@ -25,32 +33,60 @@ export interface TegakiRendererProps<E extends TegakiEffects<E> = Record<string,
 
   /** Visual effects applied during canvas rendering. */
   effects?: E;
+
+  /** When true, the rendered text is editable via contentEditable. */
+  editable?: boolean;
+
+  /** Called when the user edits the text (only when `editable` is true). */
+  onTextChange?: (text: string) => void;
 }
+
+export type TegakiRendererProps<C extends ElementType = 'div', E extends TegakiEffects<E> = Record<string, never>> = {
+  as?: C;
+} & TegakiRendererBaseProps<E> &
+  Omit<ComponentPropsWithoutRef<C>, keyof TegakiRendererBaseProps<Record<string, never>> | 'as'>;
 
 function reactCreateElement(tag: string, props: Record<string, any>, ...children: (ReactNode | string)[]): ReactNode {
   return createElement(tag, { ...props, key: props['data-tegaki'] }, ...children);
 }
 
-export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string, never>>({
-  ref,
-  font,
-  text,
-  children,
-  time: timeProp,
-  onComplete,
-  effects,
-  segmentSize,
-  timing,
-  showOverlay,
-  ...divProps
-}: TegakiRendererProps<E>) {
-  const containerRef = useRef<HTMLDivElement>(null);
+export function TegakiRenderer<const C extends ElementType = 'div', const E extends TegakiEffects<E> = Record<string, never>>(
+  props: TegakiRendererProps<C, E>,
+) {
+  const {
+    as: Tag = 'div' as ElementType,
+    ref,
+    font,
+    text,
+    children,
+    time: timeProp,
+    onComplete,
+    effects,
+    segmentSize,
+    timing,
+    showOverlay,
+    editable,
+    onTextChange,
+    ...elementProps
+  } = props as TegakiRendererProps<ElementType, E>;
+
+  const containerRef = useRef<HTMLElement>(null);
   const engineRef = useRef<TegakiEngine | null>(null);
   const resolvedText = text ?? coerceToString(children);
 
+  // --- Editable: internal text state that resets when controlled text changes ---
+  const [internalText, setInternalText] = useState(resolvedText);
+  const [prevResolvedText, setPrevResolvedText] = useState(resolvedText);
+  if (prevResolvedText !== resolvedText) {
+    setPrevResolvedText(resolvedText);
+    setInternalText(resolvedText);
+  }
+
+  const displayText = editable ? internalText : resolvedText;
+
   // Render the element tree via the engine's static method (SSR-safe)
   const engineOptions: TegakiEngineOptions = {
-    text: resolvedText,
+    text: displayText,
     font,
     time: timeProp,
     effects: effects as Record<string, any>,
@@ -77,6 +113,34 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
     engineRef.current?.update(engineOptions);
   });
 
+  // --- Editable: contentEditable + input handling ---
+  const onTextChangeRef = useRef(onTextChange);
+  onTextChangeRef.current = onTextChange;
+
+  useEffect(() => {
+    if (!editable) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const overlay = container.querySelector<HTMLElement>('[data-tegaki="overlay"]');
+    if (!overlay) return;
+
+    overlay.contentEditable = 'plaintext-only';
+    overlay.style.caretColor = 'auto';
+
+    const handleInput = () => {
+      const newText = overlay.textContent ?? '';
+      setInternalText(newText);
+      onTextChangeRef.current?.(newText);
+    };
+
+    overlay.addEventListener('input', handleInput);
+    return () => {
+      overlay.removeEventListener('input', handleInput);
+      overlay.contentEditable = 'inherit';
+      overlay.style.caretColor = '';
+    };
+  }, [editable]);
+
   // Imperative handle
   useImperativeHandle(
     ref,
@@ -92,11 +156,7 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   );
 
   // Merge engine root styles with user-provided styles
-  const mergedStyle = { ...rootStyle, ...divProps.style };
+  const mergedStyle = { ...rootStyle, ...elementProps.style };
 
-  return (
-    <div ref={containerRef} {...rootAttrs} {...divProps} style={mergedStyle}>
-      {content}
-    </div>
-  );
+  return createElement(Tag, { ...rootAttrs, ...elementProps, ref: containerRef, style: mergedStyle } as any, content);
 }
