@@ -25,8 +25,10 @@ import type { TegakiBundle, TegakiEffects } from '../types.ts';
 export type TimeControlMode = {
   controlled: {
     mode: 'controlled';
-    /** Current time in seconds. */
+    /** Current time in seconds (default), or progress 0–1 when `unit` is `'progress'`. */
     value: number;
+    /** Interpret `value` as seconds (default) or as a 0–1 progress ratio. */
+    unit?: 'seconds' | 'progress';
   };
   uncontrolled: {
     mode: 'uncontrolled';
@@ -104,7 +106,9 @@ function buildRootProps(options: TegakiEngineOptions): Record<string, any> {
     typeof options.time === 'number'
       ? options.time
       : typeof options.time === 'object' && options.time?.mode === 'controlled'
-        ? options.time.value
+        ? options.time.unit === 'progress'
+          ? options.time.value * duration
+          : options.time.value
         : typeof options.time === 'object' && options.time?.mode === 'uncontrolled'
           ? (options.time.initialTime ?? 0)
           : 0;
@@ -390,7 +394,7 @@ export class TegakiEngine {
   get currentTime(): number {
     const tc = this._timeControl;
     if (tc.mode === 'css') return this._cssTime;
-    if (tc.mode === 'controlled') return tc.value;
+    if (tc.mode === 'controlled') return tc.unit === 'progress' ? tc.value * this._timeline.totalDuration : tc.value;
     return this._internalTime;
   }
 
@@ -474,7 +478,8 @@ export class TegakiEngine {
 
       // Detect meaningful changes
       const modeChanged = newTc.mode !== oldTc.mode;
-      const controlledValueChanged = newTc.mode === 'controlled' && oldTc.mode === 'controlled' && newTc.value !== oldTc.value;
+      const controlledValueChanged =
+        newTc.mode === 'controlled' && oldTc.mode === 'controlled' && (newTc.value !== oldTc.value || newTc.unit !== oldTc.unit);
       const uncontrolledChanged =
         newTc.mode === 'uncontrolled' &&
         oldTc.mode === 'uncontrolled' &&
