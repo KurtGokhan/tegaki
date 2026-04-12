@@ -69,6 +69,7 @@ export function PreviewApp() {
   const [fontInput, setFontInput] = useState('');
   const [fontInfo, setFontInfo] = useState<ParsedFontInfo | null>(null);
   const [fontBuffer, setFontBuffer] = useState<ArrayBuffer | null>(null);
+  const [extraFontBuffers, setExtraFontBuffers] = useState<ArrayBuffer[] | undefined>(undefined);
   const [fontLoading, setFontLoading] = useState(false);
   const [fontError, setFontError] = useState('');
 
@@ -89,7 +90,7 @@ export function PreviewApp() {
   const fetchFontList = useCallback(() => {
     if (fontListFetched.current) return;
     fontListFetched.current = true;
-    fetch('https://api.fontsource.org/v1/fonts?subsets=latin&type=google')
+    fetch('https://api.fontsource.org/v1/fonts?type=google')
       .then((r) => r.json())
       .then((data: { family: string; category: string }[]) => {
         setAllFonts(data.map((f) => ({ family: f.family, category: f.category })));
@@ -142,13 +143,19 @@ export function PreviewApp() {
   // Cache of results per character
   const resultsCache = useRef(new Map<string, PipelineResult>());
 
-  // Set of characters the font actually supports
+  // Set of characters the font actually supports (checks all subset fonts)
   const availableChars = useMemo(() => {
     if (!fontInfo) return new Set<string>();
+    const fonts = [fontInfo.font, ...(fontInfo.extraFonts ?? [])];
     const available = new Set<string>();
     for (const c of chars) {
-      const glyph = fontInfo.font.charToGlyph(c);
-      if (glyph && glyph.index !== 0) available.add(c);
+      for (const f of fonts) {
+        const glyph = f.charToGlyph(c);
+        if (glyph && glyph.index !== 0) {
+          available.add(c);
+          break;
+        }
+      }
     }
     return available;
   }, [fontInfo, chars]);
@@ -158,10 +165,11 @@ export function PreviewApp() {
     setFontError('');
     resultsCache.current.clear();
     try {
-      const buffer = await fetchFontFromCDN(family);
-      const info = parseFont(buffer);
+      const { primary, extra } = await fetchFontFromCDN(family);
+      const info = parseFont(primary, extra.length > 0 ? extra : undefined);
       setFontInfo(info);
-      setFontBuffer(buffer);
+      setFontBuffer(primary);
+      setExtraFontBuffers(extra.length > 0 ? extra : undefined);
       setFontFamily(family);
     } catch (e) {
       setFontError((e as Error).message);
@@ -184,6 +192,7 @@ export function PreviewApp() {
         const info = parseFont(buf);
         setFontInfo(info);
         setFontBuffer(buf);
+        setExtraFontBuffers(undefined);
         setFontFamily(info.family);
       } catch (err) {
         setFontError((err as Error).message);
@@ -336,6 +345,7 @@ export function PreviewApp() {
         fontFileName: `${slug}.ttf`,
         chars,
         options,
+        extraFontBuffers,
       });
 
       const encoder = new TextEncoder();
@@ -356,7 +366,7 @@ export function PreviewApp() {
     } finally {
       setDownloading(false);
     }
-  }, [fontInfo, fontBuffer, chars, options]);
+  }, [fontInfo, fontBuffer, extraFontBuffers, chars, options]);
 
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900">
@@ -2142,15 +2152,53 @@ function SelectOption<T extends string>({
 
 // --- Font loading ---
 
-/** Fetch a Google Font as TTF directly from the Fontsource CDN (CORS-enabled, no server needed) */
-async function fetchFontFromCDN(family: string): Promise<ArrayBuffer> {
+/**
+ * Fetch a Google Font from the Fontsource CDN (CORS-enabled, no server needed).
+ *
+ * First queries the Fontsource API for available subsets, then downloads the Latin
+ * subset as primary and any extra subsets (e.g., japanese, korean, cyrillic) as
+ * additional font files. This enables CJK and other non-Latin fonts to work.
+ */
+async function fetchFontFromCDN(family: string): Promise<{ primary: ArrayBuffer; extra: ArrayBuffer[] }> {
   const slug = family.toLowerCase().replace(/\s+/g, '-');
-  const url = `https://cdn.jsdelivr.net/fontsource/fonts/${slug}@latest/latin-400-normal.ttf`;
-  const resp = await fetch(url);
-  if (!resp.ok) {
-    throw new Error(`Font "${family}" not found on CDN (${resp.status}). Try uploading a .ttf file instead.`);
+  const baseUrl = `https://cdn.jsdelivr.net/fontsource/fonts/${slug}@latest`;
+
+  // Fetch font metadata to discover which subsets are available
+  let subsets: string[] = ['latin'];
+  try {
+    const metaResp = await fetch(`https://api.fontsource.org/v1/fonts/${slug}`);
+    if (metaResp.ok) {
+      const meta: { subsets?: string[] } = await metaResp.json();
+      if (meta.subsets?.length) subsets = meta.subsets;
+    }
+  } catch {
+    // Fall back to just latin if metadata fetch fails
   }
-  return resp.arrayBuffer();
+
+  // Always fetch latin as the primary (carries font metrics)
+  const latinResp = await fetch(`${baseUrl}/latin-400-normal.ttf`);
+  if (!latinResp.ok) {
+    throw new Error(`Font "${family}" not found on CDN (${latinResp.status}). Try uploading a .ttf file instead.`);
+  }
+  const primary = await latinResp.arrayBuffer();
+
+  // Download all other available subsets in parallel
+  // Some subsets may only have woff2 (not TTF), so 404s are silently skipped
+  const extraSubsets = subsets.filter((s) => s !== 'latin');
+  const extraResults = await Promise.allSettled(
+    extraSubsets.map(async (subset) => {
+      const resp = await fetch(`${baseUrl}/${subset}-400-normal.ttf`);
+      if (!resp.ok) return null;
+      return resp.arrayBuffer();
+    }),
+  );
+
+  const extra = extraResults
+    .filter((r): r is PromiseFulfilledResult<ArrayBuffer | null> => r.status === 'fulfilled')
+    .map((r) => r.value)
+    .filter((buf): buf is ArrayBuffer => buf !== null);
+
+  return { primary, extra };
 }
 
 // --- Layout utilities ---
