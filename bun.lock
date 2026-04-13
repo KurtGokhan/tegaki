@@ -71,22 +71,16 @@
         "typescript": "^6.0.2",
       },
       "peerDependencies": {
-        "@remotion/fonts": ">=4",
         "react": ">=18",
-        "remotion": ">=4",
         "solid-js": ">=1",
         "svelte": ">=5",
         "vue": ">=3",
-        "zod": ">=3",
       },
       "optionalPeers": [
-        "@remotion/fonts",
         "react",
-        "remotion",
         "solid-js",
         "svelte",
         "vue",
-        "zod",
       ],
     },
     "packages/website": {
