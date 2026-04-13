@@ -98,10 +98,10 @@ const WritingScene: React.FC<WritingSceneProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const writeEnd = Math.max(8, Math.floor(duration * writeFraction));
+  // Linear progress preserves the engine's per-stroke pacing — no extra easing.
   const progress = interpolate(frame, [0, writeEnd], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing: Easing.bezier(0.33, 0, 0.2, 1),
   });
   const captionOpacity = interpolate(frame, [writeEnd - 4, writeEnd + 18], [0, 1], {
     extrapolateLeft: 'clamp',
@@ -159,7 +159,6 @@ const Hero: React.FC<{ duration: number }> = ({ duration }) => {
   const progress = interpolate(frame, [0, writeEnd], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing: Easing.bezier(0.4, 0, 0.2, 1),
   });
   const subtitleOpacity = interpolate(frame, [writeEnd - 6, writeEnd + 20], [0, 1], {
     extrapolateLeft: 'clamp',
@@ -267,7 +266,6 @@ const Outro: React.FC<{ duration: number }> = ({ duration }) => {
   const progress = interpolate(frame, [0, writeEnd], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing: Easing.bezier(0.4, 0, 0.2, 1),
   });
   const lineOpacity = interpolate(frame, [writeEnd, writeEnd + 18], [0, 1], {
     extrapolateLeft: 'clamp',
