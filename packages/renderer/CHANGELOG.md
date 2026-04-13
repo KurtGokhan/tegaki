@@ -1,5 +1,19 @@
 # tegaki
 
+## 0.10.0
+
+### Minor Changes
+
+- [`7198553`](https://github.com/KurtGokhan/tegaki/commit/719855392734a8f1b6056db9f0718ac7a8213527) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add controlled progress mode to allow users to specify the exact progress of the animation that is a value between 0 and 1.
+
+### Patch Changes
+
+- [`b326f00`](https://github.com/KurtGokhan/tegaki/commit/b326f00d52b97ef19e0214cb4595bd31cd501cf4) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add delay and loop gap for uncontrolled animations
+
+- [`1449890`](https://github.com/KurtGokhan/tegaki/commit/144989014c0d9cdbf80fafbb77af646b96065832) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add docs and example for using Tegaki with Remotion. The example is a simple composition that renders a single text prop, but the same principles apply to more complex compositions and dynamic props.
+
+- [`1449890`](https://github.com/KurtGokhan/tegaki/commit/144989014c0d9cdbf80fafbb77af646b96065832) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Fix rendering when zoom level was not 100%.
+
 ## 0.9.0
 
 ### Minor Changes
