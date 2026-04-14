@@ -893,8 +893,13 @@ export class TegakiEngine {
           // Hold at the end and start the loop gap countdown
           next = totalDur;
           this._loopGapRemaining = loopGap;
+        } else if (this._internalTime < totalDur) {
+          // Render one frame at totalDur so every entry (including the
+          // last fallback character) satisfies its reveal condition
+          // before the animation wraps back to the start.
+          next = totalDur;
         } else {
-          next = next % totalDur;
+          next %= totalDur;
         }
       } else {
         next = totalDur;
