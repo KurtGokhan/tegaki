@@ -818,6 +818,7 @@ export function PreviewApp() {
           <TextPreview
             fontInfo={fontInfo}
             fontBuffer={fontBuffer}
+            extraFontBuffers={extraFontBuffers}
             options={options}
             text={previewText}
             onTextChange={setPreviewText}
@@ -1089,6 +1090,7 @@ function AnimationControls({
 function TextPreview({
   fontInfo,
   fontBuffer,
+  extraFontBuffers,
   options,
   text,
   onTextChange,
@@ -1116,6 +1118,7 @@ function TextPreview({
 }: {
   fontInfo: ParsedFontInfo | null;
   fontBuffer: ArrayBuffer | null;
+  extraFontBuffers: ArrayBuffer[] | undefined;
   options: PipelineOptions;
   text: string;
   onTextChange: (text: string) => void;
@@ -1239,20 +1242,23 @@ function TextPreview({
       setFontReady(false);
       return;
     }
-    const face = new FontFace(fontInfo.family, `url(${fontUrl})`, {
-      featureSettings: '"calt" 0, "liga" 0',
-    });
+    // Create blob URLs for extra subset buffers (CJK fonts have multiple subsets)
+    const extraUrls = (extraFontBuffers ?? []).map((buf) => URL.createObjectURL(new Blob([buf], { type: 'font/ttf' })));
+    const faces = [fontUrl, ...extraUrls].map(
+      (url) => new FontFace(fontInfo.family, `url(${url})`, { featureSettings: '"calt" 0, "liga" 0' }),
+    );
     let cancelled = false;
-    face.load().then((loaded) => {
+    Promise.all(faces.map((f) => f.load())).then((loaded) => {
       if (cancelled) return;
-      document.fonts.add(loaded);
+      for (const f of loaded) document.fonts.add(f);
       setFontReady(true);
     });
     return () => {
       cancelled = true;
-      document.fonts.delete(face);
+      for (const f of faces) document.fonts.delete(f);
+      for (const url of extraUrls) URL.revokeObjectURL(url);
     };
-  }, [fontInfo, fontUrl]);
+  }, [fontInfo, fontUrl, extraFontBuffers]);
 
   // Process glyphs and build a FontBundle
   const fontBundle = useMemo(() => {

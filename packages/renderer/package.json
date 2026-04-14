@@ -119,7 +119,7 @@
     "generate-fonts": "bun --filter tegaki-generator start generate Caveat --output ../renderer/fonts/caveat && bun --filter tegaki-generator start generate Italianno --output ../renderer/fonts/italianno && bun --filter tegaki-generator start generate Tangerine --output ../renderer/fonts/tangerine && bun --filter tegaki-generator start generate Parisienne --output ../renderer/fonts/parisienne"
   },
   "dependencies": {
-    "@chenglou/pretext": "^0.0.4"
+    "@chenglou/pretext": "^0.0.5"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -143,7 +143,7 @@
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
-    "tsdown": "^0.21.7",
+    "tsdown": "^0.21.8",
     "typescript": "^6.0.2"
   }
 }

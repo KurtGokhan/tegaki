@@ -47,12 +47,12 @@
     "d3-delaunay": "^6.0.4",
     "fflate": "^0.8.2",
     "opentype.js": "^1.3.4",
-    "padrone": "^1.7.1",
+    "padrone": "^1.8.2",
     "tegaki": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.11",
+    "@types/bun": "^1.3.12",
     "@types/d3-delaunay": "^6.0.4",
     "@types/opentype.js": "^1.3.9",
     "typescript": "^6.0.2"
