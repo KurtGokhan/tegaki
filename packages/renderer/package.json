@@ -82,25 +82,29 @@
       "tegaki@dev": "./fonts/caveat/bundle.ts",
       "source": "./fonts/caveat/bundle.ts",
       "types": "./dist/fonts/caveat/bundle.d.mts",
-      "import": "./dist/fonts/caveat/bundle.mjs"
+      "node": "./fonts/caveat/bundle.ts",
+      "default": "./dist/fonts/caveat/bundle.mjs"
     },
     "./fonts/italianno": {
       "tegaki@dev": "./fonts/italianno/bundle.ts",
       "source": "./fonts/italianno/bundle.ts",
       "types": "./dist/fonts/italianno/bundle.d.mts",
-      "import": "./dist/fonts/italianno/bundle.mjs"
+      "node": "./fonts/italianno/bundle.ts",
+      "default": "./dist/fonts/italianno/bundle.mjs"
     },
     "./fonts/tangerine": {
       "tegaki@dev": "./fonts/tangerine/bundle.ts",
       "source": "./fonts/tangerine/bundle.ts",
       "types": "./dist/fonts/tangerine/bundle.d.mts",
-      "import": "./dist/fonts/tangerine/bundle.mjs"
+      "node": "./fonts/tangerine/bundle.ts",
+      "default": "./dist/fonts/tangerine/bundle.mjs"
     },
     "./fonts/parisienne": {
       "tegaki@dev": "./fonts/parisienne/bundle.ts",
       "source": "./fonts/parisienne/bundle.ts",
       "types": "./dist/fonts/parisienne/bundle.d.mts",
-      "import": "./dist/fonts/parisienne/bundle.mjs"
+      "node": "./fonts/parisienne/bundle.ts",
+      "default": "./dist/fonts/parisienne/bundle.mjs"
     }
   },
   "files": [
