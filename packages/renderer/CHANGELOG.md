@@ -1,5 +1,11 @@
 # tegaki
 
+## 0.11.1
+
+### Patch Changes
+
+- [`5e5049f`](https://github.com/KurtGokhan/tegaki/commit/5e5049ffc86a275fd2892fcb683d1e1ad702542e) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - use correct import path for node/ssr imports
+
 ## 0.11.0
 
 ### Minor Changes

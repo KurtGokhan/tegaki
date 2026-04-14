@@ -1,5 +1,12 @@
 # @tegaki/example-remotion
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated dependencies [[`5e5049f`](https://github.com/KurtGokhan/tegaki/commit/5e5049ffc86a275fd2892fcb683d1e1ad702542e)]:
+  - tegaki@0.11.1
+
 ## 0.0.2
 
 ### Patch Changes
