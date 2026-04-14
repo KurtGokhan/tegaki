@@ -786,10 +786,75 @@ export class TegakiEngine {
   private _recomputeLayout(): void {
     const fontFamily = this._font?.family;
     if (this._fontReady && fontFamily && this._fontSize && this._containerWidth && this._text) {
-      this._layout = computeTextLayout(this._text, fontFamily, this._fontSize, this._lineHeight, this._containerWidth);
+      const layout = computeTextLayout(this._text, fontFamily, this._fontSize, this._lineHeight, this._containerWidth);
+
+      // Canvas measureText can return wider widths than CSS text shaping
+      // (common with CJK fallback fonts), causing the computed layout to
+      // wrap into more lines than the overlay actually renders.  Use the
+      // overlay's real line breaks so the canvas drawing matches the CSS
+      // layout and fits within the visible canvas area.
+      const overlayLines = this._detectOverlayLines();
+      if (overlayLines) layout.lines = overlayLines;
+
+      this._layout = layout;
     } else {
       this._layout = null;
     }
+  }
+
+  /**
+   * Read the overlay element's actual CSS line breaks via the Range API.
+   * Returns grapheme-index arrays per line, or null if detection fails.
+   */
+  private _detectOverlayLines(): number[][] | null {
+    const textNode = this._overlayEl.firstChild;
+    if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return null;
+
+    const chars = graphemes(this._text);
+    if (!chars.length || !this._fontSize) return null;
+
+    const range = document.createRange();
+    const lines: number[][] = [];
+    let currentLine: number[] = [];
+    let prevTop = -Infinity;
+    let utf16Offset = 0;
+
+    for (let i = 0; i < chars.length; i++) {
+      const char = chars[i]!;
+
+      if (char === '\n') {
+        currentLine.push(i);
+        lines.push(currentLine);
+        currentLine = [];
+        prevTop = -Infinity;
+        utf16Offset += char.length;
+        continue;
+      }
+
+      range.setStart(textNode, utf16Offset);
+      range.setEnd(textNode, utf16Offset + char.length);
+      const rects = range.getClientRects();
+      utf16Offset += char.length;
+
+      if (rects.length === 0) {
+        currentLine.push(i);
+        continue;
+      }
+
+      const rect = rects[0]!;
+
+      // A significant vertical shift signals a new line.
+      if (currentLine.length > 0 && rect.top - prevTop > this._fontSize * 0.25) {
+        lines.push(currentLine);
+        currentLine = [];
+      }
+
+      if (currentLine.length === 0) prevTop = rect.top;
+      currentLine.push(i);
+    }
+    if (currentLine.length > 0) lines.push(currentLine);
+
+    return lines.length > 0 ? lines : null;
   }
 
   // =========================================================================
