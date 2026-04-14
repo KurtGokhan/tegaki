@@ -1,5 +1,23 @@
 # tegaki
 
+## 0.11.0
+
+### Minor Changes
+
+- [`4b7db41`](https://github.com/KurtGokhan/tegaki/commit/4b7db41fb1c247ed766ff10284e9cdabd4ab0a25) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Implement new text layout based on DOM and text ranges
+
+### Patch Changes
+
+- [`f3602b0`](https://github.com/KurtGokhan/tegaki/commit/f3602b04970c8cb88ea41e87e63ee4709b086d61) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - improve line cap detection for CJK fonts
+
+- [`28f58c6`](https://github.com/KurtGokhan/tegaki/commit/28f58c67f9eae8e0123a915d0efea03eaccd5e27) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - fixed a bug with generator that caused it to not load all characters in a font, especially CJK
+
+- [`047e5e3`](https://github.com/KurtGokhan/tegaki/commit/047e5e31d3ffabbecf25dd36b5f56d298731c630) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add `duration` and `easing` options to uncontrolled time mode.
+
+  - `duration` stretches or compresses one iteration to take exactly N seconds, derived from the natural timeline inside the engine. Mutually exclusive with `speed` / `catchUp` at the type level (discriminated union); when both are set at runtime, `duration` takes precedence.
+  - `easing: (t: number) => number` maps linear progress (0–1) to displayed progress (0–1). Applied at read-time, so `currentTime`, `onTimeChange`, and the `--tegaki-time` / `--tegaki-progress` CSS custom properties all reflect the eased value. Completion is evaluated against linear progress so overshoot/undershoot curves (e.g. `easeOutBack`) don't trip completion early or late.
+  - The web component adapter accepts a `duration` attribute; `easing` is available via the `time` JS property only (it's function-valued).
+
 ## 0.10.0
 
 ### Minor Changes
