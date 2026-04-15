@@ -19,7 +19,7 @@ import { graphemes } from '../lib/utils.ts';
 import type { TegakiBundle } from '../types.ts';
 import { getBundle, registerBundle as registryRegisterBundle, resolveBundle } from './bundle-registry.ts';
 import { buildChildren, buildRootProps, domCreateElement } from './render-elements.ts';
-import type { CreateElementFn, TegakiEngineOptions, TimeControlMode, TimeControlProp } from './types.ts';
+import type { CreateElementFn, TegakiEngineOptions, TegakiQuality, TimeControlMode, TimeControlProp } from './types.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -63,7 +63,7 @@ export class TegakiEngine {
   private _timeControl: TimeControlMode[keyof TimeControlMode] = { mode: 'uncontrolled' };
   private _effects: Record<string, any> | undefined;
   private _timing: TimelineConfig | undefined;
-  private _segmentSize: number | undefined;
+  private _quality: TegakiQuality | undefined;
   private _showOverlay = false;
   private _onComplete: (() => void) | undefined;
   private _direction: 'ltr' | 'rtl' | undefined;
@@ -319,8 +319,8 @@ export class TegakiEngine {
       dirtyTimeline = true;
     }
 
-    if ('segmentSize' in options && options.segmentSize !== this._segmentSize) {
-      this._segmentSize = options.segmentSize;
+    if ('quality' in options && options.quality !== this._quality) {
+      this._quality = options.quality;
       dirtyRender = true;
     }
 
@@ -716,19 +716,24 @@ export class TegakiEngine {
     if (!font?.glyphData || !layout || !fontSize) return;
 
     const dpr = window.devicePixelRatio || 1;
+    // Supersampling: draw into a backing canvas larger than the displayed CSS
+    // size, then let the browser downsample. Improves antialiasing at a
+    // quadratic cost in pixels filled.
+    const pixelRatio = Math.max(this._quality?.pixelRatio ?? 1, 0);
+    const effectiveDpr = dpr * pixelRatio;
     const w = canvas.offsetWidth;
     const h = canvas.offsetHeight;
 
-    const needsResize = canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr);
+    const needsResize = canvas.width !== Math.round(w * effectiveDpr) || canvas.height !== Math.round(h * effectiveDpr);
     if (needsResize) {
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
+      canvas.width = Math.round(w * effectiveDpr);
+      canvas.height = Math.round(h * effectiveDpr);
     }
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.setTransform(effectiveDpr, 0, 0, effectiveDpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
     const padH = PADDING_H_EM * fontSize;
@@ -775,7 +780,7 @@ export class TegakiEngine {
             color,
             this._resolvedEffects,
             this._seed + charIdx,
-            this._segmentSize,
+            this._quality?.segmentSize,
             this._timing?.strokeEasing,
           );
         } else if (!entry.hasGlyph && currentTime >= entry.offset + entry.duration) {

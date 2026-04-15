@@ -302,7 +302,8 @@ registerTegakiElement('my-handwriting');
 | `speed` | `number` | Playback speed multiplier (default `1`). |
 | `playing` | `"true" \| "false"` | Whether animation is playing (default `true`). |
 | `loop` | _boolean attribute_ | Loop animation when it finishes. |
-| `segment-size` | `number` | Segment size for rendering. |
+| `pixel-ratio` | `number` | Supersampling factor on top of devicePixelRatio (shortcut for `quality.pixelRatio`). |
+| `segment-size` | `number` | Max drawn segment length in font units (shortcut for `quality.segmentSize`). |
 | `show-overlay` | _boolean attribute_ | Show debug text overlay. |
 
 ## Properties reference
@@ -314,6 +315,7 @@ These properties are set via JavaScript and support object values that can't be 
 | `font` | `TegakiBundle \| string` | Font bundle object or registered name. |
 | `effects` | `TegakiEffects` | Visual effects configuration. |
 | `timing` | `TimelineConfig` | Timeline timing configuration. |
+| `quality` | `TegakiQuality` | Render-quality knobs (`pixelRatio`, `segmentSize`). |
 | `onComplete` | `() => void` | Callback when animation completes. |
 | `engine` | `TegakiEngine` _(read-only)_ | The underlying engine instance. |
 
