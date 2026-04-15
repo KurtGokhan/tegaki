@@ -9,4 +9,4 @@ export { getBundle, registerBundle, resolveBundle } from './bundle-registry.ts';
 export { createBundle } from './createBundle.ts';
 export { TegakiEngine } from './engine.ts';
 export { buildChildren, buildRootProps, domCreateElement } from './render-elements.ts';
-export type { CreateElementFn, TegakiEngineOptions, TimeControlMode, TimeControlProp } from './types.ts';
+export type { CreateElementFn, TegakiEngineOptions, TegakiQuality, TimeControlMode, TimeControlProp } from './types.ts';

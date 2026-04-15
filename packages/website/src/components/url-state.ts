@@ -61,7 +61,8 @@ export interface UrlState {
   catchUp: number;
   effectsState: EffectsState;
   customEffects: CustomEffect[];
-  segmentSize: number;
+  /** Render-quality knobs — see {@link TegakiQuality}. Flattened into URL keys `pr` / `ss`. */
+  quality: { pixelRatio: number; segmentSize: number };
   strokeEasing: string;
   glyphEasing: string;
 }
@@ -83,7 +84,7 @@ export const URL_DEFAULTS: UrlState = {
   catchUp: 0,
   effectsState: DEFAULT_EFFECTS_STATE,
   customEffects: [],
-  segmentSize: 2,
+  quality: { pixelRatio: 1, segmentSize: 2 },
   strokeEasing: 'default',
   glyphEasing: 'default',
 };
@@ -141,7 +142,8 @@ export function parseUrlState(): UrlState {
       state.customEffects = JSON.parse(p.get('cx')!);
     } catch {}
   }
-  if (p.has('ss')) state.segmentSize = Number(p.get('ss'));
+  if (p.has('ss')) state.quality = { ...state.quality, segmentSize: Number(p.get('ss')) };
+  if (p.has('pr')) state.quality = { ...state.quality, pixelRatio: Number(p.get('pr')) };
   if (p.has('se')) state.strokeEasing = p.get('se')!;
   if (p.has('ge')) state.glyphEasing = p.get('ge')!;
 
@@ -183,7 +185,8 @@ export function buildUrlParams(state: UrlState): URLSearchParams {
   if (state.customEffects.length > 0) {
     p.set('cx', JSON.stringify(state.customEffects));
   }
-  if (state.segmentSize !== URL_DEFAULTS.segmentSize) p.set('ss', String(state.segmentSize));
+  if (state.quality.segmentSize !== URL_DEFAULTS.quality.segmentSize) p.set('ss', String(state.quality.segmentSize));
+  if (state.quality.pixelRatio !== URL_DEFAULTS.quality.pixelRatio) p.set('pr', String(state.quality.pixelRatio));
   if (state.strokeEasing !== URL_DEFAULTS.strokeEasing) p.set('se', state.strokeEasing);
   if (state.glyphEasing !== URL_DEFAULTS.glyphEasing) p.set('ge', state.glyphEasing);
 

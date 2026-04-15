@@ -155,7 +155,7 @@ export function PreviewApp() {
   const [loop, setLoop] = useState(initialUrlState.loop);
   const [effectsState, setEffectsState] = useState<EffectsState>(initialUrlState.effectsState);
   const [customEffects, setCustomEffects] = useState<CustomEffect[]>(initialUrlState.customEffects);
-  const [segmentSize, setSegmentSize] = useState(initialUrlState.segmentSize);
+  const [quality, setQuality] = useState(initialUrlState.quality);
   const [catchUp, setCatchUp] = useState(initialUrlState.catchUp);
   const [strokeEasing, setStrokeEasing] = useState(initialUrlState.strokeEasing);
   const [glyphEasing, setGlyphEasing] = useState(initialUrlState.glyphEasing);
@@ -319,7 +319,7 @@ export function PreviewApp() {
         loop,
         effectsState,
         customEffects,
-        segmentSize,
+        quality,
         catchUp,
         strokeEasing,
         glyphEasing,
@@ -343,7 +343,7 @@ export function PreviewApp() {
     catchUp,
     effectsState,
     customEffects,
-    segmentSize,
+    quality,
     strokeEasing,
     glyphEasing,
   ]);
@@ -883,8 +883,8 @@ export function PreviewApp() {
             onEffectsStateChange={setEffectsState}
             customEffects={customEffects}
             onCustomEffectsChange={setCustomEffects}
-            segmentSize={segmentSize}
-            onSegmentSizeChange={setSegmentSize}
+            quality={quality}
+            onQualityChange={setQuality}
             strokeEasing={strokeEasing}
             onStrokeEasingChange={setStrokeEasing}
             glyphEasing={glyphEasing}
@@ -1159,8 +1159,8 @@ function TextPreview({
   onEffectsStateChange,
   customEffects,
   onCustomEffectsChange,
-  segmentSize,
-  onSegmentSizeChange,
+  quality,
+  onQualityChange,
   strokeEasing,
   onStrokeEasingChange,
   glyphEasing,
@@ -1191,8 +1191,8 @@ function TextPreview({
   onEffectsStateChange: (v: EffectsState) => void;
   customEffects: CustomEffect[];
   onCustomEffectsChange: (v: CustomEffect[]) => void;
-  segmentSize: number;
-  onSegmentSizeChange: (v: number) => void;
+  quality: { pixelRatio: number; segmentSize: number };
+  onQualityChange: (v: { pixelRatio: number; segmentSize: number }) => void;
   strokeEasing: string;
   onStrokeEasingChange: (v: string) => void;
   glyphEasing: string;
@@ -1478,7 +1478,7 @@ function TextPreview({
                 font={fontBundle}
                 showOverlay={showOverlay}
                 effects={effects}
-                segmentSize={segmentSize}
+                quality={quality}
                 timing={timingConfig}
               />
             )}
@@ -1792,8 +1792,8 @@ function TextPreview({
                 )}
               </div>
 
-              {/* Segment size */}
-              <div className="border-t border-gray-200 pt-3">
+              {/* Quality: segment size + pixel ratio */}
+              <div className="border-t border-gray-200 pt-3 flex flex-col gap-2">
                 <label className="flex items-center justify-between text-xs text-gray-600">
                   Segment size
                   <span className="flex items-center gap-1">
@@ -1803,10 +1803,25 @@ function TextPreview({
                       min={0.5}
                       max={10}
                       step={0.5}
-                      value={segmentSize}
-                      onChange={(e) => onSegmentSizeChange(Number(e.target.value))}
+                      value={quality.segmentSize}
+                      onChange={(e) => onQualityChange({ ...quality, segmentSize: Number(e.target.value) })}
                     />
-                    <span className="tabular-nums w-7 text-right text-gray-400">{segmentSize}px</span>
+                    <span className="tabular-nums w-7 text-right text-gray-400">{quality.segmentSize}px</span>
+                  </span>
+                </label>
+                <label className="flex items-center justify-between text-xs text-gray-600">
+                  Pixel ratio
+                  <span className="flex items-center gap-1">
+                    <input
+                      type="range"
+                      className="w-24"
+                      min={0.5}
+                      max={4}
+                      step={0.25}
+                      value={quality.pixelRatio}
+                      onChange={(e) => onQualityChange({ ...quality, pixelRatio: Number(e.target.value) })}
+                    />
+                    <span className="tabular-nums w-7 text-right text-gray-400">{quality.pixelRatio}x</span>
                   </span>
                 </label>
               </div>

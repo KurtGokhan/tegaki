@@ -79,6 +79,32 @@ export type TimeControlMode = {
 export type TimeControlProp = null | undefined | number | 'css' | TimeControlMode[keyof TimeControlMode];
 
 // ---------------------------------------------------------------------------
+// Quality
+// ---------------------------------------------------------------------------
+
+/**
+ * Render-quality knobs. These trade CPU/GPU cost for visual fidelity.
+ * They do not change the style of the rendered text — see `effects` for that.
+ */
+export interface TegakiQuality {
+  /**
+   * Internal supersampling factor applied on top of `window.devicePixelRatio`.
+   * Values > 1 draw into a larger backing canvas and let the browser downsample
+   * to the displayed size, producing higher-quality antialiasing at a quadratic
+   * cost in pixels filled. Values < 1 save cost at the expense of sharpness.
+   * Default: `1`.
+   */
+  pixelRatio?: number;
+  /**
+   * Maximum drawn segment length (in font units) when stroke-varying effects
+   * (`pressureWidth`, `taper`, `wobble`, `gradient`) are active. Smaller values
+   * produce smoother transitions at the cost of more draw calls per stroke.
+   * Defaults to `2` when such effects are on, otherwise segments are not subdivided.
+   */
+  segmentSize?: number;
+}
+
+// ---------------------------------------------------------------------------
 // Engine options
 // ---------------------------------------------------------------------------
 
@@ -89,7 +115,8 @@ export interface TegakiEngineOptions {
   time?: TimeControlProp;
   effects?: TegakiEffects<Record<string, any>>;
   timing?: TimelineConfig;
-  segmentSize?: number;
+  /** Render-quality knobs (supersampling, segment subdivision). */
+  quality?: TegakiQuality;
   showOverlay?: boolean;
   onComplete?: () => void;
   /** Text direction. When set, applies the CSS `direction` property to the container. */

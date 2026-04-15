@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { TegakiEngine } from '../core/engine.ts';
-import type { TegakiEngineOptions, TimeControlProp } from '../core/types.ts';
+import type { TegakiEngineOptions, TegakiQuality, TimeControlProp } from '../core/types.ts';
 import type { TegakiBundle, TegakiEffects } from '../types.ts';
 import type { TimelineConfig } from '../lib/timeline.ts';
 
@@ -11,7 +11,7 @@ const props = defineProps<{
   time?: TimeControlProp;
   effects?: TegakiEffects<Record<string, any>>;
   timing?: TimelineConfig;
-  segmentSize?: number;
+  quality?: TegakiQuality;
   showOverlay?: boolean;
   onComplete?: () => void;
   direction?: 'ltr' | 'rtl';
@@ -27,7 +27,7 @@ const engineOptions = computed<TegakiEngineOptions>(() => ({
   font: props.font,
   time: props.time,
   effects: props.effects as Record<string, any>,
-  segmentSize: props.segmentSize,
+  quality: props.quality,
   timing: props.timing,
   showOverlay: props.showOverlay,
   direction: props.direction,

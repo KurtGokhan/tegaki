@@ -13,7 +13,8 @@ import type { TegakiBundle } from '../types.ts';
  * - `loop`: loop animation (uncontrolled mode, default `false`)
  * - `delay`: delay before animation starts (seconds, uncontrolled mode, default `0`)
  * - `loop-gap`: pause between loop iterations (seconds, uncontrolled mode, default `0`)
- * - `segment-size`: segment size for rendering
+ * - `pixel-ratio`: supersampling factor on top of devicePixelRatio (quality knob, default `1`)
+ * - `segment-size`: segment size for rendering (quality knob)
  * - `show-overlay`: show debug overlay
  * - `direction`: text direction (`"ltr"` or `"rtl"`)
  *
@@ -30,6 +31,7 @@ const OBSERVED_ATTRS = [
   'loop',
   'delay',
   'loop-gap',
+  'pixel-ratio',
   'segment-size',
   'show-overlay',
   'direction',
@@ -43,6 +45,7 @@ export class TegakiElement extends HTMLElement {
   private _font: TegakiBundle | string | undefined;
   private _effects: TegakiEngineOptions['effects'];
   private _timing: TegakiEngineOptions['timing'];
+  private _quality: TegakiEngineOptions['quality'];
   private _onComplete: (() => void) | undefined;
 
   constructor() {
@@ -114,6 +117,16 @@ export class TegakiElement extends HTMLElement {
     this._engine?.update(this._buildOptions());
   }
 
+  /** Render-quality configuration (supersampling, segment subdivision). */
+  get quality(): TegakiEngineOptions['quality'] {
+    return this._quality;
+  }
+
+  set quality(value: TegakiEngineOptions['quality']) {
+    this._quality = value;
+    this._engine?.update(this._buildOptions());
+  }
+
   /** Callback when animation completes. */
   get onComplete(): (() => void) | undefined {
     return this._onComplete;
@@ -175,10 +188,25 @@ export class TegakiElement extends HTMLElement {
       time,
       effects: this._effects,
       timing: this._timing,
-      segmentSize: this._getNumberAttr('segment-size'),
+      quality: this._resolveQuality(),
       showOverlay: this.hasAttribute('show-overlay'),
       direction: directionAttr === 'rtl' || directionAttr === 'ltr' ? directionAttr : undefined,
       onComplete: this._onComplete,
+    };
+  }
+
+  /**
+   * Merge the `quality` JS property with `pixel-ratio` / `segment-size`
+   * attribute shortcuts. Attributes override properties on a per-field basis.
+   */
+  private _resolveQuality(): TegakiEngineOptions['quality'] {
+    const pixelRatioAttr = this._getNumberAttr('pixel-ratio');
+    const segmentSizeAttr = this._getNumberAttr('segment-size');
+    if (pixelRatioAttr == null && segmentSizeAttr == null) return this._quality;
+    return {
+      ...this._quality,
+      ...(pixelRatioAttr != null ? { pixelRatio: pixelRatioAttr } : {}),
+      ...(segmentSizeAttr != null ? { segmentSize: segmentSizeAttr } : {}),
     };
   }
 
