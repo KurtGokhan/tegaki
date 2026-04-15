@@ -24,11 +24,10 @@
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:status": "changeset status",
-    "release": "changeset version"
+    "release": "changeset version && bun scripts/sync-versions.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.11",
-    "@changesets/changelog-github": "^0.6.0",
     "@changesets/cli": "^2.30.0",
     "@types/bun": "^1.3.12",
     "@typescript/native-preview": "^7.0.0-dev.20260414.1",

@@ -1,10 +1,10 @@
 {
-  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "KurtGokhan/tegaki" }],
+  "$schema": "https://unpkg.com/@changesets/config@3.1.3/schema.json",
+  "changelog": ["@changesets/cli", { "repo": "KurtGokhan/tegaki" }],
   "commit": false,
-  "fixed": [["tegaki", "@tegaki/root", "tegaki-generator", "@tegaki/website"]],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
+  "ignore": ["@tegaki/root", "tegaki-generator", "@tegaki/website", "@tegaki/example-remotion"],
   "privatePackages": { "version": true, "tag": false }
 }
