@@ -1198,8 +1198,8 @@ function TextPreview({
   onEffectsStateChange: (v: EffectsState) => void;
   customEffects: CustomEffect[];
   onCustomEffectsChange: (v: CustomEffect[]) => void;
-  quality: { pixelRatio: number; segmentSize: number };
-  onQualityChange: (v: { pixelRatio: number; segmentSize: number }) => void;
+  quality: { pixelRatio: number; segmentSize: number; clipText: boolean | number };
+  onQualityChange: (v: { pixelRatio: number; segmentSize: number; clipText: boolean | number }) => void;
   strokeEasing: string;
   onStrokeEasingChange: (v: string) => void;
   glyphEasing: string;
@@ -1818,7 +1818,7 @@ function TextPreview({
                 )}
               </div>
 
-              {/* Quality: segment size + pixel ratio */}
+              {/* Quality: segment size + pixel ratio + clip text */}
               <div className="border-t border-gray-200 pt-3 flex flex-col gap-2">
                 <label className="flex items-center justify-between text-xs text-gray-600">
                   Segment size
@@ -1850,6 +1850,36 @@ function TextPreview({
                     <span className="tabular-nums w-7 text-right text-gray-400">{quality.pixelRatio}x</span>
                   </span>
                 </label>
+                <label className="flex items-center gap-2 text-xs text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={!!quality.clipText}
+                    onChange={(e) => onQualityChange({ ...quality, clipText: e.target.checked ? 2 : false })}
+                  />
+                  Clip to text
+                </label>
+                {!!quality.clipText && (
+                  <label className="flex items-center justify-between text-xs text-gray-600 pl-4">
+                    Stroke scale
+                    <span className="flex items-center gap-1">
+                      <input
+                        type="range"
+                        className="w-24"
+                        min={1}
+                        max={5}
+                        step={0.5}
+                        value={typeof quality.clipText === 'number' ? quality.clipText : 1}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          onQualityChange({ ...quality, clipText: v === 1 ? true : v });
+                        }}
+                      />
+                      <span className="tabular-nums w-7 text-right text-gray-400">
+                        {typeof quality.clipText === 'number' ? quality.clipText : 1}x
+                      </span>
+                    </span>
+                  </label>
+                )}
               </div>
             </div>
           </aside>

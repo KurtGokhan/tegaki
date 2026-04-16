@@ -57,6 +57,7 @@ export class TegakiEngine {
   private _canvasEl: HTMLCanvasElement;
   private _overlayEl: HTMLElement;
   private _canvasFallbackEl: HTMLSpanElement;
+  private _maskCanvas: HTMLCanvasElement | null = null;
 
   // --- Options ---
   private _text = '';
@@ -368,6 +369,7 @@ export class TegakiEngine {
     // against this (dead) engine if a caller holds a stale reference.
     this._strokeCache = new WeakMap();
     this._strokeCacheKey = '';
+    this._maskCanvas = null;
   }
 
   // =========================================================================
@@ -793,6 +795,9 @@ export class TegakiEngine {
       return sub;
     };
 
+    const clipText = this._quality?.clipText;
+    const strokeScale = typeof clipText === 'number' ? clipText : 1;
+
     let y = 0;
     for (const lineIndices of layout.lines) {
       for (const charIdx of lineIndices) {
@@ -827,6 +832,7 @@ export class TegakiEngine {
             this._seed + charIdx,
             getSubdivided,
             this._timing?.strokeEasing,
+            strokeScale,
           );
         } else if (!entry.hasGlyph && currentTime >= entry.offset + entry.duration) {
           const baseline = y + halfLeading + (font.ascender / font.unitsPerEm) * fontSize;
@@ -834,6 +840,43 @@ export class TegakiEngine {
         }
       }
       y += lineHeight;
+    }
+
+    // --- Clip strokes to the filled text shape ---
+    // All text characters are rendered onto a cached offscreen canvas so the
+    // mask can be applied as a single destination-in drawImage call. Doing
+    // fillText per-character with destination-in would erase previously-clipped
+    // strokes.
+    if (clipText) {
+      if (!this._maskCanvas) this._maskCanvas = document.createElement('canvas');
+      const maskCanvas = this._maskCanvas;
+      if (maskCanvas.width !== canvas.width || maskCanvas.height !== canvas.height) {
+        maskCanvas.width = canvas.width;
+        maskCanvas.height = canvas.height;
+      }
+      const maskCtx = maskCanvas.getContext('2d')!;
+      maskCtx.setTransform(effectiveDpr, 0, 0, effectiveDpr, 0, 0);
+      maskCtx.clearRect(0, 0, w, h);
+      maskCtx.translate(padH, padV);
+      maskCtx.font = `${fontSize}px ${cssFontFamily(font)}`;
+      maskCtx.textBaseline = 'alphabetic';
+      let clipY = 0;
+      for (const lineIndices of layout.lines) {
+        for (const charIdx of lineIndices) {
+          const char = characters[charIdx]!;
+          if (char === '\n') continue;
+          const x = (layout.charOffsets[charIdx] ?? 0) * fontSize;
+          const baseline = clipY + halfLeading + (font.ascender / font.unitsPerEm) * fontSize;
+          maskCtx.fillText(char, x, baseline);
+        }
+        clipY += lineHeight;
+      }
+
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.drawImage(maskCanvas, 0, 0);
+      ctx.restore();
     }
   }
 }

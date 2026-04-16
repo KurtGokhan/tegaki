@@ -105,6 +105,18 @@ export interface TegakiQuality {
    * subdivided.
    */
   segmentSize?: number;
+  /**
+   * Clip handwriting strokes to the filled text shape using canvas composite
+   * operations (`destination-in`). Strokes that extend beyond the glyph
+   * outlines are masked away, producing a "drawn inside the text" effect.
+   *
+   * - `false` (default) — no clipping.
+   * - `true` — clip with no stroke width change.
+   * - A number > 0 — clip and scale stroke widths by that factor. Values
+   *   around `2`–`3` make the strokes fill more of the glyph interior,
+   *   producing a result closer to the original filled text.
+   */
+  clipText?: boolean | number;
 }
 
 // ---------------------------------------------------------------------------

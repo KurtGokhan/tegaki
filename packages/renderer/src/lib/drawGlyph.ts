@@ -102,6 +102,7 @@ export function drawGlyph(
   seed = 0,
   getSubdivided?: (stroke: Stroke) => SubdividedStroke,
   strokeEasing: ((t: number) => number) | undefined = defaultStrokeEasing,
+  strokeScale = 1,
 ) {
   const scale = pos.fontSize / pos.unitsPerEm;
   const ox = pos.x;
@@ -192,8 +193,8 @@ export function drawGlyph(
       const p = rawPts[0]!;
       const dotX = px(p[0]! + wobbleDx(p[0]!, p[1]!, 0));
       const dotY = py(p[1]! + wobbleDy(p[0]!, p[1]!, 0));
-      const baseLineWidth = Math.max(p[2]!, 0.5) * scale;
-      const perPointDot = Math.max(p[2]!, 0.5) * scale;
+      const baseLineWidth = Math.max(p[2]!, 0.5) * scale * strokeScale;
+      const perPointDot = Math.max(p[2]!, 0.5) * scale * strokeScale;
       let dotWidth = baseLineWidth + (perPointDot - baseLineWidth) * pressureAmount;
       dotWidth *= taperMultiplier(0.5);
 
@@ -235,7 +236,7 @@ export function drawGlyph(
     const drawLen = totalLen * progress;
     if (drawLen <= 0) continue;
 
-    const baseLineWidth = Math.max(avgWidth, 0.5) * scale;
+    const baseLineWidth = Math.max(avgWidth, 0.5) * scale * strokeScale;
 
     // Binary search for the last fully-included vertex — i.e. the largest i
     // with vertices[i].cumLen <= drawLen.
@@ -332,8 +333,8 @@ export function drawGlyph(
 
         let lw = baseLineWidth;
         if (needsPerSegment) {
-          const perPoint = (aWidth + bWidth) * 0.5 * scale;
-          const w = Math.max(baseLineWidth + (perPoint - baseLineWidth) * pressureAmount, 0.5 * scale);
+          const perPoint = (aWidth + bWidth) * 0.5 * scale * strokeScale;
+          const w = Math.max(baseLineWidth + (perPoint - baseLineWidth) * pressureAmount, 0.5 * scale * strokeScale);
           lw = w * taperMultiplier(midProgress);
         }
         ctx.lineWidth = lw;
