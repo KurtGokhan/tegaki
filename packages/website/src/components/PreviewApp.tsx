@@ -387,6 +387,7 @@ export function PreviewApp() {
         chars,
         options,
         extraFontBuffers,
+        subset: false,
       });
 
       const encoder = new TextEncoder();
