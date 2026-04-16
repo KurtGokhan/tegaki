@@ -4,6 +4,7 @@ import fullFontUrl from './italianno.ttf' with { type: 'url' };
 import glyphData from './glyphData.json' with { type: 'json' };
 
 const bundle = {
+  version: 0,
   family: 'Italianno Tegaki 3dc76002',
   fullFamily: 'Italianno',
   lineCap: 'round',

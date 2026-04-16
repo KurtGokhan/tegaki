@@ -1,5 +1,5 @@
 import opentype from 'opentype.js';
-import type { BBox, FontOutput, LineCap, Point, Stroke } from 'tegaki';
+import { type BBox, BUNDLE_VERSION, type FontOutput, type LineCap, type Point, type Stroke } from 'tegaki';
 import * as z from 'zod/v4';
 import {
   charsHash,
@@ -499,6 +499,7 @@ function generateGlyphsModule(
   if (hasFull) fontFaceRules.push(`@font-face { font-family: '${esc(fullFamily)}'; src: url(\${fullFontUrl}); }`);
 
   const props = [
+    `  version: ${BUNDLE_VERSION},`,
     `  family: '${esc(fontFamily)}',`,
     ...(hasFull ? [`  fullFamily: '${esc(fullFamily)}',`] : []),
     `  lineCap: '${lineCap}',`,

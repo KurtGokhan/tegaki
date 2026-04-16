@@ -4,6 +4,7 @@ import fullFontUrl from './caveat.ttf' with { type: 'url' };
 import glyphData from './glyphData.json' with { type: 'json' };
 
 const bundle = {
+  version: 0,
   family: 'Caveat Tegaki 3dc76002',
   fullFamily: 'Caveat',
   lineCap: 'round',

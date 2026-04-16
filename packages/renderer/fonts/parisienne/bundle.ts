@@ -4,6 +4,7 @@ import fullFontUrl from './parisienne.ttf' with { type: 'url' };
 import glyphData from './glyphData.json' with { type: 'json' };
 
 const bundle = {
+  version: 0,
   family: 'Parisienne Tegaki 3dc76002',
   fullFamily: 'Parisienne',
   lineCap: 'round',

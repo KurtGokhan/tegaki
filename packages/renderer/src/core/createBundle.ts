@@ -1,4 +1,4 @@
-import type { LineCap, TegakiBundle, TegakiGlyphData } from '../types.ts';
+import { BUNDLE_VERSION, type LineCap, type TegakiBundle, type TegakiGlyphData } from '../types.ts';
 
 /**
  * Creates a {@link TegakiBundle} from its constituent parts.
@@ -41,6 +41,7 @@ export function createBundle({
     rules.push(`@font-face { font-family: '${fullFamily}'; src: url(${fullFontUrl}); }`);
   }
   return {
+    version: BUNDLE_VERSION,
     family,
     fullFamily,
     lineCap,

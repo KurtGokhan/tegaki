@@ -3,7 +3,15 @@ import { zipSync } from 'fflate';
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { computeTimeline, type LineCap, type TegakiBundle, TegakiRenderer, type TegakiRendererHandle, type TimeControlProp } from 'tegaki';
+import {
+  BUNDLE_VERSION,
+  computeTimeline,
+  type LineCap,
+  type TegakiBundle,
+  TegakiRenderer,
+  type TegakiRendererHandle,
+  type TimeControlProp,
+} from 'tegaki';
 import {
   type BrowserSkeletonMethod,
   DEFAULT_OPTIONS,
@@ -1353,6 +1361,7 @@ function TextPreview({
     }
 
     return {
+      version: BUNDLE_VERSION,
       family: fontInfo.family,
       lineCap: options.lineCap === 'auto' ? fontInfo.lineCap : options.lineCap,
       fontUrl,

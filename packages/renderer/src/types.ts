@@ -1,3 +1,16 @@
+/**
+ * Current bundle format version. Incremented when the bundle format changes
+ * in a way that older engines cannot consume.
+ */
+export const BUNDLE_VERSION = 0;
+
+/**
+ * Set of bundle versions that this engine can consume. The engine logs a
+ * console warning (once per bundle) when it encounters a version outside
+ * this set.
+ */
+export const COMPATIBLE_BUNDLE_VERSIONS: ReadonlySet<number> = new Set([BUNDLE_VERSION]);
+
 export type LineCap = 'round' | 'butt' | 'square';
 
 export interface Point {
@@ -108,6 +121,8 @@ export type TegakiEffects<T> = {
 };
 
 export interface TegakiBundle {
+  /** Bundle format version. Used by the engine to warn about incompatible bundles. */
+  version?: number;
   family: string;
   /**
    * Original font family name, used as a CSS fallback for characters not in

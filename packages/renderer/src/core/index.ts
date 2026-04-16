@@ -5,6 +5,7 @@ export { computeTextLayout, type TextLayout } from '../lib/textLayout.ts';
 export { computeTimeline, type Timeline, type TimelineConfig, type TimelineEntry } from '../lib/timeline.ts';
 export type * from '../types.ts';
 export type { TegakiEffectConfigs, TegakiEffects } from '../types.ts';
+export { BUNDLE_VERSION, COMPATIBLE_BUNDLE_VERSIONS } from '../types.ts';
 export { getBundle, registerBundle, resolveBundle } from './bundle-registry.ts';
 export { createBundle } from './createBundle.ts';
 export { TegakiEngine } from './engine.ts';
