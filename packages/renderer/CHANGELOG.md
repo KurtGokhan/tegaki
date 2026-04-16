@@ -1,5 +1,44 @@
 # tegaki
 
+## 0.12.0
+
+### Minor Changes
+
+- be16624: Add bundle format versioning. Generated bundles now include a `version` field (currently `0`) so the engine can detect incompatible bundles. The engine checks the version when a bundle is registered or resolved and logs a console warning (once per bundle) if the version is missing or unsupported.
+
+  New exports: `BUNDLE_VERSION`, `COMPATIBLE_BUNDLE_VERSIONS`. New optional `TegakiBundle` field: `version`. Existing bundles without a version field trigger the warning but continue to work.
+
+- 9776ca3: Cache stroke subdivision across glyph instances. Subdivision now depends
+  only on (stroke points, fontSize, segmentSize) and is reused by every
+  occurrence of the same glyph in the rendered text. Wobble, progress
+  truncation, pressure, taper, and gradient are applied at draw time on
+  top of the shared geometry, and effect config changes no longer
+  invalidate the cache. Glow draws the full truncated polyline in a single
+  stroke() call, removing the previous per-sub-segment shadowBlur cost.
+
+  Wobble is now sampled per sub-vertex (fractional original-point index
+  keeps phase continuous), giving smoother curves than the previous
+  lerp-between-wobbled-raw-vertices.
+
+- 1ce1324: Add subset font bundling with full-font fallback. Bundles generated from a character subset now ship two font files: a subsetted TTF for the generated glyphs and the full TTF as a CSS fallback. The subset font is registered under a scoped family name (`<family> Tegaki <hash>`) to avoid colliding with user-loaded fonts, while the full font uses the original family name. The renderer composes both in `font-family` so the browser automatically falls back to the full font for non-generated characters.
+
+  New `TegakiBundle` fields: `fullFamily`, `fullFontUrl`. Existing bundles without these fields continue to work unchanged.
+
+### Patch Changes
+
+- 73a6b7e: Introduces TegakiQuality ({ pixelRatio, segmentSize }) on the engine
+  options, replacing the top-level segmentSize. pixelRatio multiplies
+  devicePixelRatio when sizing the canvas backing store and root
+  transform, letting the browser downsample to the displayed size for
+  higher-quality antialiasing at a quadratic cost in pixels filled.
+  segmentSize retains its prior meaning under the new namespace.
+- d9b7c85: feat: add stroke and glyph easing functions
+- 7aaf5d2: add rtl direction support
+- 23757ca: Breaking: `quality.segmentSize` is now measured in CSS pixels instead of
+  font units. Subdivision count now scales with rendered size, so small
+  glyphs are no longer over-subdivided. A 100px stroke with segmentSize=1
+  yields ~100 sub-segments; the same stroke at 10px yields ~10.
+
 ## 0.11.1
 
 ### Patch Changes
