@@ -115,9 +115,11 @@ export interface TegakiBundle {
    * subset of the font (the default). When absent, `family` is the original
    * name (full-font bundle).
    */
-  fallbackFamily?: string;
+  fullFamily?: string;
   lineCap: LineCap;
   fontUrl: string;
+  /** URL to the full (non-subsetted) font file bundled for fallback rendering. */
+  fullFontUrl?: string;
   fontFaceCSS: string;
   unitsPerEm: number;
   ascender: number;

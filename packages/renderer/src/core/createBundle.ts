@@ -17,8 +17,9 @@ import type { LineCap, TegakiBundle, TegakiGlyphData } from '../types.ts';
  */
 export function createBundle({
   family,
-  fallbackFamily,
+  fullFamily,
   fontUrl,
+  fullFontUrl,
   glyphData,
   lineCap = 'round',
   unitsPerEm = 1000,
@@ -26,20 +27,26 @@ export function createBundle({
   descender = -200,
 }: {
   family: string;
-  fallbackFamily?: string;
+  fullFamily?: string;
   fontUrl: string;
+  fullFontUrl?: string;
   glyphData: Record<string, TegakiGlyphData>;
   lineCap?: LineCap;
   unitsPerEm?: number;
   ascender?: number;
   descender?: number;
 }): TegakiBundle {
+  const rules = [`@font-face { font-family: '${family}'; src: url(${fontUrl}); }`];
+  if (fullFamily && fullFontUrl) {
+    rules.push(`@font-face { font-family: '${fullFamily}'; src: url(${fullFontUrl}); }`);
+  }
   return {
     family,
-    fallbackFamily,
+    fullFamily,
     lineCap,
     fontUrl,
-    fontFaceCSS: `@font-face { font-family: '${family}'; src: url(${fontUrl}); }`,
+    fullFontUrl,
+    fontFaceCSS: rules.join(' '),
     unitsPerEm,
     ascender,
     descender,

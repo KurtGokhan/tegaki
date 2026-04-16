@@ -13,11 +13,11 @@ export function graphemes(text: string): string[] {
 }
 
 /**
- * Build the CSS `font-family` value for a bundle, including the fallback
- * family when the bundle was generated from a subset.
+ * Build the CSS `font-family` value for a bundle, including the full
+ * (non-subsetted) family as fallback when the bundle was generated from a subset.
  */
 export function cssFontFamily(bundle: TegakiBundle): string {
-  if (bundle.fallbackFamily) return `'${bundle.family}', '${bundle.fallbackFamily}'`;
+  if (bundle.fullFamily) return `'${bundle.family}', '${bundle.fullFamily}'`;
   return `'${bundle.family}'`;
 }
 

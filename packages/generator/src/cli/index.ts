@@ -37,6 +37,17 @@ export const tegakiProgram = createPadrone('tegaki')
           fontPaths.length > 1 ? await Promise.all(fontPaths.slice(1).map((p) => Bun.file(p).arrayBuffer())) : undefined;
         const fontFileName = basename(fontPaths[0]!);
 
+        // When generating a subset, also download the full font so the bundle
+        // can include it as a CSS fallback for non-generated characters.
+        const isSubset = chars !== true;
+        let fullFontBuffer: ArrayBuffer | undefined;
+        let fullFontFileName: string | undefined;
+        if (isSubset) {
+          const fullPaths = await downloadFont(family, { force });
+          fullFontBuffer = await Bun.file(fullPaths[0]!).arrayBuffer();
+          fullFontFileName = basename(fullPaths[0]!);
+        }
+
         // Resolve the final char set. When true, enumerate every mapped codepoint
         // from the downloaded font(s); otherwise use the explicit string.
         let resolvedChars: string;
@@ -57,7 +68,9 @@ export const tegakiProgram = createPadrone('tegaki')
           chars: resolvedChars,
           options: pipelineOptions as PipelineOptions,
           extraFontBuffers,
-          subset: chars !== true,
+          subset: isSubset,
+          fullFontBuffer,
+          fullFontFileName,
           onProgress: (msg, p) => {
             if (p !== undefined) {
               progress?.update({ message: msg, progress: p });
