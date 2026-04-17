@@ -1,5 +1,4 @@
-import { JUNCTION_CLEANUP_MAX_ITERATIONS, SKELETON_METHOD, THIN_MAX_ITERATIONS } from '../constants.ts';
-import { computeInverseDistanceTransform } from './width.ts';
+import { JUNCTION_CLEANUP_MAX_ITERATIONS } from '../constants.ts';
 
 // 8-connected neighbor offsets
 const DX = [0, 1, 1, 1, 0, -1, -1, -1];
@@ -13,50 +12,6 @@ function degree(x: number, y: number, skel: Uint8Array, w: number, h: number): n
     if (nx >= 0 && nx < w && ny >= 0 && ny < h && skel[ny * w + nx]) count++;
   }
   return count;
-}
-
-/**
- * Skeletonize a binary bitmap using Zhang-Suen thinning,
- * then clean up junction clusters using the distance transform.
- *
- * Zhang-Suen produces topologically correct skeletons but junction pixels
- * tend to cluster at morphological centers rather than lying on the true
- * medial axis. The cleanup step collapses each junction cluster to the
- * single pixel with the highest distance transform value (closest to the
- * true medial axis), then reconnects the arms.
- */
-export async function skeletonize(bitmap: Uint8Array, width: number, height: number): Promise<Uint8Array> {
-  const dt = computeInverseDistanceTransform(bitmap, width, height);
-
-  let skeleton: Uint8Array;
-
-  if (SKELETON_METHOD === 'medial-axis') {
-    skeleton = medialAxisThin(bitmap, dt, width, height);
-  } else if (SKELETON_METHOD.startsWith('skimage-')) {
-    // scikit-image backed methods — delegate to Python subprocess (dynamic import to avoid bundling Node deps)
-    const { skimageSkeletonize } = await import('./skimage-bridge.ts');
-    const skimageMethod = SKELETON_METHOD.replace('skimage-', '') as 'zhang' | 'lee' | 'medial-axis' | 'thin';
-    const raw = await skimageSkeletonize(bitmap, width, height, skimageMethod, skimageMethod === 'thin' ? THIN_MAX_ITERATIONS : undefined);
-    skeleton = cleanJunctionClusters(raw, dt, width, height, zhangSuenThin);
-  } else {
-    // TypeScript implementations
-    const thinFns: Record<string, ThinFn> = {
-      'zhang-suen': zhangSuenThin,
-      'guo-hall': guoHallThin,
-      lee: leeThin,
-      thin: (bmp, w, h) => morphologicalThin(bmp, w, h, THIN_MAX_ITERATIONS),
-    };
-    const thinFn = thinFns[SKELETON_METHOD] ?? zhangSuenThin;
-    const raw = thinFn(bitmap, width, height);
-    skeleton = cleanJunctionClusters(raw, dt, width, height, thinFn);
-  }
-
-  // Thinning algorithms can fully erase compact symmetric shapes (circles,
-  // squares) like the dot in "i". Restore a single pixel at the medial center
-  // for any bitmap connected component that lost all its skeleton pixels.
-  restoreErasedComponents(bitmap, skeleton, dt, width, height);
-
-  return skeleton;
 }
 
 /**

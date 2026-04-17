@@ -1,5 +1,4 @@
 export {
-  type BrowserSkeletonMethod,
   type BundleFile,
   DEFAULT_OPTIONS,
   type ExtractBundleInput,
@@ -12,7 +11,7 @@ export {
   processGlyph,
   type TegakiBundleOutput,
 } from './commands/generate.ts';
-export { DEFAULT_CHARS, EXAMPLE_FONTS } from './constants.ts';
+export { DEFAULT_CHARS, EXAMPLE_FONTS, type SkeletonMethod } from './constants.ts';
 export { enumerateFontChars } from './font/parse.ts';
 export { glyphToAnimatedSVG } from './processing/animated-svg.ts';
 export { renderStage, STROKE_COLORS, type VisualizationStage } from './processing/visualize.ts';

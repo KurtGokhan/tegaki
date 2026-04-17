@@ -13,7 +13,6 @@ import {
   type TimeControlProp,
 } from 'tegaki';
 import {
-  type BrowserSkeletonMethod,
   DEFAULT_OPTIONS,
   EXAMPLE_FONTS,
   enumerateFontChars,
@@ -24,6 +23,7 @@ import {
   parseFont,
   processGlyph,
   renderStage,
+  type SkeletonMethod,
   STROKE_COLORS,
   type VisualizationStage,
 } from 'tegaki-generator';
@@ -86,7 +86,7 @@ const STAGES: { key: Stage; label: string }[] = [
   { key: 'final', label: 'Final' },
 ];
 
-const SKELETON_METHODS: { value: BrowserSkeletonMethod; label: string }[] = [
+const SKELETON_METHODS: { value: SkeletonMethod; label: string }[] = [
   { value: 'zhang-suen', label: 'Zhang-Suen' },
   { value: 'guo-hall', label: 'Guo-Hall' },
   { value: 'lee', label: 'Lee' },
@@ -599,7 +599,7 @@ export function PreviewApp() {
               value={options.skeletonMethod}
               defaultValue={DEFAULT_OPTIONS.skeletonMethod}
               options={SKELETON_METHODS}
-              onChange={(v) => updateOption('skeletonMethod', v as BrowserSkeletonMethod)}
+              onChange={(v) => updateOption('skeletonMethod', v as SkeletonMethod)}
             />
 
             <SelectOption

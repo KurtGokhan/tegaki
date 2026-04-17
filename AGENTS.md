@@ -82,7 +82,7 @@ Font download -> Parse (opentype.js) -> Flatten beziers -> Rasterize -> Skeleton
 1. **Extract** (`src/font/parse.ts`): opentype.js extracts path commands and metrics
 2. **Flatten** (`src/processing/bezier.ts`): Adaptive de Casteljau subdivision converts bezier curves to polyline segments
 3. **Rasterize** (`src/processing/rasterize.ts`): Scanline fill with nonzero winding rule produces a binary bitmap
-4. **Skeletonize** (`src/processing/skeletonize.ts`): Reduces the bitmap to a 1px-wide skeleton. Default is Zhang-Suen thinning; the pipeline also supports Guo-Hall, Lee 3D, morphological thin, medial-axis (distance transform ridge), Voronoi-based medial axis (`voronoi-medial-axis.ts`), and scikit-image variants via an out-of-process Python bridge (`skimage-bridge.ts` + `skimage_bridge.py`; CLI-only).
+4. **Skeletonize** (`src/processing/skeletonize.ts`): Reduces the bitmap to a 1px-wide skeleton. Default is Zhang-Suen thinning; the pipeline also supports Guo-Hall, Lee 3D, morphological thin, medial-axis (distance transform ridge), and Voronoi-based medial axis (`voronoi-medial-axis.ts`).
 5. **Trace** (`src/processing/trace.ts`): Walks skeleton pixels into polylines, prunes short spurs, simplifies with Ramer-Douglas-Peucker
 6. **Width** (`src/processing/width.ts`): Distance transform computes stroke width (diameter) at each skeleton point
 7. **Stroke order** (`src/processing/stroke-order.ts`): Groups polylines into connected components, sorts top-to-bottom/left-to-right, orients strokes, assigns `t` parameter (0-1 animation progress)
@@ -106,8 +106,6 @@ packages/generator/src/
     rasterize.ts              # Scanline fill rasterizer (nonzero winding rule)
     skeletonize.ts            # Zhang-Suen, Guo-Hall, Lee, morphological thin, medial axis
     voronoi-medial-axis.ts    # Voronoi-based medial axis alternative
-    skimage-bridge.ts         # Node-side IPC to the scikit-image subprocess (CLI-only)
-    skimage_bridge.py         # Python worker — scikit-image skeleton variants
     trace.ts                  # Skeleton pixel tracing + RDP simplification + spur pruning
     width.ts                  # Distance transform for stroke width
     stroke-order.ts           # Connected component grouping + heuristic ordering

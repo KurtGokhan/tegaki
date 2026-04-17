@@ -169,26 +169,10 @@ export const DISTANCE_TRANSFORM_METHOD: 'euclidean' | 'chamfer' = 'chamfer';
  *   works directly from outline geometry. Produces sub-pixel accurate medial
  *   axis but may have more edges at junctions.
  *
- * scikit-image variants (require `uv` and Python 3):
- * 'skimage-zhang' = scikit-image's Zhang method (skeletonize default).
- * 'skimage-lee' = scikit-image's Lee method (skeletonize method='lee').
- * 'skimage-medial-axis' = scikit-image's medial_axis function.
- * 'skimage-thin' = scikit-image's thin function with THIN_MAX_ITERATIONS.
- *
  * All methods preserve topology and connectivity. Differences are subtle and
  * font/glyph-dependent — try each to see which works better for your use case.
  */
-export type SkeletonMethod =
-  | 'zhang-suen'
-  | 'guo-hall'
-  | 'medial-axis'
-  | 'lee'
-  | 'thin'
-  | 'voronoi'
-  | 'skimage-zhang'
-  | 'skimage-lee'
-  | 'skimage-medial-axis'
-  | 'skimage-thin';
+export type SkeletonMethod = 'zhang-suen' | 'guo-hall' | 'medial-axis' | 'lee' | 'thin' | 'voronoi';
 
 export const SKELETON_METHOD: SkeletonMethod = 'zhang-suen';
 

@@ -30,12 +30,9 @@ import { computeInverseDistanceTransform } from '../processing/width.ts';
 
 // ── Pipeline types & defaults ──────────────────────────────────────────────
 
-/** Browser-compatible skeleton methods (excludes scikit-image variants) */
-export type BrowserSkeletonMethod = Exclude<SkeletonMethod, `skimage-${string}`>;
-
 export interface PipelineOptions {
   resolution: number;
-  skeletonMethod: BrowserSkeletonMethod;
+  skeletonMethod: SkeletonMethod;
   lineCap: LineCap | 'auto';
   bezierTolerance: number;
   rdpTolerance: number;
@@ -328,7 +325,7 @@ export const generateArgsSchema = z.object({
     .meta({ flags: 'l' }),
   skeletonMethod: z
     .enum(['zhang-suen', 'guo-hall', 'medial-axis', 'lee', 'thin', 'voronoi'])
-    .default(SKELETON_METHOD as BrowserSkeletonMethod)
+    .default(SKELETON_METHOD)
     .describe('Skeletonization algorithm'),
   bezierTolerance: z.number().default(DEFAULT_OPTIONS.bezierTolerance).describe('Bezier curve flattening tolerance'),
   rdpTolerance: z.number().default(DEFAULT_OPTIONS.rdpTolerance).describe('Ramer-Douglas-Peucker simplification tolerance'),
