@@ -55,14 +55,16 @@ export function computeTimeline(text: string, font: TegakiBundle, config?: Timel
   for (const char of chars) {
     const glyph = font.glyphData[char];
     const hasGlyph = !!glyph;
-    const duration = hasGlyph ? (glyph.t ?? 1) : unknownDuration;
+    const isLineBreak = char === '\n';
+    const isWhitespace = isLineBreak || /^\s+$/.test(char);
+    const duration = isWhitespace ? 0 : hasGlyph ? (glyph.t ?? unknownDuration) : unknownDuration;
     entries.push({ char, offset, duration, hasGlyph });
     offset += duration;
 
     // Gap after this character
-    if (char === '\n') {
+    if (isLineBreak) {
       offset += lineGap;
-    } else if (char === ' ') {
+    } else if (isWhitespace) {
       offset += wordGap;
     } else {
       offset += glyphGap;
@@ -71,7 +73,7 @@ export function computeTimeline(text: string, font: TegakiBundle, config?: Timel
   // Remove trailing gap
   if (entries.length > 0) {
     const lastChar = chars[chars.length - 1]!;
-    const trailingGap = lastChar === '\n' ? lineGap : lastChar === ' ' ? wordGap : glyphGap;
+    const trailingGap = lastChar === '\n' ? lineGap : /^\s+$/.test(lastChar) ? wordGap : glyphGap;
     offset -= trailingGap;
   }
   return { entries, totalDuration: Math.max(0, offset) };

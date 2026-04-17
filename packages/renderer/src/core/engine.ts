@@ -260,10 +260,13 @@ export class TegakiEngine {
     let dirtyRender = false;
     let dirtyPlayback = false;
 
-    if ('text' in options && options.text !== this._text) {
-      this._text = options.text ?? '';
-      dirtyTimeline = true;
-      dirtyLayout = true;
+    if ('text' in options) {
+      const nextText = (options.text ?? '').replace(/\r\n?/g, '\n');
+      if (nextText !== this._text) {
+        this._text = nextText;
+        dirtyTimeline = true;
+        dirtyLayout = true;
+      }
     }
 
     if ('font' in options) {
