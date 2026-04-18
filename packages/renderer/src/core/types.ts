@@ -117,6 +117,15 @@ export interface TegakiQuality {
    *   producing a result closer to the original filled text.
    */
   clipText?: boolean | number;
+  /**
+   * Smooth stroke polylines with a centripetal Catmull-Rom spline through the
+   * original glyph points. Hides the faceted corners visible at large render
+   * sizes where the baked polyline resolution shows through.
+   *
+   * Requires subdivision to be active — when enabled without a `segmentSize`,
+   * `segmentSize` defaults to `2` CSS px. Default: `false` (unchanged behavior).
+   */
+  smoothing?: boolean;
 }
 
 // ---------------------------------------------------------------------------

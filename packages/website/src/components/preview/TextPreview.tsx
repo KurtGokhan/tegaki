@@ -69,8 +69,8 @@ export function TextPreview({
   onEffectsStateChange: (v: EffectsState) => void;
   customEffects: CustomEffect[];
   onCustomEffectsChange: (v: CustomEffect[]) => void;
-  quality: { pixelRatio: number; segmentSize: number; clipText: boolean | number };
-  onQualityChange: (v: { pixelRatio: number; segmentSize: number; clipText: boolean | number }) => void;
+  quality: { pixelRatio: number; segmentSize: number; clipText: boolean | number; smoothing: boolean };
+  onQualityChange: (v: { pixelRatio: number; segmentSize: number; clipText: boolean | number; smoothing: boolean }) => void;
   strokeEasing: string;
   onStrokeEasingChange: (v: string) => void;
   glyphEasing: string;
@@ -624,6 +624,14 @@ export function TextPreview({
                     onChange={(e) => onQualityChange({ ...quality, clipText: e.target.checked ? 2 : false })}
                   />
                   Clip to text
+                </label>
+                <label className="flex items-center gap-2 text-xs text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={quality.smoothing}
+                    onChange={(e) => onQualityChange({ ...quality, smoothing: e.target.checked })}
+                  />
+                  Smoothing (Catmull-Rom)
                 </label>
                 {!!quality.clipText && (
                   <label className="flex items-center justify-between text-xs text-gray-600 pl-4">

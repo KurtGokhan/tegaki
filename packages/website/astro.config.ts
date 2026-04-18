@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events';
 import react from '@astrojs/react';
 import solidJs from '@astrojs/solid-js';
 import starlight from '@astrojs/starlight';
@@ -6,6 +7,8 @@ import vue from '@astrojs/vue';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
 import starlightThemeNova from 'starlight-theme-nova';
+
+EventEmitter.defaultMaxListeners = 12;
 
 export default defineConfig({
   site: 'https://gkurt.com',

@@ -15,6 +15,7 @@ import type { TegakiBundle } from '../types.ts';
  * - `loop-gap`: pause between loop iterations (seconds, uncontrolled mode, default `0`)
  * - `pixel-ratio`: supersampling factor on top of devicePixelRatio (quality knob, default `1`)
  * - `segment-size`: segment size for rendering (quality knob)
+ * - `smoothing`: smooth strokes with a centripetal Catmull-Rom spline (quality knob)
  * - `show-overlay`: show debug overlay
  * - `direction`: text direction (`"ltr"` or `"rtl"`)
  *
@@ -33,6 +34,7 @@ const OBSERVED_ATTRS = [
   'loop-gap',
   'pixel-ratio',
   'segment-size',
+  'smoothing',
   'show-overlay',
   'direction',
 ] as const;
@@ -196,17 +198,20 @@ export class TegakiElement extends HTMLElement {
   }
 
   /**
-   * Merge the `quality` JS property with `pixel-ratio` / `segment-size`
-   * attribute shortcuts. Attributes override properties on a per-field basis.
+   * Merge the `quality` JS property with `pixel-ratio` / `segment-size` /
+   * `smoothing` attribute shortcuts. Attributes override properties on a
+   * per-field basis.
    */
   private _resolveQuality(): TegakiEngineOptions['quality'] {
     const pixelRatioAttr = this._getNumberAttr('pixel-ratio');
     const segmentSizeAttr = this._getNumberAttr('segment-size');
-    if (pixelRatioAttr == null && segmentSizeAttr == null) return this._quality;
+    const smoothingAttr = this.hasAttribute('smoothing');
+    if (pixelRatioAttr == null && segmentSizeAttr == null && !smoothingAttr) return this._quality;
     return {
       ...this._quality,
       ...(pixelRatioAttr != null ? { pixelRatio: pixelRatioAttr } : {}),
       ...(segmentSizeAttr != null ? { segmentSize: segmentSizeAttr } : {}),
+      ...(smoothingAttr ? { smoothing: true } : {}),
     };
   }
 

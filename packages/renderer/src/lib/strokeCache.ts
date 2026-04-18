@@ -1,4 +1,5 @@
 import type { TegakiGlyphData } from '../types.ts';
+import { reflect, sampleCatmullRom } from './catmullRom.ts';
 
 type Stroke = TegakiGlyphData['s'][number];
 
@@ -35,11 +36,17 @@ export interface SubdividedStroke {
  * Pass `Infinity` (or any non-finite value) to skip subdivision and return
  * the raw polyline.
  *
- * Output depends only on `(stroke.p, maxSegLen)` — not on position, seed,
- * progress, or effect config — so it can be cached and shared across every
- * instance of the same glyph at the same font size.
+ * When `smoothing` is true, intermediate vertices are placed on a centripetal
+ * Catmull-Rom spline through the original points (see `catmullRom.ts`) —
+ * hiding the polyline facets that show up at large render sizes. The original
+ * points remain on the curve, so endpoints and `cumLen`/`idx` semantics are
+ * preserved. Has no effect when `maxSegLen` is non-finite (no subdivision).
+ *
+ * Output depends only on `(stroke.p, maxSegLen, smoothing)` — not on position,
+ * seed, progress, or effect config — so it can be cached and shared across
+ * every instance of the same glyph at the same font size.
  */
-export function subdivideStroke(stroke: Stroke, maxSegLen: number): SubdividedStroke {
+export function subdivideStroke(stroke: Stroke, maxSegLen: number, smoothing = false): SubdividedStroke {
   const pts = stroke.p;
   const n = pts.length;
   if (n === 0) return { vertices: [], totalLen: 0, avgWidth: 0 };
@@ -53,21 +60,40 @@ export function subdivideStroke(stroke: Stroke, maxSegLen: number): SubdividedSt
     const cur = pts[j]!;
     const dx = cur[0]! - prev[0]!;
     const dy = cur[1]! - prev[1]!;
-    const dw = cur[2]! - prev[2]!;
-    const segLen = Math.sqrt(dx * dx + dy * dy);
-    const count = segLen > 0 && Number.isFinite(maxSegLen) && maxSegLen > 0 ? Math.max(1, Math.ceil(segLen / maxSegLen)) : 1;
+    const chordLen = Math.sqrt(dx * dx + dy * dy);
+    const count = chordLen > 0 && Number.isFinite(maxSegLen) && maxSegLen > 0 ? Math.max(1, Math.ceil(chordLen / maxSegLen)) : 1;
 
-    for (let k = 1; k <= count; k++) {
-      const t = k / count;
-      vertices.push({
-        x: prev[0]! + dx * t,
-        y: prev[1]! + dy * t,
-        width: prev[2]! + dw * t,
-        cumLen: cumLen + segLen * t,
-        idx: j - 1 + t,
-      });
+    if (smoothing && count > 1) {
+      const p0 = j >= 2 ? pts[j - 2]! : reflect(prev, cur);
+      const p3 = j + 1 < n ? pts[j + 1]! : reflect(cur, prev);
+      const samples = sampleCatmullRom(p0, prev, cur, p3, count);
+      let px = prev[0]!;
+      let py = prev[1]!;
+      let segAccum = 0;
+      for (let k = 0; k < count; k++) {
+        const s = samples[k]!;
+        const ex = s.x - px;
+        const ey = s.y - py;
+        segAccum += Math.sqrt(ex * ex + ey * ey);
+        vertices.push({ x: s.x, y: s.y, width: s.width, cumLen: cumLen + segAccum, idx: j - 1 + (k + 1) / count });
+        px = s.x;
+        py = s.y;
+      }
+      cumLen += segAccum;
+    } else {
+      const dw = cur[2]! - prev[2]!;
+      for (let k = 1; k <= count; k++) {
+        const t = k / count;
+        vertices.push({
+          x: prev[0]! + dx * t,
+          y: prev[1]! + dy * t,
+          width: prev[2]! + dw * t,
+          cumLen: cumLen + chordLen * t,
+          idx: j - 1 + t,
+        });
+      }
+      cumLen += chordLen;
     }
-    cumLen += segLen;
   }
 
   let widthSum = 0;
