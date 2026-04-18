@@ -1031,7 +1031,7 @@ function FinalView({ result, time }: { result: PipelineResult; time: number }) {
         viewBox={`0 ${-ascender} ${ew} ${eh}`}
         style={{ position: 'absolute', left: -ox, top: -oy, width: svgW, height: svgH, overflow: 'visible' }}
       >
-        <rect x={0} y={-ascender} width={ew} height={eh} fill="white" />
+        <rect x={cx} y={cy} width={cw} height={ch} fill="white" />
         {strokesFontUnits.map((stroke, i) => {
           const avgWidth = stroke.points.reduce((s, p) => s + p.width, 0) / stroke.points.length;
           const localTime = time - stroke.delay;
