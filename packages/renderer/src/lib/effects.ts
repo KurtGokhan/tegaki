@@ -56,7 +56,7 @@ const knownEffects: Record<string, EffectDefinition> = {
   wobble: {},
   pressureWidth: {},
   taper: {},
-  gradient: {},
+  strokeGradient: {},
 };
 
 /**

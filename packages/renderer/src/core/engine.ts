@@ -787,7 +787,7 @@ export class TegakiEngine {
     // subdivision changes, the key changes and the WeakMap is swapped out.
     const effectsNeedSubdivision =
       !!findEffect(this._resolvedEffects, 'wobble') ||
-      !!findEffect(this._resolvedEffects, 'gradient') ||
+      !!findEffect(this._resolvedEffects, 'strokeGradient') ||
       !!findEffect(this._resolvedEffects, 'taper') ||
       (() => {
         const p = findEffect(this._resolvedEffects, 'pressureWidth');

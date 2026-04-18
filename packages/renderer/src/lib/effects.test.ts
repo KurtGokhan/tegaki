@@ -10,9 +10,9 @@ describe('resolveEffects', () => {
   });
 
   test('known keys infer effect name', () => {
-    const resolved = resolveEffects({ glow: { radius: 4 }, gradient: { colors: ['#000'] } });
+    const resolved = resolveEffects({ glow: { radius: 4 }, strokeGradient: { colors: ['#000'] } });
     expect(findEffect(resolved, 'glow')?.config).toEqual({ radius: 4 });
-    expect(findEffect(resolved, 'gradient')?.config).toEqual({ colors: ['#000'] });
+    expect(findEffect(resolved, 'strokeGradient')?.config).toEqual({ colors: ['#000'] });
   });
 
   test('custom keys require explicit effect field', () => {
@@ -37,7 +37,7 @@ describe('resolveEffects', () => {
 
 describe('getEffectDefinition', () => {
   test('returns a definition object for every built-in effect', () => {
-    for (const name of ['glow', 'wobble', 'pressureWidth', 'taper', 'gradient']) {
+    for (const name of ['glow', 'wobble', 'pressureWidth', 'taper', 'strokeGradient']) {
       expect(getEffectDefinition(name)).toBeDefined();
     }
   });
@@ -52,7 +52,7 @@ describe('getEffectDefinition', () => {
   test('built-in effects currently declare no hooks (foundation placeholder)', () => {
     // Sanity check: the foundation ships without changing existing effect
     // behavior. If/when a built-in starts using hooks, update this test.
-    for (const name of ['glow', 'wobble', 'pressureWidth', 'taper', 'gradient']) {
+    for (const name of ['glow', 'wobble', 'pressureWidth', 'taper', 'strokeGradient']) {
       const def = getEffectDefinition(name);
       expect(def?.beforeRender).toBeUndefined();
       expect(def?.afterRender).toBeUndefined();

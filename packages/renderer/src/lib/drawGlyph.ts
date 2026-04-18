@@ -112,7 +112,7 @@ export function drawGlyph(
   const wobbleEffect = findEffect(effects, 'wobble');
   const pressureEffect = findEffect(effects, 'pressureWidth');
   const taperEffect = findEffect(effects, 'taper');
-  const gradientEffect = findEffect(effects, 'gradient');
+  const strokeGradientEffect = findEffect(effects, 'strokeGradient');
 
   // Pressure params (0 = uniform avg width, 1 = fully per-point width)
   const pressureAmount = pressureEffect ? Math.max(0, Math.min(pressureEffect.config.strength ?? 1, 1)) : 0;
@@ -128,12 +128,12 @@ export function drawGlyph(
   const taperEnd = taperEffect ? Math.max(0, Math.min(taperEffect.config.endLength ?? 0.15, 1)) : 0;
 
   // Gradient params
-  const gradientColors = gradientEffect?.config.colors;
+  const gradientColors = strokeGradientEffect?.config.colors;
   const isRainbow = gradientColors === 'rainbow';
   const gradientColorStops = Array.isArray(gradientColors) ? gradientColors : undefined;
-  const gradientSaturation = gradientEffect?.config.saturation ?? 80;
-  const gradientLightness = gradientEffect?.config.lightness ?? 55;
-  const hasGradient = !!gradientEffect;
+  const gradientSaturation = strokeGradientEffect?.config.saturation ?? 80;
+  const gradientLightness = strokeGradientEffect?.config.lightness ?? 55;
+  const hasGradient = !!strokeGradientEffect;
 
   // Effects that vary per-segment require splitting the polyline into
   // individual stroke() calls. Gradient also varies per-segment but via

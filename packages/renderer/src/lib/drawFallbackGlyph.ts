@@ -2,7 +2,7 @@ import { findEffect, findEffects, type ResolvedEffect } from './effects.ts';
 import { resolveCSSLength } from './utils.ts';
 
 /**
- * Draw a fallback glyph (plain text) with applicable effects (glow, gradient, wobble).
+ * Draw a fallback glyph (plain text) with applicable effects (glow, strokeGradient, wobble).
  */
 export function drawFallbackGlyph(
   ctx: CanvasRenderingContext2D,
@@ -17,7 +17,7 @@ export function drawFallbackGlyph(
 ) {
   const glowEffects = findEffects(effects, 'glow');
   const wobbleEffect = findEffect(effects, 'wobble');
-  const gradientEffect = findEffect(effects, 'gradient');
+  const strokeGradientEffect = findEffect(effects, 'strokeGradient');
 
   // Wobble offsets
   let dx = 0;
@@ -34,11 +34,11 @@ export function drawFallbackGlyph(
 
   // Gradient / rainbow color
   let fillColor = color;
-  if (gradientEffect) {
-    const colors = gradientEffect.config.colors;
+  if (strokeGradientEffect) {
+    const colors = strokeGradientEffect.config.colors;
     if (colors === 'rainbow') {
-      const saturation = gradientEffect.config.saturation ?? 80;
-      const lightness = gradientEffect.config.lightness ?? 55;
+      const saturation = strokeGradientEffect.config.saturation ?? 80;
+      const lightness = strokeGradientEffect.config.lightness ?? 55;
       const hue = (seed * 137.5) % 360;
       fillColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
     } else if (Array.isArray(colors) && colors.length > 0) {
