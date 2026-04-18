@@ -171,7 +171,9 @@ export class TegakiEngine {
     if (typeof window !== 'undefined') {
       this._mql = window.matchMedia('(prefers-reduced-motion: reduce)');
       this._prefersReducedMotion = this._mql.matches;
-      this._mql.addEventListener('change', this._onReducedMotionChange);
+      if (this._mql.addEventListener) this._mql.addEventListener('change', this._onReducedMotionChange);
+      // Safari < 14 only exposes the deprecated addListener API.
+      else this._mql.addListener(this._onReducedMotionChange);
     }
 
     // --- Initial measurement (must run before update so layout has valid dimensions) ---
@@ -365,7 +367,10 @@ export class TegakiEngine {
     this._stopLoop();
     this._resizeObserver.disconnect();
     this._sentinelEl.removeEventListener('transitionend', this._onSentinelTransition);
-    this._mql?.removeEventListener('change', this._onReducedMotionChange);
+    if (this._mql) {
+      if (this._mql.removeEventListener) this._mql.removeEventListener('change', this._onReducedMotionChange);
+      else this._mql.removeListener(this._onReducedMotionChange);
+    }
     // Only remove content we created (non-adopt mode). The container is owned by the caller.
     this._contentEl?.remove();
     // Drop the subdivision cache so the font's strokes aren't kept keyed

@@ -73,8 +73,12 @@ export function buildChildren<T>(options: TegakiEngineOptions, h: CreateElementF
         'data-tegaki': 'canvas',
         'aria-hidden': 'true',
         style: {
+          // `inset` shorthand not supported by Safari < 14.1 — expand to longhand.
           position: 'absolute',
-          inset: `calc(-1 * ${PAD_V_CSS}) -0.2em`,
+          top: `calc(-1 * ${PAD_V_CSS})`,
+          right: '-0.2em',
+          bottom: `calc(-1 * ${PAD_V_CSS})`,
+          left: '-0.2em',
           width: 'calc(100% + 0.4em)',
           height: `calc(100% + 2 * ${PAD_V_CSS})`,
           pointerEvents: 'none',

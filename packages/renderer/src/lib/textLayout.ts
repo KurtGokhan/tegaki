@@ -81,7 +81,7 @@ function measureElement(el: HTMLElement, fontSize: number): TextLayout {
       continue;
     }
 
-    const rect = rects[0]!;
+    const rect = rects[rects.length - 1]!;
 
     // A significant vertical shift signals a new line
     if (currentLine.length > 0 && rect.top - prevTop > fontSize * 0.25) {

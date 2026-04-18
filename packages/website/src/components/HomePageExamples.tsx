@@ -101,7 +101,7 @@ export function HomePageExamples() {
       {/* Font showcase */}
       <section style={{ maxWidth: 960, margin: '0 auto', padding: '0 24px 48px' }}>
         <h2 style={{ fontSize: 24, fontWeight: 600, color: 'light-dark(#111827, #f3f4f6)', marginBottom: 24 }}>Built-in Fonts</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: 24 }}>
           {fonts.map((f) => (
             <FontCard key={f.name} name={f.name} bundle={f.bundle} />
           ))}
