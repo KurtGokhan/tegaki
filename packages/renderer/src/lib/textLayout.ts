@@ -45,7 +45,13 @@ function measureElement(el: HTMLElement, fontSize: number): TextLayout {
   // Use element's left edge as reference so offsets are direction-agnostic.
   // For LTR the first char is near the left edge; for RTL it's near the right —
   // either way, subtracting elLeft produces correct visual x-positions.
-  const elLeft = el.getBoundingClientRect().left;
+  const elRect = el.getBoundingClientRect();
+  const elLeft = elRect.left;
+  // Ancestor CSS transforms (e.g. Remotion Studio's preview-fit scale) make
+  // getClientRects() return pre-scale pixel values while getComputedStyle()
+  // returns unscaled fontSize. Divide measured widths by the scale so the em
+  // conversion matches fontSize. offsetWidth is layout-box width (unscaled).
+  const scale = el.offsetWidth > 0 ? elRect.width / el.offsetWidth : 1;
   const range = document.createRange();
 
   const charOffsets: number[] = [];
@@ -83,8 +89,9 @@ function measureElement(el: HTMLElement, fontSize: number): TextLayout {
 
     const rect = rects[rects.length - 1]!;
 
-    // A significant vertical shift signals a new line
-    if (currentLine.length > 0 && rect.top - prevTop > fontSize * 0.25) {
+    // A significant vertical shift signals a new line. Both rect.top and
+    // prevTop are in scaled pixels, so compare against a scaled threshold.
+    if (currentLine.length > 0 && rect.top - prevTop > fontSize * 0.25 * scale) {
       lines.push(currentLine);
       currentLine = [];
     }
@@ -93,8 +100,8 @@ function measureElement(el: HTMLElement, fontSize: number): TextLayout {
       prevTop = rect.top;
     }
 
-    charOffsets.push((rect.left - elLeft) / fontSize);
-    charWidths.push(rect.width / fontSize);
+    charOffsets.push((rect.left - elLeft) / scale / fontSize);
+    charWidths.push(rect.width / scale / fontSize);
     currentLine.push(i);
   }
   if (currentLine.length > 0) lines.push(currentLine);
