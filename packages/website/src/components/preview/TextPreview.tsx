@@ -5,6 +5,7 @@ import { type CustomEffect, DEFAULT_EFFECTS_STATE, EFFECT_DEFAULTS, type Effects
 import { EASING_PRESETS, getEasingFn } from './constants.ts';
 import { CustomEffectControls, EffectColor, EffectSlider, GradientColorStops } from './effect-controls.tsx';
 import { TegakiTextPreview } from './TegakiTextPreview.tsx';
+import { buildEffects } from './utils.ts';
 
 export function TextPreview({
   fontInfo,
@@ -113,36 +114,7 @@ export function TextPreview({
     [customEffects, onCustomEffectsChange],
   );
 
-  const effects = useMemo(() => {
-    const result: Record<string, any> = {};
-    if (effectsState.glow.enabled) {
-      const g: Record<string, any> = { radius: effectsState.glow.radius, color: effectsState.glow.color };
-      if (effectsState.glow.offsetX) g.offsetX = effectsState.glow.offsetX;
-      if (effectsState.glow.offsetY) g.offsetY = effectsState.glow.offsetY;
-      result.glow = g;
-    }
-    if (effectsState.wobble.enabled) {
-      result.wobble = {
-        amplitude: effectsState.wobble.amplitude,
-        frequency: effectsState.wobble.frequency,
-        mode: effectsState.wobble.mode,
-      };
-    }
-    if (effectsState.pressureWidth.enabled) result.pressureWidth = { strength: effectsState.pressureWidth.strength };
-    if (effectsState.taper.enabled) result.taper = { startLength: effectsState.taper.startLength, endLength: effectsState.taper.endLength };
-    if (effectsState.gradient.enabled) {
-      const g: Record<string, any> = { colors: effectsState.gradient.colors };
-      if (effectsState.gradient.colors === 'rainbow') {
-        g.saturation = effectsState.gradient.saturation;
-        g.lightness = effectsState.gradient.lightness;
-      }
-      result.gradient = g;
-    }
-    for (const custom of customEffects) {
-      if (custom.enabled) result[custom.key] = { effect: custom.effect, ...custom.config };
-    }
-    return Object.keys(result).length > 0 ? result : undefined;
-  }, [effectsState, customEffects]);
+  const effects = useMemo(() => buildEffects(effectsState, customEffects), [effectsState, customEffects]);
 
   // Synchronous font change detection — reset playback state BEFORE rendering so
   // the renderer never sees stale displayTime or glyph components. We skip the

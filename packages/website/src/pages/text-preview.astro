@@ -1,0 +1,29 @@
+---
+import { StandaloneTextPreview } from '../components/preview/StandaloneTextPreview';
+import '../styles/global.css';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Text Preview - Tegaki</title>
+    <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/favicon.svg`} />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+      }
+      body {
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+      }
+    </style>
+  </head>
+  <body>
+    <StandaloneTextPreview client:only="react" />
+  </body>
+</html>

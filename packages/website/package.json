@@ -17,7 +17,11 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "typecheck": "astro check && tsc --noEmit"
+    "typecheck": "astro check && tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:update": "playwright test --update-snapshots",
+    "test:e2e:docker": "./scripts/e2e-docker.sh",
+    "test:e2e:docker:update": "./scripts/e2e-docker.sh --update"
   },
   "dependencies": {
     "@anthropic-ai/bedrock-sdk": "^0.28.1",
@@ -43,6 +47,7 @@
     "vue": "^3.5.32"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "typescript": "^6.0.2"
