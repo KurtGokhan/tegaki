@@ -99,12 +99,23 @@ export type TegakiEffectConfigs = {
   pressureWidth: BaseEffectConfig & { strength?: number };
   taper: BaseEffectConfig & { startLength?: number; endLength?: number };
   strokeGradient: BaseEffectConfig & { colors?: string[] | 'rainbow'; saturation?: number; lightness?: number };
+  /**
+   * Linear gradient spanning the whole text bounding box (CSS `background-clip: text` style).
+   * Unlike `strokeGradient`, the color stops map to canvas-space position — the leftmost pixel of
+   * the first glyph is `colors[0]` and the rightmost pixel of the last glyph is `colors[N]`,
+   * regardless of stroke boundaries.
+   *
+   * - `colors`: ordered color stops (2+ stops).
+   * - `angle`: direction in degrees. `0` = left→right (default). `90` = top→bottom.
+   *   Positive values rotate clockwise (y-down screen convention).
+   */
+  globalGradient: BaseEffectConfig & { colors?: string[]; angle?: number };
 };
 
 export type TegakiEffectName = keyof TegakiEffectConfigs;
 
 /** Effects that can only appear once (cannot be used with custom keys). */
-export type TegakiSingletonEffectName = 'pressureWidth' | 'wobble' | 'taper' | 'strokeGradient';
+export type TegakiSingletonEffectName = 'pressureWidth' | 'wobble' | 'taper' | 'strokeGradient' | 'globalGradient';
 
 /** Effects that can be duplicated with custom keys. */
 export type TegakiMultiEffectName = Exclude<TegakiEffectName, TegakiSingletonEffectName>;

@@ -878,6 +878,7 @@ export class TegakiEngine {
             getSubdivided,
             this._timing?.strokeEasing,
             strokeScale,
+            stage?.strokeStyle,
           );
         } else if (!entry.hasGlyph && currentTime >= entry.offset + entry.duration) {
           const baseline = y + halfLeading + (font.ascender / font.unitsPerEm) * fontSize;

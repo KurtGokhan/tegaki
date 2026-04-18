@@ -103,7 +103,14 @@ export function drawGlyph(
   getSubdivided?: (stroke: Stroke) => SubdividedStroke,
   strokeEasing: ((t: number) => number) | undefined = defaultStrokeEasing,
   strokeScale = 1,
+  strokeStyleOverride?: string | CanvasGradient | CanvasPattern,
 ) {
+  // Default stroke paint. When a layout-spanning effect (e.g. `globalGradient`)
+  // provides a CanvasGradient/Pattern via `strokeStyleOverride`, use it as the
+  // default paint for main strokes and dots. `color` (always a string) is still
+  // the source of truth for `shadowColor` — Canvas shadows don't accept
+  // gradients. A per-stroke `strokeGradient` still overrides this per segment.
+  const defaultStrokePaint: string | CanvasGradient | CanvasPattern = strokeStyleOverride ?? color;
   const scale = pos.fontSize / pos.unitsPerEm;
   const ox = pos.x;
   const oy = pos.y;
@@ -133,7 +140,7 @@ export function drawGlyph(
   const gradientColorStops = Array.isArray(gradientColors) ? gradientColors : undefined;
   const gradientSaturation = strokeGradientEffect?.config.saturation ?? 80;
   const gradientLightness = strokeGradientEffect?.config.lightness ?? 55;
-  const hasGradient = !!strokeGradientEffect;
+  const hasStrokeGradient = !!strokeGradientEffect;
 
   // Effects that vary per-segment require splitting the polyline into
   // individual stroke() calls. Gradient also varies per-segment but via
@@ -216,8 +223,10 @@ export function drawGlyph(
         ctx.restore();
       }
 
-      // Main dot
-      ctx.fillStyle = colorAt(0);
+      // Main dot. strokeGradient needs a per-point color (rainbow hue or array
+      // stop 0); otherwise let the default paint apply — a CanvasGradient from
+      // globalGradient samples by dot position automatically.
+      ctx.fillStyle = hasStrokeGradient ? colorAt(0) : defaultStrokePaint;
       ctx.beginPath();
       if (lineCap === 'round') {
         ctx.arc(dotX, dotY, dotWidth / 2, 0, Math.PI * 2);
@@ -313,9 +322,9 @@ export function drawGlyph(
     }
 
     // --- Main stroke ---
-    if (!needsPerSegment && !hasGradient) {
+    if (!needsPerSegment && !hasStrokeGradient) {
       // Fast path: single stroke() over the whole truncated polyline.
-      ctx.strokeStyle = color;
+      ctx.strokeStyle = defaultStrokePaint;
       ctx.lineWidth = baseLineWidth;
       tracePolyline();
       ctx.stroke();
@@ -338,7 +347,7 @@ export function drawGlyph(
           lw = w * taperMultiplier(midProgress);
         }
         ctx.lineWidth = lw;
-        ctx.strokeStyle = hasGradient ? colorAt(midProgress) : color;
+        ctx.strokeStyle = hasStrokeGradient ? colorAt(midProgress) : defaultStrokePaint;
         ctx.beginPath();
         ctx.moveTo(txs[i - 1]!, tys[i - 1]!);
         ctx.lineTo(txs[i]!, tys[i]!);

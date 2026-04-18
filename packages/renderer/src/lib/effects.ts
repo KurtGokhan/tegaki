@@ -32,6 +32,14 @@ export interface RenderStageContext {
   baseColor: string;
   /** Engine seed, offset by whatever the caller chose (currently the engine root seed). */
   seed: number;
+  /**
+   * Stroke paint override for the whole glyph loop. A `beforeRender` hook sets
+   * this to e.g. a `CanvasGradient` when the effect wants every stroke to share
+   * a single canvas-space paint. The engine reads it after all hooks have run
+   * and threads it through to `drawGlyph`. `shadowColor` (used by `glow`) still
+   * reads from `baseColor` since Canvas shadows don't accept gradients.
+   */
+  strokeStyle?: string | CanvasGradient | CanvasPattern;
 }
 
 /**
@@ -57,6 +65,37 @@ const knownEffects: Record<string, EffectDefinition> = {
   pressureWidth: {},
   taper: {},
   strokeGradient: {},
+  globalGradient: {
+    beforeRender(stage, config: { colors?: string[]; angle?: number }) {
+      const colors = config.colors;
+      if (!Array.isArray(colors) || colors.length === 0) return;
+      const { ctx, bbox } = stage;
+
+      // Project the bbox onto the direction vector to find gradient endpoints
+      // that cover the full box at any angle. y grows downward on canvas, so
+      // `angle=0` (dx=1, dy=0) is left→right and `angle=90` (dx=0, dy=1) is
+      // top→bottom — positive angles rotate clockwise.
+      const rad = ((config.angle ?? 0) * Math.PI) / 180;
+      const dx = Math.cos(rad);
+      const dy = Math.sin(rad);
+      const cx = bbox.x + bbox.width / 2;
+      const cy = bbox.y + bbox.height / 2;
+      const halfW = bbox.width / 2;
+      const halfH = bbox.height / 2;
+      const proj = Math.abs(dx * halfW) + Math.abs(dy * halfH);
+
+      const grad = ctx.createLinearGradient(cx - dx * proj, cy - dy * proj, cx + dx * proj, cy + dy * proj);
+      if (colors.length === 1) {
+        grad.addColorStop(0, colors[0]!);
+        grad.addColorStop(1, colors[0]!);
+      } else {
+        for (let i = 0; i < colors.length; i++) {
+          grad.addColorStop(i / (colors.length - 1), colors[i]!);
+        }
+      }
+      stage.strokeStyle = grad;
+    },
+  },
 };
 
 /**

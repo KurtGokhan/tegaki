@@ -37,7 +37,7 @@ describe('resolveEffects', () => {
 
 describe('getEffectDefinition', () => {
   test('returns a definition object for every built-in effect', () => {
-    for (const name of ['glow', 'wobble', 'pressureWidth', 'taper', 'strokeGradient']) {
+    for (const name of ['glow', 'wobble', 'pressureWidth', 'taper', 'strokeGradient', 'globalGradient']) {
       expect(getEffectDefinition(name)).toBeDefined();
     }
   });
@@ -49,14 +49,18 @@ describe('getEffectDefinition', () => {
     expect(getEffectDefinition('__proto__')).toBeUndefined();
   });
 
-  test('built-in effects currently declare no hooks (foundation placeholder)', () => {
-    // Sanity check: the foundation ships without changing existing effect
-    // behavior. If/when a built-in starts using hooks, update this test.
+  test('per-stroke effects declare no render hooks', () => {
     for (const name of ['glow', 'wobble', 'pressureWidth', 'taper', 'strokeGradient']) {
       const def = getEffectDefinition(name);
       expect(def?.beforeRender).toBeUndefined();
       expect(def?.afterRender).toBeUndefined();
     }
+  });
+
+  test('globalGradient declares a beforeRender hook', () => {
+    const def = getEffectDefinition('globalGradient');
+    expect(typeof def?.beforeRender).toBe('function');
+    expect(def?.afterRender).toBeUndefined();
   });
 });
 
@@ -66,8 +70,96 @@ describe('hasRenderHooks', () => {
     expect(hasRenderHooks(resolved)).toBe(false);
   });
 
+  test('true when globalGradient is resolved', () => {
+    const resolved = resolveEffects({ globalGradient: { colors: ['#000', '#fff'] } });
+    expect(hasRenderHooks(resolved)).toBe(true);
+  });
+
   test('false when effects list is empty', () => {
     expect(hasRenderHooks([])).toBe(false);
+  });
+});
+
+describe('globalGradient beforeRender', () => {
+  // Minimal fake ctx: records createLinearGradient args + collects color stops.
+  // Only the methods the hook touches are implemented.
+  function makeMockStage(bbox: { x: number; y: number; width: number; height: number }) {
+    const stops: [number, string][] = [];
+    const gradientCalls: number[][] = [];
+    const fakeGradient = {
+      addColorStop(offset: number, color: string) {
+        stops.push([offset, color]);
+      },
+    };
+    const ctx = {
+      createLinearGradient(x0: number, y0: number, x1: number, y1: number) {
+        gradientCalls.push([x0, y0, x1, y1]);
+        return fakeGradient;
+      },
+    } as unknown as CanvasRenderingContext2D;
+    const stage = {
+      ctx,
+      layout: { lines: [], charOffsets: [], charWidths: [] },
+      fontSize: 100,
+      lineHeight: 120,
+      unitsPerEm: 1000,
+      ascender: 800,
+      descender: -200,
+      bbox,
+      baseColor: '#000',
+      seed: 0,
+    } as any;
+    return { stage, stops, gradientCalls, fakeGradient };
+  }
+
+  test('no-op when colors is missing or empty', () => {
+    const { stage, gradientCalls } = makeMockStage({ x: 0, y: 0, width: 200, height: 100 });
+    getEffectDefinition('globalGradient')?.beforeRender?.(stage, {});
+    getEffectDefinition('globalGradient')?.beforeRender?.(stage, { colors: [] });
+    expect(gradientCalls).toEqual([]);
+    expect(stage.strokeStyle).toBeUndefined();
+  });
+
+  test('angle 0 (default) produces a horizontal gradient across bbox width', () => {
+    const { stage, gradientCalls, stops, fakeGradient } = makeMockStage({ x: 0, y: 0, width: 200, height: 100 });
+    getEffectDefinition('globalGradient')?.beforeRender?.(stage, { colors: ['#f00', '#00f'] });
+    // Gradient line spans the full width at y=center.
+    expect(gradientCalls).toEqual([[0, 50, 200, 50]]);
+    expect(stops).toEqual([
+      [0, '#f00'],
+      [1, '#00f'],
+    ]);
+    expect(stage.strokeStyle).toBe(fakeGradient);
+  });
+
+  test('angle 90 produces a vertical gradient across bbox height', () => {
+    const { stage, gradientCalls } = makeMockStage({ x: 0, y: 0, width: 200, height: 100 });
+    getEffectDefinition('globalGradient')?.beforeRender?.(stage, { colors: ['#f00', '#00f'], angle: 90 });
+    // Floating-point tolerance around sin(90°)·halfH = 50.
+    const [x0, y0, x1, y1] = gradientCalls[0] as [number, number, number, number];
+    expect(Math.abs(x0 - 100)).toBeLessThan(1e-6);
+    expect(Math.abs(x1 - 100)).toBeLessThan(1e-6);
+    expect(Math.abs(y0 - 0)).toBeLessThan(1e-6);
+    expect(Math.abs(y1 - 100)).toBeLessThan(1e-6);
+  });
+
+  test('three-stop gradient places stops at 0, 0.5, 1', () => {
+    const { stage, stops } = makeMockStage({ x: 0, y: 0, width: 300, height: 100 });
+    getEffectDefinition('globalGradient')?.beforeRender?.(stage, { colors: ['#f00', '#0f0', '#00f'] });
+    expect(stops).toEqual([
+      [0, '#f00'],
+      [0.5, '#0f0'],
+      [1, '#00f'],
+    ]);
+  });
+
+  test('single color degenerate case emits that color at both endpoints', () => {
+    const { stage, stops } = makeMockStage({ x: 0, y: 0, width: 100, height: 50 });
+    getEffectDefinition('globalGradient')?.beforeRender?.(stage, { colors: ['#abc'] });
+    expect(stops).toEqual([
+      [0, '#abc'],
+      [1, '#abc'],
+    ]);
   });
 });
 
