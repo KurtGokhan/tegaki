@@ -13,6 +13,7 @@ import {
   processGlyph,
   type SkeletonMethod,
 } from 'tegaki-generator';
+import { ZoomCanvas } from '../reactive-canvas.tsx';
 import { parseUrlState, syncUrlState, type TimeMode } from '../url-state.ts';
 import { type PreviewMode, SKELETON_METHODS, STAGES, type Stage } from './constants.ts';
 import { fetchFontFromCDN } from './font-cdn.ts';
@@ -748,12 +749,16 @@ export function PreviewApp() {
             </div>
 
             {/* Canvas area */}
-            <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
-              {processing && <p className="text-gray-500">Processing...</p>}
-              {!processing && !result && fontInfo && <p className="text-gray-400">No glyph data for "{selectedChar}"</p>}
-              {!processing && !fontInfo && <p className="text-gray-400">Load a font to get started</p>}
-              {!processing && result && <StageRenderer result={result} stage={activeStage} animTime={animTime} />}
-            </div>
+            <ZoomCanvas contentWidth={700} contentHeight={700} className="flex-1 p-4">
+              <div className="flex-1 flex p-4 overflow-auto">
+                <div className="m-auto">
+                  {processing && <p className="text-gray-500">Processing...</p>}
+                  {!processing && !result && fontInfo && <p className="text-gray-400">No glyph data for "{selectedChar}"</p>}
+                  {!processing && !fontInfo && <p className="text-gray-400">Load a font to get started</p>}
+                  {!processing && result && <StageRenderer result={result} stage={activeStage} animTime={animTime} />}
+                </div>
+              </div>
+            </ZoomCanvas>
 
             {/* Animation controls bar (always rendered with fixed height to prevent layout shift) */}
             <div className={`h-[44px] ${(activeStage === 'animation' || activeStage === 'final') && result ? '' : 'invisible'}`}>
