@@ -2,43 +2,21 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   format:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
-      - run: bun i
-      - run: bunx biome check --write
-      - name: Detect formatting changes
-        id: changes
-        run: |
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Commit and push formatting fixes
-        if: steps.changes.outputs.changed == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "style: apply Biome formatting"
-          git push
-      - name: Fail because formatting fixes were applied
-        if: steps.changes.outputs.changed == 'true'
-        run: exit 1
+      - run: bun i --frozen-lockfile
+      - run: bunx biome check
 
   checks:
     needs: format
@@ -48,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-      - run: bun i
+      - run: bun i --frozen-lockfile
       - run: bun check
       - run: bun typecheck
       - run: bun run test
@@ -59,50 +37,14 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.59.1-noble
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
-      # The Playwright container preinstalls @playwright/test globally. Combined
-      # with Bun's isolated install layout, the spec's `@playwright/test` import
-      # resolves to the global copy while the CLI loads the workspace copy —
-      # two instances of the same version trip Playwright's duplicate check.
-      - name: Remove container's global Playwright install
-        run: rm -rf /usr/lib/node_modules/playwright /usr/lib/node_modules/@playwright
       - run: bun i --frozen-lockfile
-      # Always re-generate on PRs so flakes or legitimate diffs get captured as a
-      # commit that authors can review, matching the `format` job's pattern.
-      - name: Run Playwright (update snapshots on PRs)
+      - name: Run Playwright
         working-directory: packages/website
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            bun test:e2e:update
-          else
-            bun test:e2e
-          fi
-      - name: Detect snapshot changes
-        id: changes
-        run: |
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Commit and push snapshot updates
-        if: steps.changes.outputs.changed == 'true' && github.event_name ==
-          'pull_request'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add packages/website/tests
-          git commit -m "test(e2e): update Playwright snapshots"
-          git push
-      - name: Fail because snapshots changed
-        if: steps.changes.outputs.changed == 'true'
-        run: exit 1
+        run: bun test:e2e
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
