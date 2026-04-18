@@ -67,8 +67,8 @@ export interface UrlState {
   catchUp: number;
   effectsState: EffectsState;
   customEffects: CustomEffect[];
-  /** Render-quality knobs — see {@link TegakiQuality}. Flattened into URL keys `pr` / `ss` / `ct_`. */
-  quality: { pixelRatio: number; segmentSize: number; clipText: boolean | number };
+  /** Render-quality knobs — see {@link TegakiQuality}. Flattened into URL keys `pr` / `ss` / `ct_` / `sm`. */
+  quality: { pixelRatio: number; segmentSize: number; clipText: boolean | number; smoothing: boolean };
   strokeEasing: string;
   glyphEasing: string;
 }
@@ -91,7 +91,7 @@ export const URL_DEFAULTS: UrlState = {
   catchUp: 0,
   effectsState: DEFAULT_EFFECTS_STATE,
   customEffects: [],
-  quality: { pixelRatio: 1, segmentSize: 2, clipText: false },
+  quality: { pixelRatio: 1, segmentSize: 2, clipText: false, smoothing: false },
   strokeEasing: 'default',
   glyphEasing: 'default',
 };
@@ -160,6 +160,7 @@ export function parseUrlState(): UrlState {
     const num = Number(raw);
     state.quality = { ...state.quality, clipText: raw === '1' ? true : Number.isFinite(num) && num > 0 ? num : false };
   }
+  if (p.has('sm')) state.quality = { ...state.quality, smoothing: p.get('sm') === '1' };
   if (p.has('se')) state.strokeEasing = p.get('se')!;
   if (p.has('ge')) state.glyphEasing = p.get('ge')!;
 
@@ -207,6 +208,7 @@ export function buildUrlParams(state: UrlState): URLSearchParams {
   if (state.quality.clipText !== URL_DEFAULTS.quality.clipText) {
     p.set('ct_', typeof state.quality.clipText === 'number' ? String(state.quality.clipText) : '1');
   }
+  if (state.quality.smoothing !== URL_DEFAULTS.quality.smoothing) p.set('sm', '1');
   if (state.strokeEasing !== URL_DEFAULTS.strokeEasing) p.set('se', state.strokeEasing);
   if (state.glyphEasing !== URL_DEFAULTS.glyphEasing) p.set('ge', state.glyphEasing);
 

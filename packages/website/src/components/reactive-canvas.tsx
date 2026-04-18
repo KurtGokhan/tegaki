@@ -10,7 +10,7 @@ interface ZoomCanvasProps {
   className?: string;
 }
 
-export default function ZoomCanvas({ children, contentWidth = 600, contentHeight = 400, className = '' }: ZoomCanvasProps) {
+export function ZoomCanvas({ children, contentWidth = 600, contentHeight = 400, className = '' }: ZoomCanvasProps) {
   const [scale, setScale] = useState(1);
   const viewportRef = useRef<HTMLDivElement>(null);
 

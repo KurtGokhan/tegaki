@@ -52,3 +52,55 @@ jobs:
       - run: bun check
       - run: bun typecheck
       - run: bun run test
+
+  e2e:
+    needs: checks
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-jammy
+      options: --ipc=host
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - run: bun i --frozen-lockfile
+      # Always re-generate on PRs so flakes or legitimate diffs get captured as a
+      # commit that authors can review, matching the `format` job's pattern.
+      - name: Run Playwright (update snapshots on PRs)
+        working-directory: packages/website
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            bun test:e2e:update
+          else
+            bun test:e2e
+          fi
+      - name: Detect snapshot changes
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Commit and push snapshot updates
+        if: steps.changes.outputs.changed == 'true' && github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add packages/website/tests
+          git commit -m "test(e2e): update Playwright snapshots"
+          git push
+      - name: Fail because snapshots changed
+        if: steps.changes.outputs.changed == 'true'
+        run: exit 1
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: packages/website/playwright-report/
+          retention-days: 14

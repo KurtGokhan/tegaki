@@ -784,11 +784,12 @@ export class TegakiEngine {
         const p = findEffect(this._resolvedEffects, 'pressureWidth');
         return !!p && Math.max(0, Math.min(p.config.strength ?? 1, 1)) > 0;
       })();
+    const smoothing = this._quality?.smoothing === true;
     const userSegmentSize = this._quality?.segmentSize;
-    const resolvedSegmentSize = userSegmentSize ?? (effectsNeedSubdivision ? 2 : undefined);
+    const resolvedSegmentSize = userSegmentSize ?? (effectsNeedSubdivision || smoothing ? 2 : undefined);
     const scale = fontSize / font.unitsPerEm;
     const maxSegLenFU = resolvedSegmentSize != null ? resolvedSegmentSize / scale : Infinity;
-    const cacheKey = `${font.family}|${maxSegLenFU}`;
+    const cacheKey = `${font.family}|${maxSegLenFU}|${smoothing ? 's' : 'l'}`;
     if (cacheKey !== this._strokeCacheKey) {
       this._strokeCache = new WeakMap();
       this._strokeCacheKey = cacheKey;
@@ -797,7 +798,7 @@ export class TegakiEngine {
     const getSubdivided = (stroke: TegakiGlyphData['s'][number]): SubdividedStroke => {
       let sub = strokeCache.get(stroke);
       if (!sub) {
-        sub = subdivideStroke(stroke, maxSegLenFU);
+        sub = subdivideStroke(stroke, maxSegLenFU, smoothing);
         strokeCache.set(stroke, sub);
       }
       return sub;
