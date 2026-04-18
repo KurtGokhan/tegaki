@@ -1,5 +1,18 @@
 # tegaki
 
+## 0.13.0
+
+### Minor Changes
+
+- 8fd875a: Add `clipText` quality option that clips handwriting strokes to the filled text shape using canvas composite operations. Accepts `true` for clipping with normal stroke widths, or a number to scale stroke widths (e.g. `2` for 2x wider strokes that fill more of the glyph interior).
+
+### Patch Changes
+
+- 2a46c09: fix compatibility with old Safari versions, and a bug with text layout when text is wrapped. Fixes [#29](https://github.com/KurtGokhan/tegaki/issues/29)
+- cdb2993: Fix timing around whitespace characters. Spaces and line breaks no longer consume `unknownDuration` on top of `wordGap`/`lineGap` — the gap alone now represents the full pause. `\r\n` and `\r` are normalized to `\n`, and all Unicode whitespace (NBSP, tab, ideographic space, etc.) is treated as a word gap.
+
+  Fixes [#28](https://github.com/KurtGokhan/tegaki/issues/28)
+
 ## 0.12.0
 
 ### Minor Changes
