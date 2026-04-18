@@ -735,8 +735,6 @@ export class TegakiEngine {
     const layout = this._layout;
     const fontSize = this._fontSize;
 
-    if (!font?.glyphData || !layout || !fontSize) return;
-
     const dpr = window.devicePixelRatio || 1;
     // Supersampling: draw into a backing canvas larger than the displayed CSS
     // size, then let the browser downsample. Improves antialiasing at a
@@ -757,6 +755,10 @@ export class TegakiEngine {
 
     ctx.setTransform(effectiveDpr, 0, 0, effectiveDpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
+
+    // Nothing to draw (e.g. empty text) — but the clear above still needs to
+    // run so stale pixels from the previous render don't linger.
+    if (!font?.glyphData || !layout || !fontSize) return;
 
     const padH = PADDING_H_EM * fontSize;
     const lineHeight = this._lineHeight;
