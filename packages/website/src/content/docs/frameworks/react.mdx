@@ -3,30 +3,14 @@ title: React
 description: Using Tegaki with React for animated handwriting.
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import InstallTabs from '../../../components/InstallTabs.astro';
 import { LiveDemo, LiveDemoControlled } from '../../../components/LiveDemo.tsx';
 
 Tegaki's default export is a React component that supports SSR, streaming text, and imperative playback control.
 
 ## Installation
 
-<Tabs>
-  <TabItem label="npm">
-    ```sh
-    npm install tegaki react react-dom
-    ```
-  </TabItem>
-  <TabItem label="pnpm">
-    ```sh
-    pnpm add tegaki react react-dom
-    ```
-  </TabItem>
-  <TabItem label="bun">
-    ```sh
-    bun add tegaki react react-dom
-    ```
-  </TabItem>
-</Tabs>
+<InstallTabs pkg="tegaki react react-dom" />
 
 ## Basic example
 

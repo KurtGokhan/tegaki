@@ -1,0 +1,31 @@
+---
+import { TabItem, Tabs } from '@astrojs/starlight/components';
+import { Code } from 'astro:components';
+
+interface Props {
+  pkg?: string;
+}
+
+const { pkg = 'tegaki' } = Astro.props;
+
+const codeProps = {
+  lang: 'sh' as const,
+  themes: { light: 'one-light' as const, dark: 'github-dark-dimmed' as const },
+  defaultColor: false as const,
+};
+---
+
+<Tabs syncKey="pkg">
+  <TabItem label="npm">
+    <Code code={`npm install ${pkg}`} {...codeProps} />
+  </TabItem>
+  <TabItem label="pnpm">
+    <Code code={`pnpm add ${pkg}`} {...codeProps} />
+  </TabItem>
+  <TabItem label="yarn">
+    <Code code={`yarn add ${pkg}`} {...codeProps} />
+  </TabItem>
+  <TabItem label="bun">
+    <Code code={`bun add ${pkg}`} {...codeProps} />
+  </TabItem>
+</Tabs>

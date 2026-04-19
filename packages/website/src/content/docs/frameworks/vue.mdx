@@ -3,7 +3,7 @@ title: Vue
 description: Using Tegaki with Vue 3 for animated handwriting.
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import InstallTabs from '../../../components/InstallTabs.astro';
 import LiveDemo from '../../../components/vue/LiveDemo.vue';
 import LiveDemoControlled from '../../../components/vue/LiveDemoControlled.vue';
 
@@ -11,23 +11,7 @@ Tegaki provides a Vue 3 component (Composition API) with SSR support and deep re
 
 ## Installation
 
-<Tabs>
-  <TabItem label="npm">
-    ```sh
-    npm install tegaki vue
-    ```
-  </TabItem>
-  <TabItem label="pnpm">
-    ```sh
-    pnpm add tegaki vue
-    ```
-  </TabItem>
-  <TabItem label="bun">
-    ```sh
-    bun add tegaki vue
-    ```
-  </TabItem>
-</Tabs>
+<InstallTabs pkg="tegaki vue" />
 
 ## Basic example
 

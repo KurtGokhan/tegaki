@@ -3,29 +3,13 @@ title: Remotion
 description: Using Tegaki with Remotion to render handwriting animations to video.
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import InstallTabs from '../../../components/InstallTabs.astro';
 
 Tegaki integrates with [Remotion](https://remotion.dev) for programmatic video rendering. Because Remotion drives time via `useCurrentFrame()`, the trick is to put Tegaki in **controlled progress mode** and map `frame / durationInFrames` to a `0–1` progress value.
 
 ## Installation
 
-<Tabs>
-  <TabItem label="npm">
-    ```sh
-    npm install tegaki remotion @remotion/cli react react-dom
-    ```
-  </TabItem>
-  <TabItem label="pnpm">
-    ```sh
-    pnpm add tegaki remotion @remotion/cli react react-dom
-    ```
-  </TabItem>
-  <TabItem label="bun">
-    ```sh
-    bun add tegaki remotion @remotion/cli react react-dom
-    ```
-  </TabItem>
-</Tabs>
+<InstallTabs pkg="tegaki remotion @remotion/cli react react-dom" />
 
 ## Basic example
 
