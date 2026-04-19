@@ -304,11 +304,29 @@ function runPipeline(
 
 // ── Bundle extraction (pure — no file I/O) ────────────────────────────────
 
+type CompactStroke = { p: [number, number, number][]; d: number; a: number; r?: number };
 type CompactGlyph = {
   w: number;
   t: number;
-  s: { p: [number, number, number][]; d: number; a: number }[];
+  s: CompactStroke[];
 };
+
+function toCompactStroke(s: {
+  points: { x: number; y: number; width: number }[];
+  delay: number;
+  animationDuration: number;
+  priority?: number;
+}): CompactStroke {
+  const out: CompactStroke = {
+    p: s.points.map((p) => [p.x, p.y, p.width] as [number, number, number]),
+    d: s.delay,
+    a: s.animationDuration,
+  };
+  // Omit `r` for default priority so existing bundles and the common case
+  // stay byte-identical to the previous schema.
+  if (s.priority && s.priority < 0) out.r = s.priority;
+  return out;
+}
 
 function toCompactGlyph(result: PipelineResult): CompactGlyph {
   const { strokesFontUnits } = result;
@@ -317,11 +335,7 @@ function toCompactGlyph(result: PipelineResult): CompactGlyph {
   return {
     w: result.advanceWidth,
     t: totalAnimationDuration,
-    s: strokesFontUnits.map((s) => ({
-      p: s.points.map((p) => [p.x, p.y, p.width] as [number, number, number]),
-      d: s.delay,
-      a: s.animationDuration,
-    })),
+    s: strokesFontUnits.map(toCompactStroke),
   };
 }
 
@@ -440,11 +454,7 @@ export async function extractTegakiBundle(input: ExtractBundleInput): Promise<Te
     glyphDataMap[glyph.char] = {
       w: glyph.advanceWidth,
       t: glyph.totalAnimationDuration,
-      s: glyph.strokes.map((s) => ({
-        p: s.points.map((p) => [p.x, p.y, p.width] as [number, number, number]),
-        d: s.delay,
-        a: s.animationDuration,
-      })),
+      s: glyph.strokes.map(toCompactStroke),
     };
   }
 

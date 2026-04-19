@@ -1,4 +1,4 @@
-import type { TegakiBundle } from '../types.ts';
+import type { TegakiBundle, TegakiGlyphData } from '../types.ts';
 import type { BundleShaper } from './hb-shaper.ts';
 import { graphemes } from './utils.ts';
 
@@ -47,6 +47,14 @@ export interface TimelineEntry {
   offset: number;
   duration: number;
   hasGlyph: boolean;
+  /**
+   * Sparse per-stroke override of the bundled stroke's `d` (delay) field. When
+   * `strokeDelays[i]` is a number, the renderer treats that value as stroke
+   * `i`'s delay (relative to `offset`) instead of the delay stored in the
+   * glyph. Populated by word-level dot deferral: priority-tagged strokes get
+   * shifted to after every body stroke in the word has drawn.
+   */
+  strokeDelays?: (number | undefined)[];
 }
 
 export interface Timeline {
@@ -61,6 +69,178 @@ export function computeTimeline(text: string, font: TegakiBundle, config?: Timel
   return computeGraphemeTimeline(text, font, config);
 }
 
+// ---------------------------------------------------------------------------
+// Scheduler — shared body/dot layout for both shaped and grapheme paths.
+// ---------------------------------------------------------------------------
+
+type EntryFields = Omit<TimelineEntry, 'offset' | 'duration' | 'strokeDelays'>;
+
+interface Pending {
+  fields: EntryFields;
+  /** Span of the body-stroke phase (or the full `t` when no strokes are dot-tagged). */
+  bodyDuration: number;
+  /** Span of the dot-stroke phase (`dotMaxEnd − dotMinD`). Zero when no dots. */
+  dotDuration: number;
+  /** Minimum `d` across dot strokes — used to re-anchor dots against the word's dot phase. */
+  dotMinD: number;
+  /** Indices of dot-tagged strokes inside `glyph.s`. */
+  dotIndices: number[];
+  /** Bundled `d` values of the dot strokes at those indices (parallel to `dotIndices`). */
+  dotDelays: number[];
+}
+
+type Separator = 'word' | 'line';
+
+/** Decompose a glyph into a body phase and an optional dot phase. */
+function partitionGlyph(glyph: TegakiGlyphData, fallbackTotal: number) {
+  const strokes = glyph.s;
+  let bodyDuration = 0;
+  let dotMinD = Infinity;
+  let dotMaxEnd = 0;
+  const dotIndices: number[] = [];
+  const dotDelays: number[] = [];
+  for (let i = 0; i < strokes.length; i++) {
+    const s = strokes[i]!;
+    const end = s.d + s.a;
+    if ((s.r ?? 0) < 0) {
+      dotIndices.push(i);
+      dotDelays.push(s.d);
+      if (s.d < dotMinD) dotMinD = s.d;
+      if (end > dotMaxEnd) dotMaxEnd = end;
+    } else if (end > bodyDuration) {
+      bodyDuration = end;
+    }
+  }
+  if (dotIndices.length === 0) {
+    return { bodyDuration: glyph.t ?? fallbackTotal, dotDuration: 0, dotMinD: 0, dotIndices, dotDelays };
+  }
+  // All-dot glyphs (e.g. a standalone nuqṭa that classification flagged) fall
+  // back to plain body rendering so we never emit an empty body phase.
+  if (bodyDuration === 0) {
+    return { bodyDuration: glyph.t ?? fallbackTotal, dotDuration: 0, dotMinD: 0, dotIndices: [], dotDelays: [] };
+  }
+  return { bodyDuration, dotDuration: dotMaxEnd - dotMinD, dotMinD, dotIndices, dotDelays };
+}
+
+class Scheduler {
+  readonly entries: TimelineEntry[] = [];
+  private readonly group: Pending[] = [];
+  private offset = 0;
+  /** Gap appended by the last `separate` call; stripped on `finalize` when no further content followed. */
+  private lastGap = 0;
+
+  constructor(
+    private readonly glyphGap: number,
+    private readonly wordGap: number,
+    private readonly lineGap: number,
+  ) {}
+
+  add(p: Pending): void {
+    // A pending group invalidates any trailing gap — its content sits past
+    // the gap, so we're no longer at a strippable trailing position.
+    this.lastGap = 0;
+    this.group.push(p);
+  }
+
+  /**
+   * Close the current word group and advance by a separator gap. Optionally
+   * emits a zero-width marker entry (e.g. a whitespace grapheme / cluster)
+   * between the group end and the gap.
+   */
+  separate(sep: Separator, marker?: { fields: EntryFields; duration: number }): void {
+    this.flushGroup();
+    if (marker) {
+      this.entries.push({ ...marker.fields, offset: this.offset, duration: marker.duration });
+      this.offset += marker.duration;
+    }
+    const gap = sep === 'line' ? this.lineGap : this.wordGap;
+    this.offset += gap;
+    this.lastGap = gap;
+  }
+
+  finalize(): Timeline {
+    this.flushGroup();
+    // If the last activity was a `separate`, `lastGap` still holds its gap —
+    // strip it so the timeline ends exactly at the last pixel drawn. If
+    // instead a group was flushed (resetting `lastGap` to 0), nothing is
+    // stripped.
+    return { entries: this.entries, totalDuration: Math.max(0, this.offset - this.lastGap) };
+  }
+
+  private flushGroup(): void {
+    if (this.group.length === 0) return;
+    const group = this.group;
+
+    // --- Phase 1: bodies laid out sequentially, separated by `glyphGap`. ---
+    const bodyStarts: number[] = new Array(group.length);
+    let cursor = this.offset;
+    for (let i = 0; i < group.length; i++) {
+      bodyStarts[i] = cursor;
+      cursor += group[i]!.bodyDuration;
+      if (i < group.length - 1) cursor += this.glyphGap;
+    }
+    const bodyEnd = cursor;
+
+    // --- Phase 2: deferred dots, anchored after every body in the group. ---
+    // Glyphs without dots contribute nothing to phase 2 and stay finished at
+    // their body end; glyphs with dots get their entry duration stretched to
+    // cover the dot phase.
+    const hasAnyDots = group.some((p) => p.dotIndices.length > 0);
+    const dotStarts: (number | undefined)[] = new Array(group.length);
+    let groupEnd = bodyEnd;
+    if (hasAnyDots) {
+      cursor = bodyEnd + this.glyphGap;
+      for (let i = 0; i < group.length; i++) {
+        const p = group[i]!;
+        if (p.dotIndices.length === 0) continue;
+        dotStarts[i] = cursor;
+        cursor += p.dotDuration + this.glyphGap;
+      }
+      // The trailing glyphGap past the last dot phase is intra-group spacing
+      // that should not count; strip it.
+      groupEnd = cursor - this.glyphGap;
+    }
+
+    // --- Emit each glyph's finalized entry. ---
+    for (let i = 0; i < group.length; i++) {
+      const p = group[i]!;
+      const bodyStart = bodyStarts[i]!;
+      const dotStart = dotStarts[i];
+
+      let strokeDelays: (number | undefined)[] | undefined;
+      let endTime = bodyStart + p.bodyDuration;
+      if (dotStart !== undefined && p.dotIndices.length > 0) {
+        // Rebuild a sparse per-stroke delay array. `dotIndices[k]` is the
+        // absolute stroke index inside the glyph; its new effective delay
+        // (relative to the entry's offset, i.e. the body start) re-anchors
+        // it to the group-level dot phase while preserving the glyph's
+        // intra-dot spacing.
+        strokeDelays = [];
+        for (let k = 0; k < p.dotIndices.length; k++) {
+          const strokeIdx = p.dotIndices[k]!;
+          strokeDelays[strokeIdx] = dotStart - bodyStart + (p.dotDelays[k]! - p.dotMinD);
+        }
+        endTime = dotStart + p.dotDuration;
+      }
+
+      this.entries.push({
+        ...p.fields,
+        offset: bodyStart,
+        duration: endTime - bodyStart,
+        ...(strokeDelays ? { strokeDelays } : {}),
+      });
+    }
+
+    this.group.length = 0;
+    this.offset = groupEnd;
+    this.lastGap = 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Grapheme-path timeline (no shaper, iterate graphemes directly).
+// ---------------------------------------------------------------------------
+
 function computeGraphemeTimeline(text: string, font: TegakiBundle, config?: TimelineConfig): Timeline {
   const glyphGap = config?.glyphGap ?? DEFAULTS.glyphGap;
   const wordGap = config?.wordGap ?? DEFAULTS.wordGap;
@@ -68,33 +248,51 @@ function computeGraphemeTimeline(text: string, font: TegakiBundle, config?: Time
   const unknownDuration = config?.unknownDuration ?? DEFAULTS.unknownDuration;
 
   const chars = graphemes(text);
-  const entries: TimelineEntry[] = [];
-  let offset = 0;
+  const sched = new Scheduler(glyphGap, wordGap, lineGap);
+
   for (let i = 0; i < chars.length; i++) {
     const char = chars[i]!;
-    const glyph = font.glyphData[char];
-    const hasGlyph = !!glyph;
     const isLineBreak = char === '\n';
-    const isWhitespace = isLineBreak || /^\s+$/.test(char);
-    const duration = isWhitespace ? 0 : hasGlyph ? (glyph.t ?? unknownDuration) : unknownDuration;
-    entries.push({ char, graphemeIndex: i, offset, duration, hasGlyph });
-    offset += duration;
+    const isWhitespace = !isLineBreak && /^\s+$/.test(char);
 
     if (isLineBreak) {
-      offset += lineGap;
-    } else if (isWhitespace) {
-      offset += wordGap;
+      sched.separate('line');
+      continue;
+    }
+    if (isWhitespace) {
+      sched.separate('word', { fields: { char, graphemeIndex: i, hasGlyph: false }, duration: 0 });
+      continue;
+    }
+
+    const glyph = font.glyphData[char];
+    if (glyph) {
+      const part = partitionGlyph(glyph, unknownDuration);
+      sched.add({
+        fields: { char, graphemeIndex: i, hasGlyph: true },
+        bodyDuration: part.bodyDuration,
+        dotDuration: part.dotDuration,
+        dotMinD: part.dotMinD,
+        dotIndices: part.dotIndices,
+        dotDelays: part.dotDelays,
+      });
     } else {
-      offset += glyphGap;
+      sched.add({
+        fields: { char, graphemeIndex: i, hasGlyph: false },
+        bodyDuration: unknownDuration,
+        dotDuration: 0,
+        dotMinD: 0,
+        dotIndices: [],
+        dotDelays: [],
+      });
     }
   }
-  if (entries.length > 0) {
-    const lastChar = chars[chars.length - 1]!;
-    const trailingGap = lastChar === '\n' ? lineGap : /^\s+$/.test(lastChar) ? wordGap : glyphGap;
-    offset -= trailingGap;
-  }
-  return { entries, totalDuration: Math.max(0, offset) };
+
+  return sched.finalize();
 }
+
+// ---------------------------------------------------------------------------
+// Shaped-path timeline (harfbuzz clusters).
+// ---------------------------------------------------------------------------
 
 function computeShapedTimeline(text: string, font: TegakiBundle, config: TimelineConfig | undefined, shaper: BundleShaper): Timeline {
   const glyphGap = config?.glyphGap ?? DEFAULTS.glyphGap;
@@ -115,9 +313,7 @@ function computeShapedTimeline(text: string, font: TegakiBundle, config: Timelin
     utf16ToGrapheme[text.length] = chars.length;
   }
 
-  const entries: TimelineEntry[] = [];
-  let offset = 0;
-  let trailingGap = 0;
+  const sched = new Scheduler(glyphGap, wordGap, lineGap);
 
   // Shape each newline-delimited line separately so shaping never crosses a
   // break. This matches the DOM layout, which also breaks at `\n`.
@@ -153,29 +349,43 @@ function computeShapedTimeline(text: string, font: TegakiBundle, config: Timelin
         const isWhitespace = /^\s+$/.test(clusterText);
         const data = font.glyphDataById?.[glyph.g] ?? font.glyphData[firstChar];
         const hasGlyph = !!data;
-        const duration = isWhitespace ? 0 : hasGlyph ? (data.t ?? unknownDuration) : unknownDuration;
-        entries.push({
-          char: firstChar,
-          graphemeIndex: graphemeIdx,
-          glyphId: glyph.g,
-          offset,
-          duration,
-          hasGlyph,
-        });
-        offset += duration;
-        trailingGap = isWhitespace ? wordGap : glyphGap;
-        offset += trailingGap;
+
+        if (isWhitespace) {
+          sched.separate('word', {
+            fields: { char: firstChar, graphemeIndex: graphemeIdx, glyphId: glyph.g, hasGlyph },
+            duration: 0,
+          });
+          continue;
+        }
+
+        if (hasGlyph && data) {
+          const part = partitionGlyph(data, unknownDuration);
+          sched.add({
+            fields: { char: firstChar, graphemeIndex: graphemeIdx, glyphId: glyph.g, hasGlyph: true },
+            bodyDuration: part.bodyDuration,
+            dotDuration: part.dotDuration,
+            dotMinD: part.dotMinD,
+            dotIndices: part.dotIndices,
+            dotDelays: part.dotDelays,
+          });
+        } else {
+          sched.add({
+            fields: { char: firstChar, graphemeIndex: graphemeIdx, glyphId: glyph.g, hasGlyph: false },
+            bodyDuration: unknownDuration,
+            dotDuration: 0,
+            dotMinD: 0,
+            dotIndices: [],
+            dotDelays: [],
+          });
+        }
       }
     }
 
     if (!atEnd) {
-      // Newline character contributes a `lineGap` (no entry, no duration).
-      offset += lineGap;
-      trailingGap = lineGap;
+      sched.separate('line');
       lineStart = i + 1;
     }
   }
 
-  if (offset > 0) offset -= trailingGap;
-  return { entries, totalDuration: Math.max(0, offset) };
+  return sched.finalize();
 }

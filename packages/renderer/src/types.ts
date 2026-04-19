@@ -36,6 +36,14 @@ export interface Stroke {
   length: number;
   animationDuration: number;
   delay: number;
+  /**
+   * Draw-priority rank. `0` (default) is the glyph body; negative numbers are
+   * rendered later within word-level scheduling so disconnected marks — i-dots,
+   * Arabic nuqṭa, diacritics — follow after every body stroke in the word.
+   * Only `0` and `-1` are used today; the range is open for future priority
+   * tiers.
+   */
+  priority?: number;
 }
 
 export interface GlyphData {
@@ -76,7 +84,9 @@ export interface PathCommand {
  * Compact glyph data for rendering.
  * - `w`: advance width
  * - `t`: total animation duration
- * - `s`: strokes, each with `p` (points as `[x, y, width]` tuples), `d` (delay), `a` (animation duration)
+ * - `s`: strokes, each with `p` (points as `[x, y, width]` tuples), `d` (delay),
+ *   `a` (animation duration), and optional `r` (priority — see `Stroke.priority`;
+ *   omitted when `0`)
  */
 export interface TegakiGlyphData {
   w: number;
@@ -85,6 +95,7 @@ export interface TegakiGlyphData {
     p: ([x: number, y: number, width: number] | number[])[];
     d: number;
     a: number;
+    r?: number;
   }[];
 }
 

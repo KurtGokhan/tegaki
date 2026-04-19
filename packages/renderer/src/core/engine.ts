@@ -873,6 +873,7 @@ export class TegakiEngine {
           getSubdivided,
           this._timing?.strokeEasing,
           strokeScale,
+          entry.strokeDelays,
         );
       } else if (!entry.hasGlyph && currentTime >= entry.offset + entry.duration) {
         const baseline = y + halfLeading + (font.ascender / font.unitsPerEm) * fontSize;

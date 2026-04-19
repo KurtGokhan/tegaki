@@ -12,10 +12,15 @@ let hbPromise: Promise<Hb> | null = null;
 function getHb(): Promise<Hb> {
   if (!hbPromise) {
     hbPromise = (async () => {
-      const [hbMod, hbjsMod] = await Promise.all([import('harfbuzzjs/hb.js'), import('harfbuzzjs/hbjs.js')]);
-      const wasmUrl = new URL('harfbuzzjs/hb.wasm', import.meta.url).href;
-      const instance = await hbMod.default({ locateFile: () => wasmUrl });
-      return hbjsMod.default(instance);
+      try {
+        const [hbMod, hbjsMod] = await Promise.all([import('harfbuzzjs/hb.js'), import('harfbuzzjs/hbjs.js')]);
+        const wasmUrl = new URL('harfbuzzjs/hb.wasm', import.meta.url).href;
+        const instance = await hbMod.default({ locateFile: () => wasmUrl });
+        const res = await hbjsMod.default(instance);
+        return res;
+      } catch (_err) {
+        return (await import('harfbuzzjs').then((x) => x.default))!; // Fallback to the default entry for environments where the above fails (e.g. WebWorker with no fetch)
+      }
     })();
   }
   return hbPromise;

@@ -26,6 +26,19 @@ import {
 // harfbuzz's contextual positional assignment.
 const SHAPER_MANAGED_FEATURES = new Set(['init', 'medi', 'fina', 'isol', 'rlig']);
 
+// Mirrors `toCompactStroke` in `packages/generator/src/commands/generate.ts`
+// so browser-generated bundles preserve the `r` priority field (dots etc.).
+type CompactStroke = TegakiGlyphData['s'][number];
+function toCompactStroke(s: PipelineResult['strokesFontUnits'][number]): CompactStroke {
+  const out: CompactStroke = {
+    p: s.points.map((p) => [p.x, p.y, p.width] as [number, number, number]),
+    d: s.delay,
+    a: s.animationDuration,
+  };
+  if (s.priority && s.priority < 0) out.r = s.priority;
+  return out;
+}
+
 export interface TegakiTextPreviewReadyInfo {
   bundle: TegakiBundle;
   totalDuration: number;
@@ -198,11 +211,7 @@ export const TegakiTextPreview = forwardRef<TegakiRendererHandle, TegakiTextPrev
               variants[variantKey] = {
                 w: res.advanceWidth,
                 t: last ? Math.round((last.delay + last.animationDuration) * 1000) / 1000 : 0,
-                s: res.strokesFontUnits.map((s) => ({
-                  p: s.points.map((p) => [p.x, p.y, p.width] as [number, number, number]),
-                  d: s.delay,
-                  a: s.animationDuration,
-                })),
+                s: res.strokesFontUnits.map(toCompactStroke),
               };
             }
           }
@@ -238,11 +247,7 @@ export const TegakiTextPreview = forwardRef<TegakiRendererHandle, TegakiTextPrev
       glyphData[char] = {
         w: res.advanceWidth,
         t: last ? Math.round((last.delay + last.animationDuration) * 1000) / 1000 : 0,
-        s: res.strokesFontUnits.map((s) => ({
-          p: s.points.map((p) => [p.x, p.y, p.width] as [number, number, number]),
-          d: s.delay,
-          a: s.animationDuration,
-        })),
+        s: res.strokesFontUnits.map(toCompactStroke),
       };
     }
 

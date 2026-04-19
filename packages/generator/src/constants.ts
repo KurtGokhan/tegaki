@@ -21,9 +21,14 @@ export const EXAMPLE_FONTS = [
   'Shadows Into Light',
   'Tangerine',
   'Noto Sans JP',
-  'Noto Sans KR',
-  'Noto Sans SC',
-  'Rubik',
+  'Noto Sans SC', // Chinese Sans
+  'Ma Shan Zheng', // Chinese Cursive
+  'Noto Sans KR', // Korean Sans
+  'Nanum Myeongjo', // Korean Serif
+  'Rubik', // Arabic Sans
+  'Amiri', // Arabic Cursive
+  'Cardo', // Hebrew
+  'EB Garamond', // Greek
 ];
 
 export const CACHE_DIR = '.cache/fonts';

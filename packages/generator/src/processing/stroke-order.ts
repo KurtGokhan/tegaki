@@ -8,6 +8,14 @@ import type { Point, Stroke, TimedPoint } from 'tegaki';
 import { ORIENT_X_WEIGHT } from '../constants.ts';
 import { getStrokeWidth } from './width.ts';
 
+// Dot classification thresholds (bitmap-space). A stroke is reclassified as a
+// "dot" (priority -1) when its bbox diagonal is small relative to the glyph's
+// bbox AND no other stroke's bbox is within a small gap distance — the same
+// two properties that distinguish disconnected marks like i-dots and Arabic
+// nuqṭa from body strokes.
+const DOT_DIAG_RATIO = 0.15;
+const DOT_ISOLATION_RATIO = 0.04;
+
 function dist(a: Point, b: Point): number {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
@@ -139,5 +147,98 @@ export function orderStrokes(
     }
   }
 
+  classifyDots(strokes);
+  reorderByPriority(strokes);
+
   return strokes;
+}
+
+interface BBox {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+function strokeBBox(s: Stroke): BBox {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of s.points) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+function bboxDiag(b: BBox): number {
+  const dx = b.maxX - b.minX;
+  const dy = b.maxY - b.minY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Gap distance between two axis-aligned bboxes (in bitmap units). Zero when
+ * they overlap or touch.
+ */
+function bboxGap(a: BBox, b: BBox): number {
+  const dx = Math.max(0, Math.max(a.minX - b.maxX, b.minX - a.maxX));
+  const dy = Math.max(0, Math.max(a.minY - b.maxY, b.minY - a.maxY));
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Flag short-and-isolated strokes as dots (priority -1) so word-level timeline
+ * scheduling can defer them until after every body stroke in the word is
+ * drawn. Targets disconnected marks — i-dots, Arabic nuqṭa, diacritics — while
+ * leaving glyph-body strokes alone.
+ */
+function classifyDots(strokes: Stroke[]): void {
+  if (strokes.length < 2) return; // a lone stroke is never a "dot to defer"
+  const boxes = strokes.map(strokeBBox);
+  let glyphMinX = Infinity;
+  let glyphMinY = Infinity;
+  let glyphMaxX = -Infinity;
+  let glyphMaxY = -Infinity;
+  for (const b of boxes) {
+    if (b.minX < glyphMinX) glyphMinX = b.minX;
+    if (b.minY < glyphMinY) glyphMinY = b.minY;
+    if (b.maxX > glyphMaxX) glyphMaxX = b.maxX;
+    if (b.maxY > glyphMaxY) glyphMaxY = b.maxY;
+  }
+  const glyphDiag = Math.sqrt((glyphMaxX - glyphMinX) ** 2 + (glyphMaxY - glyphMinY) ** 2);
+  if (glyphDiag <= 0) return;
+
+  const maxDotDiag = glyphDiag * DOT_DIAG_RATIO;
+  const isolationThreshold = glyphDiag * DOT_ISOLATION_RATIO;
+
+  for (let i = 0; i < strokes.length; i++) {
+    const diag = bboxDiag(boxes[i]!);
+    if (diag > maxDotDiag) continue;
+    let isolated = true;
+    for (let j = 0; j < strokes.length; j++) {
+      if (j === i) continue;
+      if (bboxGap(boxes[i]!, boxes[j]!) <= isolationThreshold) {
+        isolated = false;
+        break;
+      }
+    }
+    if (isolated) strokes[i]!.priority = -1;
+  }
+}
+
+/**
+ * Move priority-tagged strokes after priority-0 strokes while preserving the
+ * relative order inside each tier. Higher priority draws first (0 > -1), so
+ * bodies come before dots. Stroke `order` is reassigned so the array index
+ * matches the draw sequence before `toFontUnits` accumulates delays.
+ */
+function reorderByPriority(strokes: Stroke[]): void {
+  const hasPriority = strokes.some((s) => (s.priority ?? 0) < 0);
+  if (!hasPriority) return;
+  strokes.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.order - b.order);
+  for (let i = 0; i < strokes.length; i++) strokes[i]!.order = i;
 }

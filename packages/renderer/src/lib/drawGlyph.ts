@@ -90,6 +90,12 @@ function defaultStrokeEasing(t: number): number {
  * units, pre-wobble). The engine owns the cache and invalidates it when the
  * font, fontSize, or segment size changes; if omitted here, strokes are
  * subdivided inline each call (useful for testing).
+ *
+ * `strokeDelays` is a sparse per-stroke override of the bundled `d` field. When
+ * `strokeDelays[i]` is a number, it replaces `glyph.s[i].d` as the stroke's
+ * delay relative to `localTime = 0`. Used by the timeline scheduler to defer
+ * priority-tagged strokes (disconnected marks / i-dots / Arabic nuqṭa) to
+ * after every body stroke in the word has drawn.
  */
 export function drawGlyph(
   ctx: CanvasRenderingContext2D,
@@ -103,6 +109,7 @@ export function drawGlyph(
   getSubdivided?: (stroke: Stroke) => SubdividedStroke,
   strokeEasing: ((t: number) => number) | undefined = defaultStrokeEasing,
   strokeScale = 1,
+  strokeDelays?: (number | undefined)[],
 ) {
   const scale = pos.fontSize / pos.unitsPerEm;
   const ox = pos.x;
@@ -178,9 +185,11 @@ export function drawGlyph(
     return m;
   };
 
-  for (const stroke of glyph.s) {
-    if (localTime < stroke.d) continue;
-    const elapsed = localTime - stroke.d;
+  for (let si = 0; si < glyph.s.length; si++) {
+    const stroke = glyph.s[si]!;
+    const delay = strokeDelays?.[si] ?? stroke.d;
+    if (localTime < delay) continue;
+    const elapsed = localTime - delay;
     const linearProgress = Math.min(elapsed / stroke.a, 1);
     const progress = strokeEasing ? strokeEasing(linearProgress) : linearProgress;
 
