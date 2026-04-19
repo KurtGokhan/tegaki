@@ -2,7 +2,7 @@
   "name": "tegaki",
   "version": "0.13.0",
   "type": "module",
-  "description": "Framework-agnostic animated handwriting renderer with React, Svelte, Vue, SolidJS, Astro, and Web Components adapters",
+  "description": "Framework-agnostic animated handwriting renderer with React, Svelte, Vue, Nuxt, SolidJS, Astro, and Web Components adapters",
   "keywords": [
     "handwriting",
     "animation",
@@ -12,6 +12,7 @@
     "vue",
     "solid",
     "astro",
+    "nuxt",
     "web-components",
     "custom-elements",
     "font",
@@ -64,6 +65,12 @@
       "tegaki@dev": "./src/vue/index.ts",
       "source": "./src/vue/index.ts",
       "default": "./src/vue/index.ts"
+    },
+    "./nuxt": {
+      "tegaki@dev": "./src/nuxt/index.ts",
+      "source": "./src/nuxt/index.ts",
+      "types": "./src/nuxt/index.ts",
+      "default": "./src/nuxt/index.ts"
     },
     "./solid": {
       "tegaki@dev": "./src/solid/index.ts",
@@ -124,12 +131,16 @@
   },
   "dependencies": {},
   "peerDependencies": {
+    "@nuxt/kit": "^3.0.0 || ^4.0.0",
     "react": ">=18",
     "svelte": ">=5",
     "vue": ">=3",
     "solid-js": ">=1"
   },
   "peerDependenciesMeta": {
+    "@nuxt/kit": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },
@@ -144,6 +155,8 @@
     }
   },
   "devDependencies": {
+    "@nuxt/kit": "^3.15.0",
+    "@nuxt/schema": "^3.15.0",
     "@types/react": "^19.2.14",
     "tsdown": "^0.21.9",
     "typescript": "^6.0.3"

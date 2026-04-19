@@ -1,0 +1,119 @@
+---
+title: Nuxt
+description: Using Tegaki with Nuxt 3 / Nuxt 4 for animated handwriting.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Tegaki ships a Nuxt module (`tegaki/nuxt`) that wires up the Vue adapter for both SSR and client rendering, and auto-imports `<TegakiRenderer>` as a global component.
+
+## Installation
+
+<Tabs>
+  <TabItem label="npm">
+    ```sh
+    npm install tegaki
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```sh
+    pnpm add tegaki
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```sh
+    bun add tegaki
+    ```
+  </TabItem>
+</Tabs>
+
+## Register the module
+
+```ts title="nuxt.config.ts"
+export default defineNuxtConfig({
+  modules: ['tegaki/nuxt'],
+});
+```
+
+That's it. The module adds `tegaki` to `build.transpile` so Nuxt's Vite and Nitro bundlers can process the Vue single-file component that ships in source form, and registers `<TegakiRenderer>` as a global component.
+
+## Basic example
+
+```vue title="pages/index.vue"
+<script setup lang="ts">
+import bundle from 'tegaki/fonts/caveat';
+</script>
+
+<template>
+  <TegakiRenderer
+    :font="bundle"
+    text="Hello, Nuxt!"
+    :time="{ mode: 'uncontrolled', speed: 1, loop: true }"
+    :style="{ fontSize: '64px' }"
+  />
+</template>
+```
+
+The page server-renders the full handwriting markup (canvas, overlay, sentinel) on the first request; the engine hydrates and starts animating on mount.
+
+## Controlled time
+
+```vue title="pages/scrub.vue"
+<script setup lang="ts">
+import { ref } from 'vue';
+import bundle from 'tegaki/fonts/caveat';
+
+const time = ref(0);
+</script>
+
+<template>
+  <input type="range" :min="0" :max="8" :step="0.01" v-model.number="time" />
+
+  <TegakiRenderer
+    :font="bundle"
+    text="Scrub me!"
+    :time="time"
+    :style="{ fontSize: '48px' }"
+  />
+</template>
+```
+
+## Module options
+
+Pass options via the `tegaki` key in `nuxt.config.ts`:
+
+```ts title="nuxt.config.ts"
+export default defineNuxtConfig({
+  modules: ['tegaki/nuxt'],
+  tegaki: {
+    autoImport: true,  // register <TegakiRenderer> globally (default: true)
+    prefix: '',        // component name prefix (default: '')
+  },
+});
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `autoImport` | `boolean` | `true` | Register `<TegakiRenderer>` as a global component |
+| `prefix` | `string` | `""` | Prefix prepended to the component name (e.g. `"Tegaki"` → `<TegakiTegakiRenderer>`) |
+
+If you disable `autoImport`, you can still import the component manually:
+
+```vue
+<script setup>
+import { TegakiRenderer } from 'tegaki/vue';
+</script>
+```
+
+## Example app
+
+A runnable example lives at [`examples/nuxt/`](https://github.com/KurtGokhan/tegaki/tree/main/examples/nuxt) in the repo. Clone and run:
+
+```sh
+bun install
+bun --filter @tegaki/example-nuxt dev
+```
+
+## Props
+
+`<TegakiRenderer>` accepts all [`TegakiEngineOptions`](/tegaki/api/renderer/) as props. See the [Vue guide](/tegaki/frameworks/vue/) for the full prop surface and effects examples.

@@ -14,7 +14,7 @@ Monorepo for generating and rendering handwriting animations from any font.
 
 ## Packages
 
-- `packages/renderer` (`tegaki`) — Published npm package. Framework-agnostic animated handwriting renderer with adapters for React, Svelte, Vue, SolidJS, Astro, Web Components, vanilla JS, and Remotion. Ships pre-generated bundles for Caveat, Italianno, Tangerine, and Parisienne under `tegaki/fonts/*`.
+- `packages/renderer` (`tegaki`) — Published npm package. Framework-agnostic animated handwriting renderer with adapters for React, Svelte, Vue, Nuxt, SolidJS, Astro, Web Components, vanilla JS, and Remotion. Ships pre-generated bundles for Caveat, Italianno, Tangerine, and Parisienne under `tegaki/fonts/*`.
 - `packages/generator` (`tegaki-generator`) — Internal CLI + library that generates glyph data from fonts. Not published; users generate font data via the website UI (which calls the same pipeline in-browser).
 - `packages/website` (`@tegaki/website`) — Astro + Starlight site containing the docs, framework examples, and the interactive generator/preview app at `/tegaki/generator/`.
 

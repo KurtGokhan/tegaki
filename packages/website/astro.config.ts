@@ -36,6 +36,7 @@ export default defineConfig({
             { label: 'React', slug: 'frameworks/react' },
             { label: 'Svelte', slug: 'frameworks/svelte' },
             { label: 'Vue', slug: 'frameworks/vue' },
+            { label: 'Nuxt', slug: 'frameworks/nuxt' },
             { label: 'SolidJS', slug: 'frameworks/solid' },
             { label: 'Astro', slug: 'frameworks/astro' },
             { label: 'Web Components', slug: 'frameworks/web-components' },
