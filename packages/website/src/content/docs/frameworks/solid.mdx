@@ -3,7 +3,7 @@ title: SolidJS
 description: Using Tegaki with SolidJS for animated handwriting.
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import InstallTabs from '../../../components/InstallTabs.astro';
 import { LiveDemo } from '../../../components/solid/LiveDemo.tsx';
 import { LiveDemoControlled } from '../../../components/solid/LiveDemoControlled.tsx';
 
@@ -11,23 +11,7 @@ Tegaki provides a SolidJS component with SSR support and fine-grained reactive u
 
 ## Installation
 
-<Tabs>
-  <TabItem label="npm">
-    ```sh
-    npm install tegaki solid-js
-    ```
-  </TabItem>
-  <TabItem label="pnpm">
-    ```sh
-    pnpm add tegaki solid-js
-    ```
-  </TabItem>
-  <TabItem label="bun">
-    ```sh
-    bun add tegaki solid-js
-    ```
-  </TabItem>
-</Tabs>
+<InstallTabs pkg="tegaki solid-js" />
 
 ## Basic example
 

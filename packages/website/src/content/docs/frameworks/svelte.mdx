@@ -3,7 +3,7 @@ title: Svelte
 description: Using Tegaki with Svelte 5 for animated handwriting.
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import InstallTabs from '../../../components/InstallTabs.astro';
 import LiveDemo from '../../../components/svelte/LiveDemo.svelte';
 import LiveDemoControlled from '../../../components/svelte/LiveDemoControlled.svelte';
 
@@ -11,23 +11,7 @@ Tegaki provides a Svelte 5 component with SSR support and reactive prop updates.
 
 ## Installation
 
-<Tabs>
-  <TabItem label="npm">
-    ```sh
-    npm install tegaki svelte
-    ```
-  </TabItem>
-  <TabItem label="pnpm">
-    ```sh
-    pnpm add tegaki svelte
-    ```
-  </TabItem>
-  <TabItem label="bun">
-    ```sh
-    bun add tegaki svelte
-    ```
-  </TabItem>
-</Tabs>
+<InstallTabs pkg="tegaki svelte" />
 
 ## Basic example
 

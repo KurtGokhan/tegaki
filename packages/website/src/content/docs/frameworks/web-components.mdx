@@ -3,7 +3,7 @@ title: Web Components
 description: Using Tegaki as a custom element with the Web Components API.
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import InstallTabs from '../../../components/InstallTabs.astro';
 import LiveDemo from '../../../components/wc/LiveDemo.astro';
 import LiveDemoControlled from '../../../components/wc/LiveDemoControlled.astro';
 
@@ -11,23 +11,7 @@ Tegaki provides a `<tegaki-renderer>` custom element that works in any browser â
 
 ## Installation
 
-<Tabs>
-  <TabItem label="npm">
-    ```sh
-    npm install tegaki
-    ```
-  </TabItem>
-  <TabItem label="pnpm">
-    ```sh
-    pnpm add tegaki
-    ```
-  </TabItem>
-  <TabItem label="bun">
-    ```sh
-    bun add tegaki
-    ```
-  </TabItem>
-</Tabs>
+<InstallTabs />
 
 ## Setup
 

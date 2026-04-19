@@ -1,5 +1,17 @@
 # tegaki
 
+## 0.14.0
+
+### Minor Changes
+
+- 79a0e6a: Add Nuxt module and usage example. Fixes [#35](https://github.com/KurtGokhan/tegaki/issues/35).
+- 9a0d74a: Add `quality.smoothing` option that interpolates stroke points with a centripetal Catmull-Rom spline, hiding the faceted corners visible at large render sizes where the baked polyline resolution shows through. Enabling it forces subdivision on (default `segmentSize=2` CSS px) and rebuilds the subdivision cache; the original points stay on the curve, so animation timing and wobble phase are unchanged. Default is `false` (existing bundles render identically). Also exposed on the web component as the `smoothing` attribute.
+
+### Patch Changes
+
+- 84ad2b2: text layout was broken when element had transform applied
+- b6967aa: canvas was not cleared when all text removed
+
 ## 0.13.0
 
 ### Minor Changes
