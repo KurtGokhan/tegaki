@@ -11,6 +11,7 @@ import { drawFallbackGlyph } from '../lib/drawFallbackGlyph.ts';
 import { drawGlyph } from '../lib/drawGlyph.ts';
 import { findEffect, type ResolvedEffect, resolveEffects } from '../lib/effects.ts';
 import { ensureFont } from '../lib/font.ts';
+import { type BundleShaper, getShaperForBundle } from '../lib/hb-shaper.ts';
 import { type SubdividedStroke, subdivideStroke } from '../lib/strokeCache.ts';
 import type { TextLayout } from '../lib/textLayout.ts';
 import { computeTextLayout } from '../lib/textLayout.ts';
@@ -77,6 +78,8 @@ export class TegakiEngine {
   private _layout: TextLayout | null = null;
   private _layoutKey = '';
   private _fontReady = false;
+  private _shaper: BundleShaper | null = null;
+  private _shaperReady = true;
 
   // Stroke subdivision cache. Shared across every instance of the same glyph
   // at the current (font, fontSize, segmentSize, effects-need-subdivision)
@@ -537,26 +540,42 @@ export class TegakiEngine {
   private _loadFont(font: TegakiBundle | null): void {
     this._font = font;
     this._fontReady = false;
+    this._shaper = null;
+    this._shaperReady = true;
 
     if (!font) return;
 
-    const pending = ensureFont(font.family, font.fontUrl);
+    const pending = ensureFont(font.family, font.fontUrl, font.features);
     if (pending === null) {
       this._fontReady = true;
-      return;
+    } else {
+      const currentFont = font;
+      pending.then(() => {
+        if (this._font === currentFont && !this._destroyed) {
+          this._fontReady = true;
+          this._recomputeTimeline();
+          this._updateDom();
+          this._recomputeLayout();
+          this._evaluatePlayback();
+          this._render();
+        }
+      });
     }
 
-    const currentFont = font;
-    pending.then(() => {
-      if (this._font === currentFont && !this._destroyed) {
-        this._fontReady = true;
-        this._recomputeTimeline();
-        this._updateDom();
-        this._recomputeLayout();
-        this._evaluatePlayback();
-        this._render();
-      }
-    });
+    const shaperPromise = getShaperForBundle(font);
+    if (shaperPromise) {
+      this._shaperReady = false;
+      const currentFont = font;
+      shaperPromise.then((shaper) => {
+        if (this._font === currentFont && !this._destroyed) {
+          this._shaper = shaper;
+          this._shaperReady = true;
+          this._recomputeTimeline();
+          this._evaluatePlayback();
+          this._render();
+        }
+      });
+    }
   }
 
   // =========================================================================
@@ -565,7 +584,7 @@ export class TegakiEngine {
 
   private _recomputeTimeline(): void {
     if (this._font && this._text) {
-      this._timeline = computeTimeline(this._text, this._font, this._timing);
+      this._timeline = computeTimeline(this._text, this._font, this._timing, this._shaper);
     } else {
       this._timeline = { entries: [] as TimelineEntry[], totalDuration: 0 };
     }
@@ -589,7 +608,8 @@ export class TegakiEngine {
 
   private _evaluatePlayback(): void {
     const tc = this._timeControl;
-    const shouldRun = tc.mode === 'uncontrolled' && this._playing && !!this._font && this._fontReady && !this._prefersReducedMotion;
+    const shouldRun =
+      tc.mode === 'uncontrolled' && this._playing && !!this._font && this._fontReady && this._shaperReady && !this._prefersReducedMotion;
 
     if (shouldRun) {
       this._startLoop();
@@ -809,48 +829,55 @@ export class TegakiEngine {
     const clipText = this._quality?.clipText;
     const strokeScale = typeof clipText === 'number' ? clipText : 1;
 
-    let y = 0;
-    for (const lineIndices of layout.lines) {
-      for (const charIdx of lineIndices) {
-        const char = characters[charIdx]!;
-        if (char === '\n') continue;
-        const entry = this._timeline.entries[charIdx]!;
-        const x = (layout.charOffsets[charIdx] ?? 0) * fontSize;
-        const glyph = font.glyphData[char];
+    // Map grapheme index -> line index so timeline entries (which reference
+    // graphemes) can be placed without re-walking the lines array per entry.
+    const graphemeToLine = new Int32Array(characters.length).fill(-1);
+    for (let li = 0; li < layout.lines.length; li++) {
+      const lineIndices = layout.lines[li]!;
+      for (const charIdx of lineIndices) graphemeToLine[charIdx] = li;
+    }
 
-        if (glyph && entry.hasGlyph) {
-          let localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
-          const glyphEasing = this._timing?.glyphEasing;
-          if (glyphEasing && entry.duration > 0) {
-            localTime = glyphEasing(localTime / entry.duration) * entry.duration;
-          }
-          const glyphY = y + halfLeading;
-          drawGlyph(
-            ctx,
-            glyph,
-            {
-              x,
-              y: glyphY,
-              fontSize,
-              unitsPerEm: font.unitsPerEm,
-              ascender: font.ascender,
-              descender: font.descender,
-            },
-            localTime,
-            font.lineCap,
-            color,
-            this._resolvedEffects,
-            this._seed + charIdx,
-            getSubdivided,
-            this._timing?.strokeEasing,
-            strokeScale,
-          );
-        } else if (!entry.hasGlyph && currentTime >= entry.offset + entry.duration) {
-          const baseline = y + halfLeading + (font.ascender / font.unitsPerEm) * fontSize;
-          drawFallbackGlyph(ctx, char, x, baseline, fontSize, cssFontFamily(font), color, this._resolvedEffects, this._seed + charIdx);
+    for (let ei = 0; ei < this._timeline.entries.length; ei++) {
+      const entry = this._timeline.entries[ei]!;
+      if (entry.char === '\n') continue;
+      const charIdx = entry.graphemeIndex;
+      const lineIdx = graphemeToLine[charIdx] ?? -1;
+      if (lineIdx < 0) continue;
+      const y = lineIdx * lineHeight;
+      const x = (layout.charOffsets[charIdx] ?? 0) * fontSize;
+      const glyph = (entry.glyphId !== undefined ? font.glyphDataById?.[String(entry.glyphId)] : undefined) ?? font.glyphData[entry.char];
+
+      if (glyph && entry.hasGlyph) {
+        let localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
+        const glyphEasing = this._timing?.glyphEasing;
+        if (glyphEasing && entry.duration > 0) {
+          localTime = glyphEasing(localTime / entry.duration) * entry.duration;
         }
+        const glyphY = y + halfLeading;
+        drawGlyph(
+          ctx,
+          glyph,
+          {
+            x,
+            y: glyphY,
+            fontSize,
+            unitsPerEm: font.unitsPerEm,
+            ascender: font.ascender,
+            descender: font.descender,
+          },
+          localTime,
+          font.lineCap,
+          color,
+          this._resolvedEffects,
+          this._seed + charIdx,
+          getSubdivided,
+          this._timing?.strokeEasing,
+          strokeScale,
+        );
+      } else if (!entry.hasGlyph && currentTime >= entry.offset + entry.duration) {
+        const baseline = y + halfLeading + (font.ascender / font.unitsPerEm) * fontSize;
+        drawFallbackGlyph(ctx, entry.char, x, baseline, fontSize, cssFontFamily(font), color, this._resolvedEffects, this._seed + charIdx);
       }
-      y += lineHeight;
     }
 
     // --- Clip strokes to the filled text shape ---

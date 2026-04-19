@@ -139,5 +139,19 @@ export interface TegakiBundle {
   unitsPerEm: number;
   ascender: number;
   descender: number;
+  /** Default glyphs keyed by character. Used as a fallback when a shaped glyph id is absent. */
   glyphData: Record<string, TegakiGlyphData>;
+  /**
+   * Variant glyphs keyed by opentype glyph id (as a string). Populated when the
+   * bundle was generated with ligature/contextual-alternate support. The renderer
+   * uses harfbuzz to shape text and looks glyph ids up here; misses fall back to
+   * `glyphData[char]` so default glyphs aren't duplicated.
+   */
+  glyphDataById?: Record<string, TegakiGlyphData>;
+  /**
+   * OpenType feature tags the bundle was generated with (e.g. `['liga', 'calt']`).
+   * The renderer enables these during shaping. Absent when no variant glyphs
+   * were generated.
+   */
+  features?: string[];
 }

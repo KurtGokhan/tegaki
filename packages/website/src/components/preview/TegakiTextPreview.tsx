@@ -4,13 +4,21 @@ import {
   computeTimeline,
   type TegakiBundle,
   type TegakiEffects,
+  type TegakiGlyphData,
   type TegakiQuality,
   TegakiRenderer,
   type TegakiRendererHandle,
   type TimeControlProp,
   type TimelineConfig,
 } from 'tegaki';
-import { type ParsedFontInfo, type PipelineOptions, type PipelineResult, processGlyph } from 'tegaki-generator';
+import {
+  createHbShaper,
+  type ParsedFontInfo,
+  type PipelineOptions,
+  type PipelineResult,
+  processGlyph,
+  processGlyphById,
+} from 'tegaki-generator';
 
 export interface TegakiTextPreviewReadyInfo {
   bundle: TegakiBundle;
@@ -81,12 +89,22 @@ export const TegakiTextPreview = forwardRef<TegakiRendererHandle, TegakiTextPrev
     };
   }, [fontUrl]);
 
+  // Features are detected once at parse time (see `parseFont`) and carried on
+  // `fontInfo` — subtract any the user has disabled for this render.
+  const enabledFeatures = useMemo<string[]>(
+    () => fontInfo.features.filter((f) => !options.disabledFeatures.includes(f)),
+    [fontInfo.features, options.disabledFeatures],
+  );
+
   useEffect(() => {
     setFontReady(false);
+    // Mirror the renderer's `ensureFont`: enable exactly the features the
+    // bundle shapes with, so DOM-measured layout and canvas glyph picks
+    // agree. Fonts with no GSUB table keep the legacy "disable liga/calt"
+    // behaviour so single-char fallback rendering stays aligned.
+    const featureSettings = enabledFeatures.length > 0 ? enabledFeatures.map((f) => `'${f}' 1`).join(', ') : "'calt' 0, 'liga' 0";
     const extraUrls = (extraFontBuffers ?? []).map((buf) => URL.createObjectURL(new Blob([buf], { type: 'font/ttf' })));
-    const faces = [fontUrl, ...extraUrls].map(
-      (url) => new FontFace(fontInfo.family, `url(${url})`, { featureSettings: '"calt" 0, "liga" 0' }),
-    );
+    const faces = [fontUrl, ...extraUrls].map((url) => new FontFace(fontInfo.family, `url(${url})`, { featureSettings }));
     let cancelled = false;
     Promise.all(faces.map((f) => f.load())).then((loaded) => {
       if (cancelled) return;
@@ -98,10 +116,62 @@ export const TegakiTextPreview = forwardRef<TegakiRendererHandle, TegakiTextPrev
       for (const f of faces) document.fonts.delete(f);
       for (const url of extraUrls) URL.revokeObjectURL(url);
     };
-  }, [fontInfo, fontUrl, extraFontBuffers]);
+  }, [fontInfo, fontUrl, extraFontBuffers, enabledFeatures]);
 
   const internalCacheRef = useRef<Map<string, PipelineResult>>(new Map());
   const activeCache = resultsCache?.current ?? internalCacheRef.current;
+
+  // Variant glyphs the shaper produces for the current text, keyed by their
+  // opentype glyph id. Populated asynchronously because harfbuzz needs wasm.
+  // Only variants (glyph id ≠ nominal for cluster char) land here — nominal
+  // glyphs still go into the char-keyed `glyphData` path below, which also
+  // handles extra-subset fonts that the primary shaper doesn't see.
+  const [variantData, setVariantData] = useState<Record<string, TegakiGlyphData>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const shaper = await createHbShaper(fontBuffer, enabledFeatures);
+      try {
+        const optionsKey = JSON.stringify(options);
+        const variants: Record<string, TegakiGlyphData> = {};
+        const seen = new Set<number>();
+        for (const line of text.split('\n')) {
+          for (const g of shaper.shape(line)) {
+            if (seen.has(g.g) || g.g === 0) continue;
+            seen.add(g.g);
+            const clusterChar = line[g.cl];
+            if (!clusterChar) continue;
+            const nominal = fontInfo.font.charToGlyph(clusterChar).index;
+            if (g.g === nominal) continue;
+            const cacheKey = `#${g.g}:${optionsKey}`;
+            let res = activeCache.get(cacheKey);
+            if (!res) {
+              res = processGlyphById(fontInfo, g.g, options) ?? undefined;
+              if (res) activeCache.set(cacheKey, res);
+            }
+            if (!res) continue;
+            const last = res.strokesFontUnits[res.strokesFontUnits.length - 1];
+            variants[String(g.g)] = {
+              w: res.advanceWidth,
+              t: last ? Math.round((last.delay + last.animationDuration) * 1000) / 1000 : 0,
+              s: res.strokesFontUnits.map((s) => ({
+                p: s.points.map((p) => [p.x, p.y, p.width] as [number, number, number]),
+                d: s.delay,
+                a: s.animationDuration,
+              })),
+            };
+          }
+        }
+        if (!cancelled) setVariantData(variants);
+      } finally {
+        shaper.destroy();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fontBuffer, fontInfo, text, options, enabledFeatures, activeCache]);
 
   const fontBundle = useMemo<TegakiBundle>(() => {
     const glyphData: TegakiBundle['glyphData'] = {};
@@ -132,6 +202,7 @@ export const TegakiTextPreview = forwardRef<TegakiRendererHandle, TegakiTextPrev
       };
     }
 
+    const hasVariants = Object.keys(variantData).length > 0;
     return {
       version: BUNDLE_VERSION,
       family: fontInfo.family,
@@ -142,8 +213,10 @@ export const TegakiTextPreview = forwardRef<TegakiRendererHandle, TegakiTextPrev
       ascender: fontInfo.ascender,
       descender: fontInfo.descender,
       glyphData,
+      ...(hasVariants ? { glyphDataById: variantData } : {}),
+      ...(enabledFeatures.length > 0 ? { features: enabledFeatures } : {}),
     } satisfies TegakiBundle;
-  }, [fontInfo, fontUrl, text, options, activeCache]);
+  }, [fontInfo, fontUrl, text, options, activeCache, enabledFeatures, variantData]);
 
   useEffect(() => {
     if (!onReady || !fontReady) return;

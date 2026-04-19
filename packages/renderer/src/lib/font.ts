@@ -7,10 +7,10 @@ const fontFaceCache = new Map<string, Promise<void>>();
  * Resolves immediately if the font is already loaded.
  */
 export async function ensureFontFace(bundle: TegakiBundle): Promise<void> {
-  await ensureFont(bundle.family, bundle.fontUrl);
+  await ensureFont(bundle.family, bundle.fontUrl, bundle.features);
 }
 
-export function ensureFont(family: string, url: string): Promise<void> | null {
+export function ensureFont(family: string, url: string, features?: string[]): Promise<void> | null {
   if (typeof document === 'undefined') return Promise.resolve();
   for (const face of document.fonts) {
     if (face.family === family) {
@@ -20,7 +20,13 @@ export function ensureFont(family: string, url: string): Promise<void> | null {
   }
   let cached = fontFaceCache.get(url);
   if (!cached) {
-    cached = new FontFace(family, `url(${url})`, { featureSettings: "'calt' 0, 'liga' 0" }).load().then((loaded) => {
+    // Align DOM shaping with the bundle. For bundles that declare features,
+    // enable exactly those so DOM-measured layout matches what harfbuzz
+    // produced for canvas glyphs (critical for scripts like Arabic where
+    // calt picks different positional variants). Legacy bundles without
+    // variant glyphs disable liga/calt so 1:1 char-to-glyph fallback holds.
+    const featureSettings = features && features.length > 0 ? features.map((f) => `'${f}' 1`).join(', ') : "'calt' 0, 'liga' 0";
+    cached = new FontFace(family, `url(${url})`, { featureSettings }).load().then((loaded) => {
       document.fonts.add(loaded);
     });
     fontFaceCache.set(url, cached);

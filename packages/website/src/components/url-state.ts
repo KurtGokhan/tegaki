@@ -113,7 +113,7 @@ const OPTION_KEYS: Record<keyof PipelineOptions, string> = {
   voronoiSamplingInterval: 'vs',
   drawingSpeed: 'ds',
   strokePause: 'sp',
-  ligatures: 'lg',
+  disabledFeatures: 'df',
 };
 
 const REVERSE_OPTION_KEYS = Object.fromEntries(Object.entries(OPTION_KEYS).map(([k, v]) => [v, k])) as Record<
@@ -169,7 +169,9 @@ export function parseUrlState(): UrlState {
     if (!p.has(short)) continue;
     const raw = p.get(short)!;
     const defaultVal = DEFAULT_OPTIONS[long];
-    if (typeof defaultVal === 'number') {
+    if (Array.isArray(defaultVal)) {
+      (state.options as unknown as Record<string, unknown>)[long] = raw ? raw.split(',') : [];
+    } else if (typeof defaultVal === 'number') {
       (state.options as unknown as Record<string, unknown>)[long] = Number(raw);
     } else {
       (state.options as unknown as Record<string, unknown>)[long] = raw;
@@ -212,11 +214,18 @@ export function buildUrlParams(state: UrlState): URLSearchParams {
   if (state.strokeEasing !== URL_DEFAULTS.strokeEasing) p.set('se', state.strokeEasing);
   if (state.glyphEasing !== URL_DEFAULTS.glyphEasing) p.set('ge', state.glyphEasing);
 
-  // Pipeline options — only non-defaults
+  // Pipeline options — only non-defaults. Array-valued options are serialized
+  // as comma-separated and compared structurally.
   for (const [long, short] of Object.entries(OPTION_KEYS)) {
     const key = long as keyof PipelineOptions;
-    if (state.options[key] !== DEFAULT_OPTIONS[key]) {
-      p.set(short, String(state.options[key]));
+    const val = state.options[key];
+    const def = DEFAULT_OPTIONS[key];
+    if (Array.isArray(val) || Array.isArray(def)) {
+      const a = Array.isArray(val) ? val : [];
+      const b = Array.isArray(def) ? def : [];
+      if (a.length !== b.length || a.some((v, i) => v !== b[i])) p.set(short, a.join(','));
+    } else if (val !== def) {
+      p.set(short, String(val));
     }
   }
 

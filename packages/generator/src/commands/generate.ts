@@ -19,7 +19,9 @@ import {
   TRACE_LOOKBACK,
   VORONOI_SAMPLING_INTERVAL,
 } from '../constants.ts';
-import { extractGlyph, inferLineCap } from '../font/parse.ts';
+import { enumerateVariantGlyphIds } from '../font/enumerate-variants.ts';
+import { createHbShaper, getGsubFeatures } from '../font/hb-shaper.ts';
+import { extractGlyph, extractGlyphById, inferLineCap } from '../font/parse.ts';
 import { computePathBBox, flattenPath } from '../processing/bezier.ts';
 import { toFontUnits } from '../processing/font-units.ts';
 import { rasterize } from '../processing/rasterize.ts';
@@ -54,7 +56,10 @@ const pipelineOptionsSchema = z.object({
   voronoiSamplingInterval: z.number().default(VORONOI_SAMPLING_INTERVAL).describe('Voronoi boundary sampling interval'),
   drawingSpeed: z.number().default(DRAWING_SPEED).describe('Drawing speed in font units per second'),
   strokePause: z.number().default(STROKE_PAUSE).describe('Pause duration in seconds between strokes'),
-  ligatures: z.boolean().default(false).describe('Enable OpenType ligatures (calt, liga) in the font bundle'),
+  disabledFeatures: z
+    .array(z.string())
+    .default([])
+    .describe('OpenType GSUB feature tags to exclude from the generated bundle (default: include every feature the font declares)'),
 });
 
 export type PipelineOptions = z.infer<typeof pipelineOptionsSchema>;
@@ -120,6 +125,13 @@ export interface ParsedFontInfo {
   font: opentype.Font;
   /** Additional subset fonts (e.g. CJK subsets from Google Fonts) */
   extraFonts?: opentype.Font[];
+  /**
+   * Deduplicated GSUB feature tags declared by the font (e.g. `liga`, `calt`,
+   * `init`/`medi`/`fina` for Arabic). Detected once at parse time via harfbuzz
+   * so downstream code — bundle builder, UI feature toggles, live preview —
+   * never has to re-run detection.
+   */
+  features: string[];
 }
 
 // ── Bundle types ──────────────────────────────────────────────────────────
@@ -157,16 +169,33 @@ export interface ExtractBundleInput {
 export interface TegakiBundleOutput {
   fontOutput: FontOutput;
   glyphResults: Record<string, PipelineResult>;
+  /** Variant glyph pipeline results keyed by opentype glyph id (as string). */
+  glyphResultsById: Record<string, PipelineResult>;
   files: BundleFile[];
-  stats: { processed: number; skipped: number };
+  stats: { processed: number; skipped: number; variants: number };
 }
 
 // ── Pipeline functions ─────────────────────────────────────────────────────
 
 /** Parse a font from an ArrayBuffer (browser-compatible) */
-export function parseFont(buffer: ArrayBuffer, extraBuffers?: ArrayBuffer[]): ParsedFontInfo {
+export async function parseFont(buffer: ArrayBuffer, extraBuffers?: ArrayBuffer[]): Promise<ParsedFontInfo> {
   const font = opentype.parse(buffer);
   const extraFonts = extraBuffers?.map((b) => opentype.parse(b));
+  // Google Fonts serves non-Latin scripts (Arabic, Hebrew, CJK, ...) as
+  // separate subset TTFs, and each subset declares the GSUB features its
+  // script needs — Arabic's `init`/`medi`/`fina`/`rlig` live only in the
+  // Arabic subset, not in the Latin primary. Union across every buffer so the
+  // bundle surfaces every feature the user might exercise.
+  const featureLists = await Promise.all([buffer, ...(extraBuffers ?? [])].map(getGsubFeatures));
+  const seen = new Set<string>();
+  const features: string[] = [];
+  for (const list of featureLists) {
+    for (const tag of list) {
+      if (seen.has(tag)) continue;
+      seen.add(tag);
+      features.push(tag);
+    }
+  }
   return {
     family: font.names.fontFamily?.en ?? 'Unknown',
     style: font.names.fontSubfamily?.en ?? 'Regular',
@@ -176,6 +205,7 @@ export function parseFont(buffer: ArrayBuffer, extraBuffers?: ArrayBuffer[]): Pa
     lineCap: inferLineCap(font),
     font,
     extraFonts: extraFonts?.length ? extraFonts : undefined,
+    features,
   };
 }
 
@@ -189,7 +219,22 @@ export function parseFont(buffer: ArrayBuffer, extraBuffers?: ArrayBuffer[]): Pa
 export function processGlyph(fontInfo: ParsedFontInfo, char: string, options: PipelineOptions): PipelineResult | null {
   const rawGlyph = extractGlyph(fontInfo.font, char, fontInfo.extraFonts);
   if (!rawGlyph) return null;
+  return runPipeline(fontInfo, rawGlyph.char, rawGlyph, options);
+}
 
+/** Run the pipeline for a variant glyph identified by its opentype index. */
+export function processGlyphById(fontInfo: ParsedFontInfo, glyphId: number, options: PipelineOptions): PipelineResult | null {
+  const rawGlyph = extractGlyphById(fontInfo.font, glyphId);
+  if (!rawGlyph) return null;
+  return runPipeline(fontInfo, rawGlyph.char, rawGlyph, options);
+}
+
+function runPipeline(
+  fontInfo: ParsedFontInfo,
+  char: string,
+  rawGlyph: NonNullable<ReturnType<typeof extractGlyph>>,
+  options: PipelineOptions,
+): PipelineResult {
   const lineCap: LineCap = options.lineCap === 'auto' ? fontInfo.lineCap : options.lineCap;
 
   // Stage 1: Flatten bezier outline commands into polyline sub-paths (font units).
@@ -236,7 +281,28 @@ export function processGlyph(fontInfo: ParsedFontInfo, char: string, options: Pi
 
 // ── Bundle extraction (pure — no file I/O) ────────────────────────────────
 
-export function extractTegakiBundle(input: ExtractBundleInput): TegakiBundleOutput {
+type CompactGlyph = {
+  w: number;
+  t: number;
+  s: { p: [number, number, number][]; d: number; a: number }[];
+};
+
+function toCompactGlyph(result: PipelineResult): CompactGlyph {
+  const { strokesFontUnits } = result;
+  const last = strokesFontUnits[strokesFontUnits.length - 1];
+  const totalAnimationDuration = last ? Math.round((last.delay + last.animationDuration) * 1000) / 1000 : 0;
+  return {
+    w: result.advanceWidth,
+    t: totalAnimationDuration,
+    s: strokesFontUnits.map((s) => ({
+      p: s.points.map((p) => [p.x, p.y, p.width] as [number, number, number]),
+      d: s.delay,
+      a: s.animationDuration,
+    })),
+  };
+}
+
+export async function extractTegakiBundle(input: ExtractBundleInput): Promise<TegakiBundleOutput> {
   const {
     fontBuffer,
     fontFileName,
@@ -248,7 +314,7 @@ export function extractTegakiBundle(input: ExtractBundleInput): TegakiBundleOutp
     fullFontBuffer,
     fullFontFileName,
   } = input;
-  const fontInfo = parseFont(fontBuffer, extraFontBuffers);
+  const fontInfo = await parseFont(fontBuffer, extraFontBuffers);
 
   const lineCap: LineCap = options.lineCap === 'auto' ? fontInfo.lineCap : options.lineCap;
 
@@ -308,21 +374,45 @@ export function extractTegakiBundle(input: ExtractBundleInput): TegakiBundleOutp
     onProgress?.(`Processing glyph "${char}"`, processed / chars.length);
   }
 
+  // Variant glyphs (ligatures / contextual alternates). Each is processed once
+  // and keyed by opentype glyph id; the renderer shapes text via harfbuzz and
+  // falls back to the char-keyed map for glyphs that aren't variants. That way
+  // default glyphs are never duplicated across the two maps.
+  const glyphResultsById: Record<string, PipelineResult> = {};
+  const variantCompact: Record<string, CompactGlyph> = {};
+  // Subtract any features the caller wants disabled from the font's declared
+  // GSUB tags. The remaining set is enabled during variant enumeration and
+  // stored on the bundle so the renderer (canvas shaper + DOM FontFace) can
+  // apply the same set. When nothing's left the bundle has no variants —
+  // behaviorally the same as the previous `ligatures: false` opt-out.
+  const bundleFeatures = fontInfo.features.filter((f) => !options.disabledFeatures.includes(f));
+  if (bundleFeatures.length > 0) {
+    onProgress?.(`Discovering ligature/alternate glyphs...`);
+    const shaper = await createHbShaper(fontBuffer, bundleFeatures);
+    try {
+      const variantIds = enumerateVariantGlyphIds(shaper, chars);
+      const total = variantIds.size;
+      let i = 0;
+      for (const gid of variantIds) {
+        const result = processGlyphById(fontInfo, gid, options);
+        i++;
+        if (!result) continue;
+        glyphResultsById[String(gid)] = result;
+        variantCompact[String(gid)] = toCompactGlyph(result);
+        onProgress?.(`Processing variant glyph #${gid}`, total === 0 ? undefined : i / total);
+      }
+    } finally {
+      shaper.destroy();
+    }
+  }
+
   // Build bundle files
   const files: BundleFile[] = [];
 
   files.push({ path: fontFileName, content: new Uint8Array(fontBuffer) });
 
   // Compact glyph data: short keys, points as [x, y, width] tuples
-  const glyphDataMap: Record<
-    string,
-    {
-      w: number;
-      t: number;
-      s: { p: [number, number, number][]; d: number; a: number }[];
-    }
-  > = {};
-
+  const glyphDataMap: Record<string, CompactGlyph> = {};
   for (const glyph of Object.values(output.glyphs)) {
     glyphDataMap[glyph.char] = {
       w: glyph.advanceWidth,
@@ -337,6 +427,11 @@ export function extractTegakiBundle(input: ExtractBundleInput): TegakiBundleOutp
 
   files.push({ path: 'glyphData.json', content: JSON.stringify(glyphDataMap) });
 
+  const hasVariants = Object.keys(variantCompact).length > 0;
+  if (hasVariants) {
+    files.push({ path: 'glyphDataById.json', content: JSON.stringify(variantCompact) });
+  }
+
   // When the bundle is a subset, suffix the font-family name so it doesn't
   // collide with a user-loaded full font. The full (non-subsetted) font is
   // bundled alongside so the renderer can fall back to it automatically.
@@ -349,37 +444,49 @@ export function extractTegakiBundle(input: ExtractBundleInput): TegakiBundleOutp
 
   files.push({
     path: 'bundle.ts',
-    content: generateGlyphsModule(
+    content: generateGlyphsModule({
       fontFileName,
-      bundleFamily,
+      fontFamily: bundleFamily,
       fullFamily,
-      subset && fullFontFileName ? fullFontFileName : undefined,
+      fullFontFileName: subset && fullFontFileName ? fullFontFileName : undefined,
       lineCap,
-      fontInfo.unitsPerEm,
-      fontInfo.ascender,
-      fontInfo.descender,
-    ),
+      unitsPerEm: fontInfo.unitsPerEm,
+      ascender: fontInfo.ascender,
+      descender: fontInfo.descender,
+      hasVariants,
+      features: hasVariants && bundleFeatures.length > 0 ? bundleFeatures : undefined,
+    }),
   });
 
-  return { fontOutput: output, glyphResults, files, stats: { processed, skipped } };
+  return {
+    fontOutput: output,
+    glyphResults,
+    glyphResultsById,
+    files,
+    stats: { processed, skipped, variants: Object.keys(glyphResultsById).length },
+  };
 }
 
-function generateGlyphsModule(
-  fontFileName: string,
-  fontFamily: string,
-  fullFamily: string | undefined,
-  fullFontFileName: string | undefined,
-  lineCap: LineCap,
-  unitsPerEm: number,
-  ascender: number,
-  descender: number,
-): string {
+function generateGlyphsModule(args: {
+  fontFileName: string;
+  fontFamily: string;
+  fullFamily: string | undefined;
+  fullFontFileName: string | undefined;
+  lineCap: LineCap;
+  unitsPerEm: number;
+  ascender: number;
+  descender: number;
+  hasVariants: boolean;
+  features: string[] | undefined;
+}): string {
+  const { fontFileName, fontFamily, fullFamily, fullFontFileName, lineCap, unitsPerEm, ascender, descender, hasVariants, features } = args;
   const esc = (s: string) => s.replace(/'/g, "\\'");
   const hasFull = fullFamily && fullFontFileName;
 
   const imports = [`import fontUrl from './${fontFileName}' with { type: 'url' };`];
   if (hasFull) imports.push(`import fullFontUrl from './${fullFontFileName}' with { type: 'url' };`);
   imports.push(`import glyphData from './glyphData.json' with { type: 'json' };`);
+  if (hasVariants) imports.push(`import glyphDataById from './glyphDataById.json' with { type: 'json' };`);
 
   const fontFaceRules = [`@font-face { font-family: '${esc(fontFamily)}'; src: url(\${fontUrl}); }`];
   if (hasFull) fontFaceRules.push(`@font-face { font-family: '${esc(fullFamily)}'; src: url(\${fullFontUrl}); }`);
@@ -396,6 +503,8 @@ function generateGlyphsModule(
     `  ascender: ${ascender},`,
     `  descender: ${descender},`,
     `  glyphData,`,
+    ...(hasVariants ? [`  glyphDataById,`] : []),
+    ...(features?.length ? [`  features: ${JSON.stringify(features)},`] : []),
   ];
 
   return `// Auto-generated by Tegaki. Do not edit manually.

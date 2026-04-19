@@ -62,7 +62,7 @@ export const tegakiProgram = createPadrone('tegaki')
 
         // Extract bundle (pure — no file I/O)
         progress?.update('Processing font...');
-        const bundle = extractTegakiBundle({
+        const bundle = await extractTegakiBundle({
           fontBuffer,
           fontFileName,
           chars: resolvedChars,

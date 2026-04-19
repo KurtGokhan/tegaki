@@ -32,6 +32,10 @@ export function PreviewApp() {
   const [extraFontBuffers, setExtraFontBuffers] = useState<ArrayBuffer[] | undefined>(undefined);
   const [fontLoading, setFontLoading] = useState(false);
   const [fontError, setFontError] = useState('');
+  // GSUB feature tags declared by the currently loaded font. Detected once at
+  // parse time and carried on `fontInfo` — empty when no font is loaded or the
+  // font has no GSUB table.
+  const detectedFeatures = fontInfo?.features ?? [];
 
   // Autocomplete state
   const [allFonts, setAllFonts] = useState<{ family: string; category: string }[]>([]);
@@ -129,7 +133,7 @@ export function PreviewApp() {
     resultsCache.current.clear();
     try {
       const { primary, extra } = await fetchFontFromCDN(family);
-      const info = parseFont(primary, extra.length > 0 ? extra : undefined);
+      const info = await parseFont(primary, extra.length > 0 ? extra : undefined);
       setFontInfo(info);
       setFontBuffer(primary);
       setExtraFontBuffers(extra.length > 0 ? extra : undefined);
@@ -149,10 +153,10 @@ export function PreviewApp() {
     setFontError('');
     resultsCache.current.clear();
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const buf = reader.result as ArrayBuffer;
-        const info = parseFont(buf);
+        const info = await parseFont(buf);
         setFontInfo(info);
         setFontBuffer(buf);
         setExtraFontBuffers(undefined);
@@ -309,7 +313,7 @@ export function PreviewApp() {
     setDownloading(true);
     try {
       const slug = fontInfo.family.toLowerCase().replace(/\s+/g, '-');
-      const bundle = extractTegakiBundle({
+      const bundle = await extractTegakiBundle({
         fontBuffer,
         fontFileName: `${slug}.ttf`,
         chars,
@@ -554,10 +558,11 @@ export function PreviewApp() {
               onChange={(v) => updateOption('dtMethod', v as 'euclidean' | 'chamfer')}
             />
 
-            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
-              <input type="checkbox" checked={options.ligatures} onChange={(e) => updateOption('ligatures', e.target.checked)} />
-              Ligatures (calt, liga)
-            </label>
+            <FeatureToggles
+              detected={detectedFeatures}
+              disabled={options.disabledFeatures}
+              onChange={(next) => updateOption('disabledFeatures', next)}
+            />
           </fieldset>
 
           {/* Advanced options */}
@@ -827,6 +832,58 @@ export function PreviewApp() {
           />
         )}
       </main>
+    </div>
+  );
+}
+
+interface FeatureTogglesProps {
+  detected: string[];
+  disabled: string[];
+  onChange: (next: string[]) => void;
+}
+
+/**
+ * Renders one checkbox per GSUB feature declared by the loaded font.
+ * Checked = enabled (absent from `disabled`). Unchecked = in `disabled`.
+ * Shows a placeholder when the font exposes no features so the panel still
+ * occupies a consistent slot in the options layout.
+ */
+function FeatureToggles({ detected, disabled, onChange }: FeatureTogglesProps) {
+  const toggle = (feature: string, enabled: boolean) => {
+    const next = enabled ? disabled.filter((f) => f !== feature) : [...disabled, feature];
+    onChange(next);
+  };
+
+  if (detected.length === 0) {
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="text-xs font-medium text-gray-700">Features</span>
+        <span className="text-xs text-gray-500 italic">None declared by this font</span>
+      </div>
+    );
+  }
+
+  const allEnabled = disabled.length === 0;
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-gray-700">Features</span>
+        <button
+          type="button"
+          className="text-xs text-gray-500 hover:text-gray-700 underline"
+          onClick={() => onChange(allEnabled ? [...detected] : [])}
+        >
+          {allEnabled ? 'Disable all' : 'Enable all'}
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {detected.map((feature) => (
+          <label key={feature} className="flex items-center gap-1 text-xs font-mono text-gray-700 cursor-pointer">
+            <input type="checkbox" checked={!disabled.includes(feature)} onChange={(e) => toggle(feature, e.target.checked)} />
+            {feature}
+          </label>
+        ))}
+      </div>
     </div>
   );
 }
