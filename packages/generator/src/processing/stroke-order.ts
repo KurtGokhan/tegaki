@@ -28,25 +28,34 @@ function pathLength(points: Point[]): number {
  * Orient a polyline so the "natural" starting point comes first.
  *
  * For near-closed loops (start ≈ end), rotates the chain to start from the
- * leftmost point — the natural pen entry for Latin handwriting.
+ * leftmost (LTR) or rightmost (RTL) point — the natural pen entry for the
+ * script's writing direction.
  *
  * For open polylines, reverses if the end has a better (lower) orientation
- * score than the start, preferring left-to-right flow.
+ * score than the start. The x-weight flips sign for RTL so "preferred" means
+ * rightmost instead of leftmost.
  */
-function orientPolyline(points: Point[]): Point[] {
+function orientPolyline(points: Point[], rtl = false): Point[] {
   if (points.length < 2) return points;
 
   const start = points[0]!;
   const end = points[points.length - 1]!;
+  const xWeight = rtl ? -ORIENT_X_WEIGHT : ORIENT_X_WEIGHT;
 
-  // Near-closed loop: rotate to start from the leftmost point
+  // Near-closed loop: rotate to start from the leftmost (LTR) / rightmost (RTL) point
   if (dist(start, end) < 5) {
+    // 2-point fragments (e.g. dots traced from a 2-pixel skeleton blob) aren't
+    // real loops — the rotation formula would duplicate the extremum endpoint
+    // into `[B, B]`, yielding a zero-length "stroke" that the renderer's
+    // multi-point path drops. Collapse to a single-point dot instead.
+    if (points.length === 2) return [start];
     let bestIdx = 0;
     let bestX = points[0]!.x;
     let bestY = points[0]!.y;
     for (let i = 1; i < points.length; i++) {
       const p = points[i]!;
-      if (p.x < bestX || (p.x === bestX && p.y < bestY)) {
+      const better = rtl ? p.x > bestX || (p.x === bestX && p.y < bestY) : p.x < bestX || (p.x === bestX && p.y < bestY);
+      if (better) {
         bestX = p.x;
         bestY = p.y;
         bestIdx = i;
@@ -58,9 +67,9 @@ function orientPolyline(points: Point[]): Point[] {
     return points;
   }
 
-  // Open polyline: prefer starting from the left (with top as tiebreaker)
-  const startScore = start.y + start.x * ORIENT_X_WEIGHT;
-  const endScore = end.y + end.x * ORIENT_X_WEIGHT;
+  // Open polyline: prefer starting from the script's "entry" side (top as tiebreaker)
+  const startScore = start.y + start.x * xWeight;
+  const endScore = end.y + end.x * xWeight;
 
   if (endScore < startScore) {
     return [...points].reverse();
@@ -70,8 +79,9 @@ function orientPolyline(points: Point[]): Point[] {
 
 /**
  * Process polylines into strokes, preserving the order from traceAndSimplify
- * which already implements proximity-based ordering (middle-left start,
- * closest-to-last-end sequencing).
+ * which already implements proximity-based ordering (entry-side start,
+ * closest-to-last-end sequencing). The entry side is middle-left for LTR and
+ * middle-right for RTL scripts; see `traceAndSimplify` for the source.
  *
  * Each polyline is oriented for natural handwriting direction, then assigned
  * t parameter (animation progress) and stroke width values.
@@ -82,6 +92,7 @@ export function orderStrokes(
   bitmapWidth: number,
   _connectionThreshold = 3,
   precomputedWidths?: number[][],
+  rtl = false,
 ): Stroke[] {
   if (polylines.length === 0) return [];
 
@@ -89,7 +100,7 @@ export function orderStrokes(
 
   for (let order = 0; order < polylines.length; order++) {
     const polyline = polylines[order]!;
-    const oriented = orientPolyline(polyline);
+    const oriented = orientPolyline(polyline, rtl);
     const totalLen = pathLength(oriented);
 
     // Look up precomputed widths by matching the original polyline reference

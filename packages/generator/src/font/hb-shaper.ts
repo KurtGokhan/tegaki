@@ -86,12 +86,19 @@ export interface HbShaper {
  * font can produce. The resulting shaper is stateful and owns wasm memory —
  * call `destroy()` when done.
  */
+// Features harfbuzz's complex-text shapers apply context-sensitively based on
+// script. Passing them in the explicit enable list makes HB apply them
+// unconditionally across the whole text range, which breaks positional
+// assignment — e.g. every Arabic glyph collapses to the `fina` variant.
+// Leave these to HB's script defaults.
+const SHAPER_MANAGED_FEATURES = new Set(['init', 'medi', 'fina', 'isol', 'rlig']);
+
 export async function createHbShaper(fontBuffer: ArrayBuffer, features: string[] = []): Promise<HbShaper> {
   const hb = await getHb();
   const blob = hb.createBlob(fontBuffer);
   const face = hb.createFace(blob, 0);
   const font = hb.createFont(face);
-  const featureStr = features.join(',');
+  const featureStr = features.filter((f) => !SHAPER_MANAGED_FEATURES.has(f)).join(',');
 
   // A fresh buffer per shape keeps state isolated and avoids the need to
   // guess-reset between calls. Shaping is cheap; reusing a buffer would only

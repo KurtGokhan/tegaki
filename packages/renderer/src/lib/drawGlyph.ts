@@ -187,8 +187,15 @@ export function drawGlyph(
     const rawPts = stroke.p;
     if (rawPts.length === 0) continue;
 
+    // Degenerate polylines (all points coincident) render as dots. Older
+    // bundles can emit `[[x,y,w],[x,y,w]]` for Arabic nuqta-sized blobs where
+    // the pipeline's orient step collapsed two near-identical skeleton pixels
+    // into the same point; without this check they'd be dropped by the
+    // `totalLen <= 0` guard below.
+    const isDegenerate = rawPts.length > 1 && rawPts.every((p) => p[0] === rawPts[0]![0] && p[1] === rawPts[0]![1]);
+
     // --- Single-point dot (bypass cache; there is nothing to subdivide) ---
-    if (rawPts.length === 1) {
+    if (rawPts.length === 1 || isDegenerate) {
       if (progress <= 0) continue;
       const p = rawPts[0]!;
       const dotX = px(p[0]! + wobbleDx(p[0]!, p[1]!, 0));

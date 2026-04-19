@@ -133,6 +133,14 @@ export interface TegakiBundle {
   fullFamily?: string;
   lineCap: LineCap;
   fontUrl: string;
+  /**
+   * Additional subset font URLs (e.g. Arabic/Hebrew/CJK subsets served alongside
+   * Latin). Registered under the same `family` as `fontUrl` for DOM layout and
+   * fed into the shaper so cross-script text gets shaped against the subset
+   * that actually contains its glyphs — required for positional forms in
+   * Arabic, conjuncts in Indic, etc.
+   */
+  extraFontUrls?: string[];
   /** URL to the full (non-subsetted) font file bundled for fallback rendering. */
   fullFontUrl?: string;
   fontFaceCSS: string;
@@ -142,9 +150,12 @@ export interface TegakiBundle {
   /** Default glyphs keyed by character. Used as a fallback when a shaped glyph id is absent. */
   glyphData: Record<string, TegakiGlyphData>;
   /**
-   * Variant glyphs keyed by opentype glyph id (as a string). Populated when the
-   * bundle was generated with ligature/contextual-alternate support. The renderer
-   * uses harfbuzz to shape text and looks glyph ids up here; misses fall back to
+   * Variant glyphs keyed by shaper output. Populated when the bundle was
+   * generated with ligature/contextual-alternate support. Keys are the shaper's
+   * opentype glyph id as a string (e.g. `"42"`) for glyphs from the primary
+   * font, or `"<subsetIndex>:<gid>"` (e.g. `"1:42"`) for glyphs from an
+   * `extraFontUrls` subset — subset index matches the position in
+   * `extraFontUrls` + 1 (0 is reserved for the primary). Misses fall back to
    * `glyphData[char]` so default glyphs aren't duplicated.
    */
   glyphDataById?: Record<string, TegakiGlyphData>;

@@ -545,6 +545,7 @@ export function traceAndSimplify(
   spurMinLength?: number,
   lookback = TRACE_LOOKBACK,
   curvatureBias = TRACE_CURVATURE_BIAS,
+  rtl = false,
 ): Point[][] {
   const visited = new Uint8Array(width * height);
   const polylines: Point[][] = [];
@@ -568,8 +569,10 @@ export function traceAndSimplify(
     }
   }
 
-  // Start from the endpoint closest to the middle-left of the bounding box
-  let lastEnd: Point = { x: minX, y: (minY + maxY) / 2 };
+  // Start from the endpoint closest to the middle of the "entry" side of the
+  // bounding box — left for LTR scripts, right for RTL (Arabic, Hebrew, …)
+  // so the stroke order follows the script's natural writing direction.
+  let lastEnd: Point = { x: rtl ? maxX : minX, y: (minY + maxY) / 2 };
 
   // First pass: trace from endpoints, each time picking the closest unvisited
   // endpoint to the end of the previous chain

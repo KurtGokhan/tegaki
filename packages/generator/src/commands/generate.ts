@@ -25,6 +25,7 @@ import { extractGlyph, extractGlyphById, inferLineCap } from '../font/parse.ts';
 import { computePathBBox, flattenPath } from '../processing/bezier.ts';
 import { toFontUnits } from '../processing/font-units.ts';
 import { rasterize } from '../processing/rasterize.ts';
+import { isRtlChar } from '../processing/rtl.ts';
 import { skeletonize } from '../processing/skeletonize/index.ts';
 import { orderStrokes } from '../processing/stroke-order.ts';
 import { computeInverseDistanceTransform } from '../processing/width.ts';
@@ -219,14 +220,35 @@ export async function parseFont(buffer: ArrayBuffer, extraBuffers?: ArrayBuffer[
 export function processGlyph(fontInfo: ParsedFontInfo, char: string, options: PipelineOptions): PipelineResult | null {
   const rawGlyph = extractGlyph(fontInfo.font, char, fontInfo.extraFonts);
   if (!rawGlyph) return null;
-  return runPipeline(fontInfo, rawGlyph.char, rawGlyph, options);
+  return runPipeline(fontInfo, rawGlyph.char, rawGlyph, options, isRtlChar(char));
 }
 
-/** Run the pipeline for a variant glyph identified by its opentype index. */
-export function processGlyphById(fontInfo: ParsedFontInfo, glyphId: number, options: PipelineOptions): PipelineResult | null {
-  const rawGlyph = extractGlyphById(fontInfo.font, glyphId);
+/**
+ * Run the pipeline for a variant glyph identified by its opentype index.
+ *
+ * `subsetIndex` selects which font in `fontInfo` to extract from: `0` (default)
+ * is the primary font; `1+` indexes into `fontInfo.extraFonts`. Needed for
+ * multi-subset fonts (e.g. Google Fonts' split Arabic/Latin TTFs) where a
+ * shaper run against the Arabic subset returns glyph ids meaningful only to
+ * that subset.
+ *
+ * `rtl` hints that this variant originates from a right-to-left cluster so
+ * stroke ordering follows Arabic/Hebrew handwriting direction. Variant glyphs
+ * don't have reliable unicode mappings of their own, so the caller must pass
+ * the hint based on the cluster char that produced the variant.
+ */
+export function processGlyphById(
+  fontInfo: ParsedFontInfo,
+  glyphId: number,
+  options: PipelineOptions,
+  subsetIndex = 0,
+  rtl = false,
+): PipelineResult | null {
+  const font = subsetIndex === 0 ? fontInfo.font : fontInfo.extraFonts?.[subsetIndex - 1];
+  if (!font) return null;
+  const rawGlyph = extractGlyphById(font, glyphId);
   if (!rawGlyph) return null;
-  return runPipeline(fontInfo, rawGlyph.char, rawGlyph, options);
+  return runPipeline(fontInfo, rawGlyph.char, rawGlyph, options, rtl);
 }
 
 function runPipeline(
@@ -234,6 +256,7 @@ function runPipeline(
   char: string,
   rawGlyph: NonNullable<ReturnType<typeof extractGlyph>>,
   options: PipelineOptions,
+  rtl = false,
 ): PipelineResult {
   const lineCap: LineCap = options.lineCap === 'auto' ? fontInfo.lineCap : options.lineCap;
 
@@ -248,10 +271,10 @@ function runPipeline(
   const inverseDT = computeInverseDistanceTransform(raster.bitmap, raster.width, raster.height, options.dtMethod);
 
   // Stage 4: Extract skeleton + centerline polylines (voronoi or thinning+trace).
-  const { skeleton, polylines, widths } = skeletonize({ subPaths, pathBBox, raster, inverseDT, options });
+  const { skeleton, polylines, widths } = skeletonize({ subPaths, pathBBox, raster, inverseDT, options, rtl });
 
   // Stage 5: Order strokes (draw order + direction) and assign per-point time `t`.
-  const strokes = orderStrokes(polylines, inverseDT, raster.width, 3, widths);
+  const strokes = orderStrokes(polylines, inverseDT, raster.width, 3, widths, rtl);
 
   // Stage 6: Convert to font units and compute animation timing.
   const strokesFontUnits = toFontUnits(strokes, raster.transform, options.drawingSpeed, options.strokePause);
@@ -393,8 +416,8 @@ export async function extractTegakiBundle(input: ExtractBundleInput): Promise<Te
       const variantIds = enumerateVariantGlyphIds(shaper, chars);
       const total = variantIds.size;
       let i = 0;
-      for (const gid of variantIds) {
-        const result = processGlyphById(fontInfo, gid, options);
+      for (const { gid, clusterChar } of variantIds.values()) {
+        const result = processGlyphById(fontInfo, gid, options, 0, isRtlChar(clusterChar));
         i++;
         if (!result) continue;
         glyphResultsById[String(gid)] = result;

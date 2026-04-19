@@ -545,7 +545,7 @@ export class TegakiEngine {
 
     if (!font) return;
 
-    const pending = ensureFont(font.family, font.fontUrl, font.features);
+    const pending = ensureFont(font.family, font.fontUrl, font.features, font.extraFontUrls);
     if (pending === null) {
       this._fontReady = true;
     } else {
@@ -845,7 +845,7 @@ export class TegakiEngine {
       if (lineIdx < 0) continue;
       const y = lineIdx * lineHeight;
       const x = (layout.charOffsets[charIdx] ?? 0) * fontSize;
-      const glyph = (entry.glyphId !== undefined ? font.glyphDataById?.[String(entry.glyphId)] : undefined) ?? font.glyphData[entry.char];
+      const glyph = (entry.glyphId !== undefined ? font.glyphDataById?.[entry.glyphId] : undefined) ?? font.glyphData[entry.char];
 
       if (glyph && entry.hasGlyph) {
         let localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));

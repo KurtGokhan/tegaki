@@ -1,5 +1,12 @@
 import type { HbShaper } from './hb-shaper.ts';
 
+export interface VariantGlyph {
+  /** OpenType glyph id of the variant. */
+  gid: number;
+  /** First cluster char observed producing this variant — used for RTL detection. */
+  clusterChar: string;
+}
+
 /**
  * Discover every non-default glyph id reachable by shaping n-grams of the
  * input character set. A glyph id counts as non-default when it differs from
@@ -9,9 +16,13 @@ import type { HbShaper } from './hb-shaper.ts';
  * standard Latin ligatures (`ff`, `fi`, `fl`, `ffi`, `ffl`, `st`, …) plus
  * pairwise contextual alternates; longer sequences are rare in handwriting
  * fonts and can be added with an opt-in knob later.
+ *
+ * The first cluster char observed producing each variant is returned so
+ * downstream code can infer script direction (RTL for Arabic/Hebrew clusters)
+ * when processing variants that lack their own unicode mapping.
  */
-export function enumerateVariantGlyphIds(shaper: HbShaper, chars: readonly string[]): Set<number> {
-  const variants = new Set<number>();
+export function enumerateVariantGlyphIds(shaper: HbShaper, chars: readonly string[]): Map<number, VariantGlyph> {
+  const variants = new Map<number, VariantGlyph>();
 
   const collectFrom = (seq: string) => {
     const shaped = shaper.shape(seq);
@@ -19,7 +30,8 @@ export function enumerateVariantGlyphIds(shaper: HbShaper, chars: readonly strin
       const clusterChar = seq[g.cl];
       if (clusterChar == null) continue;
       const nominal = shaper.charToGlyphId(clusterChar);
-      if (g.g !== nominal && g.g !== 0) variants.add(g.g);
+      if (g.g === nominal || g.g === 0) continue;
+      if (!variants.has(g.g)) variants.set(g.g, { gid: g.g, clusterChar });
     }
   };
 

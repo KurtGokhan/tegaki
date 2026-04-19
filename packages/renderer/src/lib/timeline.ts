@@ -37,8 +37,13 @@ export interface TimelineEntry {
   char: string;
   /** Grapheme index of `char` in the full text — matches `layout.charOffsets`. */
   graphemeIndex: number;
-  /** Shaped glyph id (when a shaper produced this entry). */
-  glyphId?: number;
+  /**
+   * Shaped glyph key (when a shaper produced this entry). Bare numeric string
+   * for primary-subset glyphs (e.g. `"42"`), or `"<subsetIndex>:<gid>"` for
+   * glyphs from an `extraFontUrls` subset — same format used as the key into
+   * `bundle.glyphDataById`.
+   */
+  glyphId?: string;
   offset: number;
   duration: number;
   hasGlyph: boolean;
@@ -124,16 +129,29 @@ function computeShapedTimeline(text: string, font: TegakiBundle, config: Timelin
     const lineText = text.slice(lineStart, i);
     if (lineText.length > 0) {
       const shaped = shaper.shape(lineText);
-      for (let g = 0; g < shaped.length; g++) {
+      // Harfbuzz emits glyphs in visual order (left-to-right on screen) regardless
+      // of script direction. Sort by cluster offset so animation follows the
+      // logical / reading order — matching how each script is actually
+      // handwritten (right-to-left for Arabic/Hebrew, left-to-right for Latin).
+      // Stable sort preserves intra-cluster glyph order (marks, ligature splits).
+      const order = shaped.map((_, idx) => idx);
+      order.sort((a, b) => shaped[a]!.cl - shaped[b]!.cl || a - b);
+      for (let k = 0; k < order.length; k++) {
+        const g = order[k]!;
         const glyph = shaped[g]!;
         const clusterStart = lineStart + glyph.cl;
-        const clusterEnd = g + 1 < shaped.length ? lineStart + shaped[g + 1]!.cl : i;
+        // Cluster extents run to the next cluster start in **logical** order
+        // (i.e. the next entry in the sorted `order` array). Using the visual-
+        // order neighbour works for LTR (cl ascending anyway) but yields
+        // negative-length slices for RTL where cl descends.
+        const nextOrder = k + 1 < order.length ? order[k + 1]! : -1;
+        const clusterEnd = nextOrder >= 0 ? lineStart + shaped[nextOrder]!.cl : i;
         const graphemeIdx = utf16ToGrapheme[clusterStart] ?? -1;
         if (graphemeIdx < 0) continue; // cluster starts mid-grapheme — skip
         const clusterText = text.slice(clusterStart, clusterEnd);
         const firstChar = chars[graphemeIdx]!;
         const isWhitespace = /^\s+$/.test(clusterText);
-        const data = font.glyphDataById?.[String(glyph.g)] ?? font.glyphData[firstChar];
+        const data = font.glyphDataById?.[glyph.g] ?? font.glyphData[firstChar];
         const hasGlyph = !!data;
         const duration = isWhitespace ? 0 : hasGlyph ? (data.t ?? unknownDuration) : unknownDuration;
         entries.push({
