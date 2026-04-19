@@ -642,7 +642,7 @@ export function TextPreview({
                         className="w-24"
                         min={1}
                         max={5}
-                        step={0.5}
+                        step={0.05}
                         value={typeof quality.clipText === 'number' ? quality.clipText : 1}
                         onChange={(e) => {
                           const v = Number(e.target.value);
@@ -718,7 +718,7 @@ export function TextPreview({
                 className="flex-1 max-w-64"
                 min={0}
                 max={totalDuration}
-                step={0.01}
+                step={0.0001}
                 value={displayTime}
                 onChange={(e) => {
                   const t = Number(e.target.value);

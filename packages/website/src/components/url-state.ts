@@ -237,5 +237,5 @@ export function syncUrlState(state: UrlState): void {
   const params = buildUrlParams(state);
   const search = params.toString();
   const url = search ? `${window.location.pathname}?${search}` : window.location.pathname;
-  window.history.replaceState(null, '', url);
+  window.history.pushState(null, '', url);
 }

@@ -15,7 +15,7 @@ import {
 } from 'tegaki-generator';
 import { ZoomCanvas } from '../reactive-canvas.tsx';
 import { parseUrlState, syncUrlState, type TimeMode } from '../url-state.ts';
-import { type PreviewMode, SKELETON_METHODS, STAGES, type Stage } from './constants.ts';
+import { DEFAULT_EXAMPLE_FONT_TEXT, EXAMPLE_FONT_TEXTS, type PreviewMode, SKELETON_METHODS, STAGES, type Stage } from './constants.ts';
 import { fetchFontFromCDN } from './font-cdn.ts';
 import { SelectOption, SliderOption } from './form-controls.tsx';
 import { AnimationControls, StageRenderer } from './stage-views.tsx';
@@ -389,7 +389,10 @@ export function PreviewApp() {
                   className={`px-2 py-0.5 text-xs rounded cursor-pointer transition-colors ${
                     fontInfo?.family === f ? 'bg-gray-800 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                   }`}
-                  onClick={() => loadFont(f)}
+                  onClick={() => {
+                    loadFont(f);
+                    setPreviewText(EXAMPLE_FONT_TEXTS[f] ?? DEFAULT_EXAMPLE_FONT_TEXT);
+                  }}
                   disabled={fontLoading}
                 >
                   {f}
