@@ -69,12 +69,13 @@ export function StandaloneTextPreview() {
   const timingConfig = useMemo<TimelineConfig | undefined>(() => {
     const strokeFn = getEasingFn(state.strokeEasing);
     const glyphFn = getEasingFn(state.glyphEasing);
-    if (strokeFn === undefined && glyphFn === undefined) return undefined;
+    if (strokeFn === undefined && glyphFn === undefined && state.deferDots) return undefined;
     return {
       ...(strokeFn !== undefined ? { strokeEasing: strokeFn } : {}),
       ...(glyphFn !== undefined ? { glyphEasing: glyphFn } : {}),
+      ...(state.deferDots ? {} : { deferDots: false }),
     };
-  }, [state.strokeEasing, state.glyphEasing]);
+  }, [state.strokeEasing, state.glyphEasing, state.deferDots]);
 
   const timeProp: TimeControlProp =
     state.timeMode === 'controlled'

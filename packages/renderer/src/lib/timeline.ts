@@ -23,6 +23,13 @@ export interface TimelineConfig {
    * Default: linear (no easing).
    */
   glyphEasing?: (t: number) => number;
+  /**
+   * When `true` (default), disconnected marks tagged by the generator — i-dots,
+   * Arabic nuqṭa, diacritics — are deferred so every body stroke in a word
+   * draws before any dot in that word. When `false`, strokes animate in their
+   * bundled order with no deferral.
+   */
+  deferDots?: boolean;
 }
 
 const DEFAULTS = {
@@ -30,6 +37,7 @@ const DEFAULTS = {
   wordGap: 0.15,
   lineGap: 0.3,
   unknownDuration: 0.2,
+  deferDots: true,
 };
 
 export interface TimelineEntry {
@@ -92,7 +100,7 @@ interface Pending {
 type Separator = 'word' | 'line';
 
 /** Decompose a glyph into a body phase and an optional dot phase. */
-function partitionGlyph(glyph: TegakiGlyphData, fallbackTotal: number) {
+function partitionGlyph(glyph: TegakiGlyphData, fallbackTotal: number, deferDots: boolean) {
   const strokes = glyph.s;
   let bodyDuration = 0;
   let dotMinD = Infinity;
@@ -102,7 +110,7 @@ function partitionGlyph(glyph: TegakiGlyphData, fallbackTotal: number) {
   for (let i = 0; i < strokes.length; i++) {
     const s = strokes[i]!;
     const end = s.d + s.a;
-    if ((s.r ?? 0) < 0) {
+    if (deferDots && (s.r ?? 0) < 0) {
       dotIndices.push(i);
       dotDelays.push(s.d);
       if (s.d < dotMinD) dotMinD = s.d;
@@ -246,6 +254,7 @@ function computeGraphemeTimeline(text: string, font: TegakiBundle, config?: Time
   const wordGap = config?.wordGap ?? DEFAULTS.wordGap;
   const lineGap = config?.lineGap ?? DEFAULTS.lineGap;
   const unknownDuration = config?.unknownDuration ?? DEFAULTS.unknownDuration;
+  const deferDots = config?.deferDots ?? DEFAULTS.deferDots;
 
   const chars = graphemes(text);
   const sched = new Scheduler(glyphGap, wordGap, lineGap);
@@ -266,7 +275,7 @@ function computeGraphemeTimeline(text: string, font: TegakiBundle, config?: Time
 
     const glyph = font.glyphData[char];
     if (glyph) {
-      const part = partitionGlyph(glyph, unknownDuration);
+      const part = partitionGlyph(glyph, unknownDuration, deferDots);
       sched.add({
         fields: { char, graphemeIndex: i, hasGlyph: true },
         bodyDuration: part.bodyDuration,
@@ -299,6 +308,7 @@ function computeShapedTimeline(text: string, font: TegakiBundle, config: Timelin
   const wordGap = config?.wordGap ?? DEFAULTS.wordGap;
   const lineGap = config?.lineGap ?? DEFAULTS.lineGap;
   const unknownDuration = config?.unknownDuration ?? DEFAULTS.unknownDuration;
+  const deferDots = config?.deferDots ?? DEFAULTS.deferDots;
 
   // UTF-16 offset → grapheme index map. Shaper clusters come back in UTF-16
   // units; the renderer's layout indexes by grapheme. Map once per text.
@@ -359,7 +369,7 @@ function computeShapedTimeline(text: string, font: TegakiBundle, config: Timelin
         }
 
         if (hasGlyph && data) {
-          const part = partitionGlyph(data, unknownDuration);
+          const part = partitionGlyph(data, unknownDuration, deferDots);
           sched.add({
             fields: { char: firstChar, graphemeIndex: graphemeIdx, glyphId: glyph.g, hasGlyph: true },
             bodyDuration: part.bodyDuration,
