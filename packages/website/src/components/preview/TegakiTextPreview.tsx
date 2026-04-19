@@ -4,6 +4,7 @@ import {
   computeTimeline,
   type TegakiBundle,
   type TegakiEffects,
+  TegakiEngine,
   type TegakiGlyphData,
   type TegakiQuality,
   TegakiRenderer,
@@ -11,6 +12,7 @@ import {
   type TimeControlProp,
   type TimelineConfig,
 } from 'tegaki';
+import harfbuzzShaper from 'tegaki/shaper-harfbuzz';
 import {
   createHbShaper,
   isRtlChar,
@@ -21,7 +23,9 @@ import {
   processGlyphById,
 } from 'tegaki-generator';
 
-// Must mirror the set in `packages/renderer/src/lib/features.ts` and the
+TegakiEngine.registerShaper(harfbuzzShaper);
+
+// Must mirror the set in `packages/renderer/src/shaper-harfbuzz/index.ts` and the
 // generator's `hb-shaper.ts`. Explicit enables of these features override
 // harfbuzz's contextual positional assignment.
 const SHAPER_MANAGED_FEATURES = new Set(['init', 'medi', 'fina', 'isol', 'rlig']);

@@ -84,6 +84,12 @@
       "types": "./dist/wc/index.d.mts",
       "import": "./dist/wc/index.mjs"
     },
+    "./shaper-harfbuzz": {
+      "tegaki@dev": "./src/shaper-harfbuzz/index.ts",
+      "source": "./src/shaper-harfbuzz/index.ts",
+      "types": "./dist/shaper-harfbuzz/index.d.mts",
+      "import": "./dist/shaper-harfbuzz/index.mjs"
+    },
     "./astro": "./src/astro/TegakiRenderer.astro",
     "./fonts/caveat": {
       "tegaki@dev": "./fonts/caveat/bundle.ts",

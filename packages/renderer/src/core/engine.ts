@@ -11,7 +11,7 @@ import { drawFallbackGlyph } from '../lib/drawFallbackGlyph.ts';
 import { drawGlyph } from '../lib/drawGlyph.ts';
 import { findEffect, type ResolvedEffect, resolveEffects } from '../lib/effects.ts';
 import { ensureFont } from '../lib/font.ts';
-import { type BundleShaper, getShaperForBundle } from '../lib/hb-shaper.ts';
+import type { BundleShaper } from '../lib/shaper.ts';
 import { type SubdividedStroke, subdivideStroke } from '../lib/strokeCache.ts';
 import type { TextLayout } from '../lib/textLayout.ts';
 import { computeTextLayout } from '../lib/textLayout.ts';
@@ -19,8 +19,9 @@ import type { Timeline, TimelineConfig, TimelineEntry } from '../lib/timeline.ts
 import { computeTimeline } from '../lib/timeline.ts';
 import { cssFontFamily, graphemes } from '../lib/utils.ts';
 import type { TegakiBundle, TegakiGlyphData } from '../types.ts';
-import { getBundle, registerBundle as registryRegisterBundle, resolveBundle } from './bundle-registry.ts';
+import { getBundle, registerBundle, resolveBundle } from './bundle-registry.ts';
 import { buildChildren, buildRootProps, domCreateElement } from './render-elements.ts';
+import { getShaperForBundle, registerShaper } from './shaper-registry.ts';
 import type { CreateElementFn, TegakiEngineOptions, TegakiQuality, TimeControlMode, TimeControlProp } from './types.ts';
 
 // ---------------------------------------------------------------------------
@@ -42,14 +43,23 @@ export class TegakiEngine {
   // --- Bundle registry (delegates to bundle-registry module) ---
 
   /** Register a font bundle so it can be referenced by family name. */
-  static registerBundle(bundle: TegakiBundle): void {
-    registryRegisterBundle(bundle);
-  }
+  static registerBundle = registerBundle;
 
   /** Look up a registered bundle by family name. */
-  static getBundle(family: string): TegakiBundle | undefined {
-    return getBundle(family);
-  }
+  static getBundle = getBundle;
+
+  // --- Shaper registry (delegates to shaper-registry module) ---
+
+  /**
+   * Register a shaper factory. Shaping is opt-in — without a registered
+   * factory, the renderer iterates raw graphemes and uses the bundle's
+   * char-keyed `glyphData` map. Pass the `harfbuzzShaper` export from
+   * `tegaki/shaper-harfbuzz` for fonts that need complex shaping.
+   *
+   * Re-registering replaces the previous factory and invalidates the cache.
+   * Pass `null` to unregister.
+   */
+  static registerShaper = registerShaper;
 
   // --- DOM elements ---
   private _rootEl: HTMLElement;

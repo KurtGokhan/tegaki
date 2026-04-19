@@ -1,30 +1,19 @@
 import type { Hb } from 'harfbuzzjs';
+import type { ShaperFactory } from '../core/shaper-registry.ts';
+import type { BundleShaper, ShapedGlyph } from '../lib/shaper.ts';
 import type { TegakiBundle } from '../types.ts';
-import { toHbFeatureString } from './features.ts';
 
-export interface ShapedGlyph {
-  /**
-   * Shaper output key — the opentype glyph id for primary-subset glyphs (e.g.
-   * `"42"`), or `"<subsetIndex>:<gid>"` for glyphs from an `extraFontUrls`
-   * subset (e.g. `"1:42"`). Used directly to look up `glyphDataById`.
-   */
-  g: string;
-  /** Cluster offset (utf16 code-unit index into the shaped substring). */
-  cl: number;
-  /** X advance in font units. */
-  ax: number;
-  /** Y advance in font units. */
-  ay: number;
-  /** X offset (displacement from pen position) in font units. */
-  dx: number;
-  /** Y offset (displacement from pen position) in font units. */
-  dy: number;
+const SHAPER_MANAGED_FEATURES = new Set(['init', 'medi', 'fina', 'isol', 'rlig']);
+
+/** Build a harfbuzz feature string from bundle features, filtering shaper-managed enables. */
+export function toHbFeatureString(enabled: readonly string[]): string {
+  const parts: string[] = [];
+  for (const tag of enabled) {
+    if (SHAPER_MANAGED_FEATURES.has(tag)) continue;
+    parts.push(tag);
+  }
+  return parts.join(',');
 }
-
-export interface BundleShaper {
-  shape(text: string): ShapedGlyph[];
-}
-
 // --- Module-level caches ---------------------------------------------------
 // The wasm runtime and each face are expensive to initialize, so we reuse them
 // across every engine instance. Face cache is keyed by fontUrl (the bundle's
@@ -51,27 +40,6 @@ function getHb(): Promise<Hb> {
     })();
   }
   return hbPromise;
-}
-
-const shaperCache = new Map<string, Promise<BundleShaper>>();
-
-/**
- * Build (or reuse) a harfbuzz shaper for a bundle. Returns `null` when the
- * bundle has no variant glyphs (shaping would add nothing) or when the
- * environment can't run harfbuzz (e.g. SSR with no `fetch`). Callers should
- * treat a missing shaper as "no shaping, iterate raw characters" — the
- * renderer's char-keyed glyphData map is the fallback path.
- */
-export function getShaperForBundle(bundle: TegakiBundle): Promise<BundleShaper> | null {
-  if (typeof fetch === 'undefined') return null;
-  if (!bundle.glyphDataById) return null;
-  const key = bundle.fontUrl;
-  let entry = shaperCache.get(key);
-  if (!entry) {
-    entry = buildShaper(bundle);
-    shaperCache.set(key, entry);
-  }
-  return entry;
 }
 
 async function buildShaper(bundle: TegakiBundle): Promise<BundleShaper> {
@@ -161,3 +129,26 @@ async function buildShaper(bundle: TegakiBundle): Promise<BundleShaper> {
     },
   };
 }
+
+/**
+ * Harfbuzz shaper factory. Pass to `TegakiEngine.registerShaper` once at app
+ * startup to enable complex shaping (ligatures, contextual alternates,
+ * Arabic/Indic scripts) for every bundle that declares `glyphDataById`.
+ *
+ * ```ts
+ * import { TegakiEngine } from 'tegaki/core';
+ * import harfbuzzShaper from 'tegaki/shaper-harfbuzz';
+ * TegakiEngine.registerShaper(harfbuzzShaper);
+ * ```
+ *
+ * Declines bundles without `glyphDataById` (nothing to resolve shaped glyph
+ * ids against) and environments without `fetch` (SSR). The renderer's
+ * char-keyed fallback handles both cases.
+ */
+const harfbuzzShaper: ShaperFactory = (bundle) => {
+  if (typeof fetch === 'undefined') return null;
+  if (!bundle.glyphDataById) return null;
+  return buildShaper(bundle);
+};
+
+export default harfbuzzShaper;

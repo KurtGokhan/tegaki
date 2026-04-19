@@ -1,5 +1,5 @@
 import type { TegakiBundle, TegakiGlyphData } from '../types.ts';
-import type { BundleShaper } from './hb-shaper.ts';
+import type { BundleShaper } from './shaper.ts';
 import { graphemes } from './utils.ts';
 
 export interface TimelineConfig {

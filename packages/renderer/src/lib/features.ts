@@ -11,16 +11,6 @@
  */
 const SHAPER_MANAGED_FEATURES = new Set(['init', 'medi', 'fina', 'isol', 'rlig']);
 
-/** Build a harfbuzz feature string from bundle features, filtering shaper-managed enables. */
-export function toHbFeatureString(enabled: readonly string[]): string {
-  const parts: string[] = [];
-  for (const tag of enabled) {
-    if (SHAPER_MANAGED_FEATURES.has(tag)) continue;
-    parts.push(tag);
-  }
-  return parts.join(',');
-}
-
 /**
  * Build a CSS `font-feature-settings` value from bundle features. Same
  * filter as the HB path: shaper-managed tags are omitted so browsers keep
