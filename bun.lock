@@ -69,7 +69,7 @@
     },
     "packages/renderer": {
       "name": "tegaki",
-      "version": "0.13.0",
+      "version": "0.14.0",
       "devDependencies": {
         "@nuxt/kit": "^3.15.0",
         "@nuxt/schema": "^3.15.0",
