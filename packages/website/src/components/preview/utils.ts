@@ -31,7 +31,13 @@ export function buildEffects(effectsState: EffectsState, customEffects: CustomEf
       g.saturation = effectsState.strokeGradient.saturation;
       g.lightness = effectsState.strokeGradient.lightness;
     }
-    result.gradient = g;
+    result.strokeGradient = g;
+  }
+  if (effectsState.globalGradient.enabled) {
+    result.globalGradient = {
+      colors: effectsState.globalGradient.colors,
+      angle: effectsState.globalGradient.angle,
+    };
   }
   for (const custom of customEffects) {
     if (custom.enabled) result[custom.key] = { effect: custom.effect, ...custom.config };

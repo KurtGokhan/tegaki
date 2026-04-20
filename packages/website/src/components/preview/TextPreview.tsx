@@ -531,7 +531,7 @@ export function TextPreview({
                     checked={effectsState.strokeGradient.enabled}
                     onChange={(e) => updateEffect((s) => ({ ...s, strokeGradient: { ...s.strokeGradient, enabled: e.target.checked } }))}
                   />
-                  Gradient
+                  Stroke Gradient
                 </label>
                 {effectsState.strokeGradient.enabled && (
                   <div className="flex flex-col gap-1.5 pl-5">
@@ -583,6 +583,35 @@ export function TextPreview({
                         onChange={(colors) => updateEffect((s) => ({ ...s, strokeGradient: { ...s.strokeGradient, colors } }))}
                       />
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Global Gradient */}
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={effectsState.globalGradient.enabled}
+                    onChange={(e) => updateEffect((s) => ({ ...s, globalGradient: { ...s.globalGradient, enabled: e.target.checked } }))}
+                  />
+                  Global gradient
+                </label>
+                {effectsState.globalGradient.enabled && (
+                  <div className="flex flex-col gap-1.5 pl-5">
+                    <GradientColorStops
+                      colors={effectsState.globalGradient.colors}
+                      onChange={(colors) => updateEffect((s) => ({ ...s, globalGradient: { ...s.globalGradient, colors } }))}
+                    />
+                    <EffectSlider
+                      label="Angle"
+                      value={effectsState.globalGradient.angle}
+                      min={0}
+                      max={360}
+                      step={5}
+                      suffix="°"
+                      onChange={(v) => updateEffect((s) => ({ ...s, globalGradient: { ...s.globalGradient, angle: v } }))}
+                    />
                   </div>
                 )}
               </div>
