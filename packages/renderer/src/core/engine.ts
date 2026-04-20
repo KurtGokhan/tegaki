@@ -14,7 +14,7 @@ import { ensureFont } from '../lib/font.ts';
 import type { BundleShaper } from '../lib/shaper.ts';
 import { type SubdividedStroke, subdivideStroke } from '../lib/strokeCache.ts';
 import type { TextLayout } from '../lib/textLayout.ts';
-import { computeTextLayout } from '../lib/textLayout.ts';
+import { applyShaperPositions, computeTextLayout } from '../lib/textLayout.ts';
 import type { Timeline, TimelineConfig, TimelineEntry } from '../lib/timeline.ts';
 import { computeTimeline } from '../lib/timeline.ts';
 import { cssFontFamily, graphemes } from '../lib/utils.ts';
@@ -581,6 +581,7 @@ export class TegakiEngine {
           this._shaper = shaper;
           this._shaperReady = true;
           this._recomputeTimeline();
+          this._recomputeLayout();
           this._evaluatePlayback();
           this._render();
         }
@@ -602,10 +603,18 @@ export class TegakiEngine {
 
   private _recomputeLayout(): void {
     if (this._fontReady && this._font?.family && this._fontSize && this._containerWidth && this._text) {
-      const key = `${this._text}\0${this._font.family}\0${this._fontSize}\0${this._lineHeight}\0${this._containerWidth}\0${this._direction ?? ''}`;
+      const shaperId = this._shaper ? '1' : '0';
+      const key = `${this._text}\0${this._font.family}\0${this._fontSize}\0${this._lineHeight}\0${this._containerWidth}\0${this._direction ?? ''}\0${shaperId}`;
       if (key === this._layoutKey) return;
       this._layoutKey = key;
-      this._layout = computeTextLayout(this._overlayEl, this._fontSize);
+      let layout = computeTextLayout(this._overlayEl, this._fontSize);
+      if (this._shaper && this._font) {
+        // Replace DOM-measured per-grapheme offsets with shaper-accumulated
+        // advances so stroke positions match the glyph ids the shaper chose.
+        // The DOM is still the source of truth for line breaks.
+        layout = applyShaperPositions(layout, this._overlayEl, this._text, this._fontSize, this._font, this._shaper);
+      }
+      this._layout = layout;
     } else {
       this._layoutKey = '';
       this._layout = null;
@@ -909,14 +918,22 @@ export class TegakiEngine {
       maskCtx.translate(padH, padV);
       maskCtx.font = `${fontSize}px ${cssFontFamily(font)}`;
       maskCtx.textBaseline = 'alphabetic';
+      // Fill each line as a single string so the browser's shaper sees the
+      // full run — per-character fillText would drop ligatures, kerning, and
+      // script-specific contextual forms (Arabic init/medi/fina, Indic
+      // conjuncts, etc.), producing a mask that doesn't match the shaped
+      // stroke positions.
       let clipY = 0;
       for (const lineIndices of layout.lines) {
+        let lineText = '';
         for (const charIdx of lineIndices) {
           const char = characters[charIdx]!;
           if (char === '\n') continue;
-          const x = (layout.charOffsets[charIdx] ?? 0) * fontSize;
+          lineText += char;
+        }
+        if (lineText) {
           const baseline = clipY + halfLeading + (font.ascender / font.unitsPerEm) * fontSize;
-          maskCtx.fillText(char, x, baseline);
+          maskCtx.fillText(lineText, 0, baseline);
         }
         clipY += lineHeight;
       }
