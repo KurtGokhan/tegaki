@@ -27,7 +27,8 @@ export const DEFAULT_EFFECTS_STATE: EffectsState = {
   wobble: { enabled: false, amplitude: 1.5, frequency: 8, mode: 'sine' },
   pressureWidth: { enabled: true, strength: 1 },
   taper: { enabled: false, startLength: 0.15, endLength: 0.15 },
-  gradient: { enabled: false, colors: 'rainbow', saturation: 80, lightness: 55 },
+  strokeGradient: { enabled: false, colors: 'rainbow', saturation: 80, lightness: 55 },
+  globalGradient: { enabled: false, colors: ['#ff0000', '#0000ff'], angle: 0 },
 };
 
 /** A duplicated (custom-keyed) effect instance. */

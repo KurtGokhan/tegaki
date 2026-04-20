@@ -97,7 +97,7 @@ export interface TegakiQuality {
   pixelRatio?: number;
   /**
    * Maximum drawn segment length in CSS pixels when stroke-varying effects
-   * (`pressureWidth`, `taper`, `wobble`, `gradient`) are active. Smaller values
+   * (`pressureWidth`, `taper`, `wobble`, `strokeGradient`) are active. Smaller values
    * produce smoother transitions at the cost of more draw calls per stroke.
    * Because this is measured in pixels, subdivision count scales with rendered
    * size: a glyph drawn at 10px is cheaper to render than the same glyph at

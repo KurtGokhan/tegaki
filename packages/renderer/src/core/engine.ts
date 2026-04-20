@@ -9,11 +9,18 @@ import {
 } from '../lib/css-properties.ts';
 import { drawFallbackGlyph } from '../lib/drawFallbackGlyph.ts';
 import { drawGlyph } from '../lib/drawGlyph.ts';
-import { findEffect, type ResolvedEffect, resolveEffects } from '../lib/effects.ts';
+import {
+  findEffect,
+  getEffectDefinition,
+  hasRenderHooks,
+  type RenderStageContext,
+  type ResolvedEffect,
+  resolveEffects,
+} from '../lib/effects.ts';
 import { ensureFont } from '../lib/font.ts';
 import { type SubdividedStroke, subdivideStroke } from '../lib/strokeCache.ts';
 import type { TextLayout } from '../lib/textLayout.ts';
-import { computeTextLayout } from '../lib/textLayout.ts';
+import { computeLayoutBbox, computeTextLayout } from '../lib/textLayout.ts';
 import type { Timeline, TimelineConfig, TimelineEntry } from '../lib/timeline.ts';
 import { computeTimeline } from '../lib/timeline.ts';
 import { cssFontFamily, graphemes } from '../lib/utils.ts';
@@ -780,7 +787,7 @@ export class TegakiEngine {
     // subdivision changes, the key changes and the WeakMap is swapped out.
     const effectsNeedSubdivision =
       !!findEffect(this._resolvedEffects, 'wobble') ||
-      !!findEffect(this._resolvedEffects, 'gradient') ||
+      !!findEffect(this._resolvedEffects, 'strokeGradient') ||
       !!findEffect(this._resolvedEffects, 'taper') ||
       (() => {
         const p = findEffect(this._resolvedEffects, 'pressureWidth');
@@ -808,6 +815,33 @@ export class TegakiEngine {
 
     const clipText = this._quality?.clipText;
     const strokeScale = typeof clipText === 'number' ? clipText : 1;
+
+    // --- Render-stage hooks (pre) ---
+    // Effects that span the whole layout (vs. per-stroke) can hook the
+    // render pipeline here. The stage context is only computed when at
+    // least one resolved effect declares a hook, so the common case pays
+    // nothing.
+    const runHooks = hasRenderHooks(this._resolvedEffects);
+    const stage: RenderStageContext | null = runHooks
+      ? {
+          ctx,
+          layout,
+          fontSize,
+          lineHeight,
+          unitsPerEm: font.unitsPerEm,
+          ascender: font.ascender,
+          descender: font.descender,
+          bbox: computeLayoutBbox(layout, fontSize, lineHeight),
+          baseColor: color,
+          seed: this._seed,
+        }
+      : null;
+
+    if (stage) {
+      for (const effect of this._resolvedEffects) {
+        getEffectDefinition(effect.effect)?.beforeRender?.(stage, effect.config);
+      }
+    }
 
     let y = 0;
     for (const lineIndices of layout.lines) {
@@ -844,6 +878,7 @@ export class TegakiEngine {
             getSubdivided,
             this._timing?.strokeEasing,
             strokeScale,
+            stage?.strokeStyle,
           );
         } else if (!entry.hasGlyph && currentTime >= entry.offset + entry.duration) {
           const baseline = y + halfLeading + (font.ascender / font.unitsPerEm) * fontSize;
@@ -851,6 +886,17 @@ export class TegakiEngine {
         }
       }
       y += lineHeight;
+    }
+
+    // --- Render-stage hooks (post) ---
+    // Reverse order so save/restore-style pairs nest correctly with their
+    // `beforeRender` counterparts. Runs before the clipText mask so any
+    // post-processing still gets constrained to the text shape.
+    if (stage) {
+      for (let i = this._resolvedEffects.length - 1; i >= 0; i--) {
+        const effect = this._resolvedEffects[i]!;
+        getEffectDefinition(effect.effect)?.afterRender?.(stage, effect.config);
+      }
     }
 
     // --- Clip strokes to the filled text shape ---

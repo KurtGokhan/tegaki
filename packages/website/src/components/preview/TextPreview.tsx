@@ -528,23 +528,23 @@ export function TextPreview({
                 <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={effectsState.gradient.enabled}
-                    onChange={(e) => updateEffect((s) => ({ ...s, gradient: { ...s.gradient, enabled: e.target.checked } }))}
+                    checked={effectsState.strokeGradient.enabled}
+                    onChange={(e) => updateEffect((s) => ({ ...s, strokeGradient: { ...s.strokeGradient, enabled: e.target.checked } }))}
                   />
-                  Gradient
+                  Stroke Gradient
                 </label>
-                {effectsState.gradient.enabled && (
+                {effectsState.strokeGradient.enabled && (
                   <div className="flex flex-col gap-1.5 pl-5">
                     <label className="flex items-center justify-between text-[11px] text-gray-500">
                       Preset
                       <select
                         className="px-1 py-0.5 border border-gray-300 rounded text-[11px] bg-white"
-                        value={effectsState.gradient.colors === 'rainbow' ? 'rainbow' : 'custom'}
+                        value={effectsState.strokeGradient.colors === 'rainbow' ? 'rainbow' : 'custom'}
                         onChange={(e) =>
                           updateEffect((s) => ({
                             ...s,
-                            gradient: {
-                              ...s.gradient,
+                            strokeGradient: {
+                              ...s.strokeGradient,
                               colors: e.target.value === 'rainbow' ? 'rainbow' : ['#ff0000', '#00ff00', '#0000ff'],
                             },
                           }))
@@ -554,33 +554,64 @@ export function TextPreview({
                         <option value="custom">Custom</option>
                       </select>
                     </label>
-                    {effectsState.gradient.colors === 'rainbow' ? (
+                    {effectsState.strokeGradient.colors === 'rainbow' ? (
                       <>
                         <EffectSlider
                           label="Saturation"
-                          value={effectsState.gradient.saturation}
+                          value={effectsState.strokeGradient.saturation}
                           min={0}
                           max={100}
                           step={5}
                           suffix="%"
-                          onChange={(v) => updateEffect((s) => ({ ...s, gradient: { ...s.gradient, saturation: v } }))}
+                          onChange={(v) => updateEffect((s) => ({ ...s, strokeGradient: { ...s.strokeGradient, saturation: v } }))}
                         />
                         <EffectSlider
                           label="Lightness"
-                          value={effectsState.gradient.lightness}
+                          value={effectsState.strokeGradient.lightness}
                           min={10}
                           max={90}
                           step={5}
                           suffix="%"
-                          onChange={(v) => updateEffect((s) => ({ ...s, gradient: { ...s.gradient, lightness: v } }))}
+                          onChange={(v) => updateEffect((s) => ({ ...s, strokeGradient: { ...s.strokeGradient, lightness: v } }))}
                         />
                       </>
                     ) : (
                       <GradientColorStops
-                        colors={Array.isArray(effectsState.gradient.colors) ? effectsState.gradient.colors : ['#ff0000', '#0000ff']}
-                        onChange={(colors) => updateEffect((s) => ({ ...s, gradient: { ...s.gradient, colors } }))}
+                        colors={
+                          Array.isArray(effectsState.strokeGradient.colors) ? effectsState.strokeGradient.colors : ['#ff0000', '#0000ff']
+                        }
+                        onChange={(colors) => updateEffect((s) => ({ ...s, strokeGradient: { ...s.strokeGradient, colors } }))}
                       />
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Global Gradient */}
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={effectsState.globalGradient.enabled}
+                    onChange={(e) => updateEffect((s) => ({ ...s, globalGradient: { ...s.globalGradient, enabled: e.target.checked } }))}
+                  />
+                  Global gradient
+                </label>
+                {effectsState.globalGradient.enabled && (
+                  <div className="flex flex-col gap-1.5 pl-5">
+                    <GradientColorStops
+                      colors={effectsState.globalGradient.colors}
+                      onChange={(colors) => updateEffect((s) => ({ ...s, globalGradient: { ...s.globalGradient, colors } }))}
+                    />
+                    <EffectSlider
+                      label="Angle"
+                      value={effectsState.globalGradient.angle}
+                      min={0}
+                      max={360}
+                      step={5}
+                      suffix="°"
+                      onChange={(v) => updateEffect((s) => ({ ...s, globalGradient: { ...s.globalGradient, angle: v } }))}
+                    />
                   </div>
                 )}
               </div>
