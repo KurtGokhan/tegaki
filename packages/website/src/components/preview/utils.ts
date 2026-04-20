@@ -25,11 +25,11 @@ export function buildEffects(effectsState: EffectsState, customEffects: CustomEf
   }
   if (effectsState.pressureWidth.enabled) result.pressureWidth = { strength: effectsState.pressureWidth.strength };
   if (effectsState.taper.enabled) result.taper = { startLength: effectsState.taper.startLength, endLength: effectsState.taper.endLength };
-  if (effectsState.gradient.enabled) {
-    const g: Record<string, any> = { colors: effectsState.gradient.colors };
-    if (effectsState.gradient.colors === 'rainbow') {
-      g.saturation = effectsState.gradient.saturation;
-      g.lightness = effectsState.gradient.lightness;
+  if (effectsState.strokeGradient.enabled) {
+    const g: Record<string, any> = { colors: effectsState.strokeGradient.colors };
+    if (effectsState.strokeGradient.colors === 'rainbow') {
+      g.saturation = effectsState.strokeGradient.saturation;
+      g.lightness = effectsState.strokeGradient.lightness;
     }
     result.gradient = g;
   }
