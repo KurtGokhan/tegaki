@@ -72,6 +72,8 @@ export interface UrlState {
   quality: { pixelRatio: number; segmentSize: number; clipText: boolean | number; smoothing: boolean };
   strokeEasing: string;
   glyphEasing: string;
+  /** Defer disconnected marks (i-dots, nuqṭa, diacritics) to after every body stroke in a word. */
+  deferDots: boolean;
 }
 
 export const URL_DEFAULTS: UrlState = {
@@ -95,6 +97,7 @@ export const URL_DEFAULTS: UrlState = {
   quality: { pixelRatio: 1, segmentSize: 2, clipText: false, smoothing: false },
   strokeEasing: 'default',
   glyphEasing: 'default',
+  deferDots: true,
 };
 
 // Short keys for compact URLs — only non-default values are written
@@ -114,7 +117,7 @@ const OPTION_KEYS: Record<keyof PipelineOptions, string> = {
   voronoiSamplingInterval: 'vs',
   drawingSpeed: 'ds',
   strokePause: 'sp',
-  ligatures: 'lg',
+  disabledFeatures: 'df',
 };
 
 const REVERSE_OPTION_KEYS = Object.fromEntries(Object.entries(OPTION_KEYS).map(([k, v]) => [v, k])) as Record<
@@ -164,13 +167,16 @@ export function parseUrlState(): UrlState {
   if (p.has('sm')) state.quality = { ...state.quality, smoothing: p.get('sm') === '1' };
   if (p.has('se')) state.strokeEasing = p.get('se')!;
   if (p.has('ge')) state.glyphEasing = p.get('ge')!;
+  if (p.has('dd')) state.deferDots = p.get('dd') !== '0';
 
   // Pipeline options — read short keys
   for (const [short, long] of Object.entries(REVERSE_OPTION_KEYS)) {
     if (!p.has(short)) continue;
     const raw = p.get(short)!;
     const defaultVal = DEFAULT_OPTIONS[long];
-    if (typeof defaultVal === 'number') {
+    if (Array.isArray(defaultVal)) {
+      (state.options as unknown as Record<string, unknown>)[long] = raw ? raw.split(',') : [];
+    } else if (typeof defaultVal === 'number') {
       (state.options as unknown as Record<string, unknown>)[long] = Number(raw);
     } else {
       (state.options as unknown as Record<string, unknown>)[long] = raw;
@@ -212,12 +218,20 @@ export function buildUrlParams(state: UrlState): URLSearchParams {
   if (state.quality.smoothing !== URL_DEFAULTS.quality.smoothing) p.set('sm', '1');
   if (state.strokeEasing !== URL_DEFAULTS.strokeEasing) p.set('se', state.strokeEasing);
   if (state.glyphEasing !== URL_DEFAULTS.glyphEasing) p.set('ge', state.glyphEasing);
+  if (state.deferDots !== URL_DEFAULTS.deferDots) p.set('dd', '0');
 
-  // Pipeline options — only non-defaults
+  // Pipeline options — only non-defaults. Array-valued options are serialized
+  // as comma-separated and compared structurally.
   for (const [long, short] of Object.entries(OPTION_KEYS)) {
     const key = long as keyof PipelineOptions;
-    if (state.options[key] !== DEFAULT_OPTIONS[key]) {
-      p.set(short, String(state.options[key]));
+    const val = state.options[key];
+    const def = DEFAULT_OPTIONS[key];
+    if (Array.isArray(val) || Array.isArray(def)) {
+      const a = Array.isArray(val) ? val : [];
+      const b = Array.isArray(def) ? def : [];
+      if (a.length !== b.length || a.some((v, i) => v !== b[i])) p.set(short, a.join(','));
+    } else if (val !== def) {
+      p.set(short, String(val));
     }
   }
 
@@ -229,5 +243,5 @@ export function syncUrlState(state: UrlState): void {
   const params = buildUrlParams(state);
   const search = params.toString();
   const url = search ? `${window.location.pathname}?${search}` : window.location.pathname;
-  window.history.replaceState(null, '', url);
+  window.history.pushState(null, '', url);
 }

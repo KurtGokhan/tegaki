@@ -8,6 +8,14 @@ import type { Point, Stroke, TimedPoint } from 'tegaki';
 import { ORIENT_X_WEIGHT } from '../constants.ts';
 import { getStrokeWidth } from './width.ts';
 
+// Dot classification thresholds (bitmap-space). A stroke is reclassified as a
+// "dot" (priority -1) when its bbox diagonal is small relative to the glyph's
+// bbox AND no other stroke's bbox is within a small gap distance — the same
+// two properties that distinguish disconnected marks like i-dots and Arabic
+// nuqṭa from body strokes.
+const DOT_DIAG_RATIO = 0.15;
+const DOT_ISOLATION_RATIO = 0.04;
+
 function dist(a: Point, b: Point): number {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
@@ -28,25 +36,34 @@ function pathLength(points: Point[]): number {
  * Orient a polyline so the "natural" starting point comes first.
  *
  * For near-closed loops (start ≈ end), rotates the chain to start from the
- * leftmost point — the natural pen entry for Latin handwriting.
+ * leftmost (LTR) or rightmost (RTL) point — the natural pen entry for the
+ * script's writing direction.
  *
  * For open polylines, reverses if the end has a better (lower) orientation
- * score than the start, preferring left-to-right flow.
+ * score than the start. The x-weight flips sign for RTL so "preferred" means
+ * rightmost instead of leftmost.
  */
-function orientPolyline(points: Point[]): Point[] {
+function orientPolyline(points: Point[], rtl = false): Point[] {
   if (points.length < 2) return points;
 
   const start = points[0]!;
   const end = points[points.length - 1]!;
+  const xWeight = rtl ? -ORIENT_X_WEIGHT : ORIENT_X_WEIGHT;
 
-  // Near-closed loop: rotate to start from the leftmost point
+  // Near-closed loop: rotate to start from the leftmost (LTR) / rightmost (RTL) point
   if (dist(start, end) < 5) {
+    // 2-point fragments (e.g. dots traced from a 2-pixel skeleton blob) aren't
+    // real loops — the rotation formula would duplicate the extremum endpoint
+    // into `[B, B]`, yielding a zero-length "stroke" that the renderer's
+    // multi-point path drops. Collapse to a single-point dot instead.
+    if (points.length === 2) return [start];
     let bestIdx = 0;
     let bestX = points[0]!.x;
     let bestY = points[0]!.y;
     for (let i = 1; i < points.length; i++) {
       const p = points[i]!;
-      if (p.x < bestX || (p.x === bestX && p.y < bestY)) {
+      const better = rtl ? p.x > bestX || (p.x === bestX && p.y < bestY) : p.x < bestX || (p.x === bestX && p.y < bestY);
+      if (better) {
         bestX = p.x;
         bestY = p.y;
         bestIdx = i;
@@ -58,9 +75,9 @@ function orientPolyline(points: Point[]): Point[] {
     return points;
   }
 
-  // Open polyline: prefer starting from the left (with top as tiebreaker)
-  const startScore = start.y + start.x * ORIENT_X_WEIGHT;
-  const endScore = end.y + end.x * ORIENT_X_WEIGHT;
+  // Open polyline: prefer starting from the script's "entry" side (top as tiebreaker)
+  const startScore = start.y + start.x * xWeight;
+  const endScore = end.y + end.x * xWeight;
 
   if (endScore < startScore) {
     return [...points].reverse();
@@ -70,8 +87,9 @@ function orientPolyline(points: Point[]): Point[] {
 
 /**
  * Process polylines into strokes, preserving the order from traceAndSimplify
- * which already implements proximity-based ordering (middle-left start,
- * closest-to-last-end sequencing).
+ * which already implements proximity-based ordering (entry-side start,
+ * closest-to-last-end sequencing). The entry side is middle-left for LTR and
+ * middle-right for RTL scripts; see `traceAndSimplify` for the source.
  *
  * Each polyline is oriented for natural handwriting direction, then assigned
  * t parameter (animation progress) and stroke width values.
@@ -82,6 +100,7 @@ export function orderStrokes(
   bitmapWidth: number,
   _connectionThreshold = 3,
   precomputedWidths?: number[][],
+  rtl = false,
 ): Stroke[] {
   if (polylines.length === 0) return [];
 
@@ -89,7 +108,7 @@ export function orderStrokes(
 
   for (let order = 0; order < polylines.length; order++) {
     const polyline = polylines[order]!;
-    const oriented = orientPolyline(polyline);
+    const oriented = orientPolyline(polyline, rtl);
     const totalLen = pathLength(oriented);
 
     // Look up precomputed widths by matching the original polyline reference
@@ -128,5 +147,98 @@ export function orderStrokes(
     }
   }
 
+  classifyDots(strokes);
+  reorderByPriority(strokes);
+
   return strokes;
+}
+
+interface BBox {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+function strokeBBox(s: Stroke): BBox {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of s.points) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+function bboxDiag(b: BBox): number {
+  const dx = b.maxX - b.minX;
+  const dy = b.maxY - b.minY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Gap distance between two axis-aligned bboxes (in bitmap units). Zero when
+ * they overlap or touch.
+ */
+function bboxGap(a: BBox, b: BBox): number {
+  const dx = Math.max(0, Math.max(a.minX - b.maxX, b.minX - a.maxX));
+  const dy = Math.max(0, Math.max(a.minY - b.maxY, b.minY - a.maxY));
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Flag short-and-isolated strokes as dots (priority -1) so word-level timeline
+ * scheduling can defer them until after every body stroke in the word is
+ * drawn. Targets disconnected marks — i-dots, Arabic nuqṭa, diacritics — while
+ * leaving glyph-body strokes alone.
+ */
+function classifyDots(strokes: Stroke[]): void {
+  if (strokes.length < 2) return; // a lone stroke is never a "dot to defer"
+  const boxes = strokes.map(strokeBBox);
+  let glyphMinX = Infinity;
+  let glyphMinY = Infinity;
+  let glyphMaxX = -Infinity;
+  let glyphMaxY = -Infinity;
+  for (const b of boxes) {
+    if (b.minX < glyphMinX) glyphMinX = b.minX;
+    if (b.minY < glyphMinY) glyphMinY = b.minY;
+    if (b.maxX > glyphMaxX) glyphMaxX = b.maxX;
+    if (b.maxY > glyphMaxY) glyphMaxY = b.maxY;
+  }
+  const glyphDiag = Math.sqrt((glyphMaxX - glyphMinX) ** 2 + (glyphMaxY - glyphMinY) ** 2);
+  if (glyphDiag <= 0) return;
+
+  const maxDotDiag = glyphDiag * DOT_DIAG_RATIO;
+  const isolationThreshold = glyphDiag * DOT_ISOLATION_RATIO;
+
+  for (let i = 0; i < strokes.length; i++) {
+    const diag = bboxDiag(boxes[i]!);
+    if (diag > maxDotDiag) continue;
+    let isolated = true;
+    for (let j = 0; j < strokes.length; j++) {
+      if (j === i) continue;
+      if (bboxGap(boxes[i]!, boxes[j]!) <= isolationThreshold) {
+        isolated = false;
+        break;
+      }
+    }
+    if (isolated) strokes[i]!.priority = -1;
+  }
+}
+
+/**
+ * Move priority-tagged strokes after priority-0 strokes while preserving the
+ * relative order inside each tier. Higher priority draws first (0 > -1), so
+ * bodies come before dots. Stroke `order` is reassigned so the array index
+ * matches the draw sequence before `toFontUnits` accumulates delays.
+ */
+function reorderByPriority(strokes: Stroke[]): void {
+  const hasPriority = strokes.some((s) => (s.priority ?? 0) < 0);
+  if (!hasPriority) return;
+  strokes.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.order - b.order);
+  for (let i = 0; i < strokes.length; i++) strokes[i]!.order = i;
 }

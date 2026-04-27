@@ -36,6 +36,8 @@ export interface SkeletonizeInput {
   raster: RasterResult;
   inverseDT: Float32Array;
   options: SkeletonizeOptions;
+  /** Right-to-left script hint; flips the trace entry side for Arabic/Hebrew/… */
+  rtl?: boolean;
 }
 
 export interface SkeletonizeResult {
@@ -55,7 +57,7 @@ export interface SkeletonizeResult {
  * - thinning (default): runs the chosen thinning algorithm, cleans junction clusters,
  *   restores fully-erased components, and traces the resulting skeleton into polylines
  */
-export function skeletonize({ subPaths, pathBBox, raster, inverseDT, options }: SkeletonizeInput): SkeletonizeResult {
+export function skeletonize({ subPaths, pathBBox, raster, inverseDT, options, rtl = false }: SkeletonizeInput): SkeletonizeResult {
   if (options.skeletonMethod === 'voronoi') {
     const v = voronoiMedialAxis(subPaths, pathBBox, raster.transform, raster.width, raster.height, options.voronoiSamplingInterval);
     // Synthesize a skeleton bitmap from polylines so debug visualization stays uniform across methods.
@@ -98,6 +100,7 @@ export function skeletonize({ subPaths, pathBBox, raster, inverseDT, options }: 
     spurMinLength,
     options.traceLookback,
     options.curvatureBias,
+    rtl,
   );
   return { skeleton, polylines };
 }

@@ -84,6 +84,12 @@
       "types": "./dist/wc/index.d.mts",
       "import": "./dist/wc/index.mjs"
     },
+    "./shaper-harfbuzz": {
+      "tegaki@dev": "./src/shaper-harfbuzz/index.ts",
+      "source": "./src/shaper-harfbuzz/index.ts",
+      "types": "./dist/shaper-harfbuzz/index.d.mts",
+      "import": "./dist/shaper-harfbuzz/index.mjs"
+    },
     "./astro": "./src/astro/TegakiRenderer.astro",
     "./fonts/caveat": {
       "tegaki@dev": "./fonts/caveat/bundle.ts",
@@ -131,6 +137,7 @@
   },
   "dependencies": {},
   "peerDependencies": {
+    "harfbuzzjs": "^0.10.3",
     "@nuxt/kit": "^3.0.0 || ^4.0.0",
     "react": ">=18",
     "svelte": ">=5",
@@ -139,6 +146,9 @@
   },
   "peerDependenciesMeta": {
     "@nuxt/kit": {
+      "optional": true
+    },
+    "harfbuzzjs": {
       "optional": true
     },
     "react": {
@@ -155,6 +165,7 @@
     }
   },
   "devDependencies": {
+    "harfbuzzjs": "^0.10.3",
     "@nuxt/kit": "^3.15.0",
     "@nuxt/schema": "^3.15.0",
     "@types/react": "^19.2.14",

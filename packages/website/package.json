@@ -35,6 +35,8 @@
     "@tailwindcss/vite": "^4.2.2",
     "astro": "^6.1.8",
     "fflate": "^0.8.2",
+    "harfbuzzjs": "^0.10.3",
+    "opentype.js": "^1.3.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "sharp": "^0.34.5",

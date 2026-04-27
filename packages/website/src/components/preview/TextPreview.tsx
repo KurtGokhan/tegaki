@@ -41,6 +41,8 @@ export function TextPreview({
   onStrokeEasingChange,
   glyphEasing,
   onGlyphEasingChange,
+  deferDots,
+  onDeferDotsChange,
 }: {
   fontInfo: ParsedFontInfo | null;
   fontBuffer: ArrayBuffer | null;
@@ -75,6 +77,8 @@ export function TextPreview({
   onStrokeEasingChange: (v: string) => void;
   glyphEasing: string;
   onGlyphEasingChange: (v: string) => void;
+  deferDots: boolean;
+  onDeferDotsChange: (v: boolean) => void;
 }) {
   // Initial time/paused state come from the URL (controlled mode only): a non-zero
   // `ct` param loads the timeline paused at that position so agents can inspect a
@@ -202,9 +206,13 @@ export function TextPreview({
   const timingConfig = useMemo(() => {
     const strokeFn = getEasingFn(strokeEasing);
     const glyphFn = getEasingFn(glyphEasing);
-    if (strokeFn === undefined && glyphFn === undefined) return undefined;
-    return { ...(strokeFn !== undefined ? { strokeEasing: strokeFn } : {}), ...(glyphFn !== undefined ? { glyphEasing: glyphFn } : {}) };
-  }, [strokeEasing, glyphEasing]);
+    if (strokeFn === undefined && glyphFn === undefined && deferDots) return undefined;
+    return {
+      ...(strokeFn !== undefined ? { strokeEasing: strokeFn } : {}),
+      ...(glyphFn !== undefined ? { glyphEasing: glyphFn } : {}),
+      ...(deferDots ? {} : { deferDots: false }),
+    };
+  }, [strokeEasing, glyphEasing, deferDots]);
 
   const activeEffectCount = effects ? Object.keys(effects).length : 0;
 
@@ -673,7 +681,7 @@ export function TextPreview({
                         className="w-24"
                         min={1}
                         max={5}
-                        step={0.5}
+                        step={0.05}
                         value={typeof quality.clipText === 'number' ? quality.clipText : 1}
                         onChange={(e) => {
                           const v = Number(e.target.value);
@@ -749,7 +757,7 @@ export function TextPreview({
                 className="flex-1 max-w-64"
                 min={0}
                 max={totalDuration}
-                step={0.01}
+                step={0.0001}
                 value={displayTime}
                 onChange={(e) => {
                   const t = Number(e.target.value);
@@ -860,6 +868,14 @@ export function TextPreview({
           <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
             <input type="checkbox" checked={showOverlay} onChange={(e) => onShowOverlayChange(e.target.checked)} />
             Overlay
+          </label>
+
+          <label
+            className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer"
+            title="Draw i-dots, nuqṭa, and other disconnected marks after every body stroke in the word"
+          >
+            <input type="checkbox" checked={deferDots} onChange={(e) => onDeferDotsChange(e.target.checked)} />
+            Defer dots
           </label>
 
           <span className="border-l border-gray-200 h-6" />

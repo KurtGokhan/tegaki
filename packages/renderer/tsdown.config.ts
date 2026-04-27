@@ -69,6 +69,7 @@ export default defineConfig({
     'react/index': 'src/react/index.ts',
     'solid/index': 'src/solid/index.ts',
     'wc/index': 'src/wc/index.ts',
+    'shaper-harfbuzz/index': 'src/shaper-harfbuzz/index.ts',
     'fonts/caveat/bundle': 'fonts/caveat/bundle.ts',
     'fonts/italianno/bundle': 'fonts/italianno/bundle.ts',
     'fonts/tangerine/bundle': 'fonts/tangerine/bundle.ts',

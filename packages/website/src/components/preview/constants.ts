@@ -29,6 +29,27 @@ export const STAGES: { key: Stage; label: string }[] = [
   { key: 'final', label: 'Final' },
 ];
 
+/**
+ * "Handwriting is awesome" in the language associated with each example font.
+ * Clicking an example font button populates the text preview with this phrase
+ * in the corresponding script so the user can see the font render its native text.
+ * Fonts not listed here fall back to the English phrase.
+ */
+export const EXAMPLE_FONT_TEXTS: Record<string, string> = {
+  'Noto Sans JP': '手書きは素晴らしい',
+  'Shippori Mincho B1': '手書きは素晴らしい',
+  'Noto Sans SC': '手写真棒',
+  'Ma Shan Zheng': '手写真棒',
+  'Noto Sans KR': '손글씨는 멋져요',
+  'Nanum Myeongjo': '손글씨는 멋져요',
+  Rubik: 'الكتابة اليدوية رائعة',
+  Amiri: 'الكتابة اليدوية رائعة',
+  Cardo: 'כתב היד מדהים',
+  'EB Garamond': 'Η χειρογραφία είναι υπέροχη',
+};
+
+export const DEFAULT_EXAMPLE_FONT_TEXT = 'Handwriting is awesome';
+
 export const SKELETON_METHODS: { value: SkeletonMethod; label: string }[] = [
   { value: 'zhang-suen', label: 'Zhang-Suen' },
   { value: 'guo-hall', label: 'Guo-Hall' },

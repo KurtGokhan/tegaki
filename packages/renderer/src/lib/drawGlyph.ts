@@ -90,6 +90,12 @@ function defaultStrokeEasing(t: number): number {
  * units, pre-wobble). The engine owns the cache and invalidates it when the
  * font, fontSize, or segment size changes; if omitted here, strokes are
  * subdivided inline each call (useful for testing).
+ *
+ * `strokeDelays` is a sparse per-stroke override of the bundled `d` field. When
+ * `strokeDelays[i]` is a number, it replaces `glyph.s[i].d` as the stroke's
+ * delay relative to `localTime = 0`. Used by the timeline scheduler to defer
+ * priority-tagged strokes (disconnected marks / i-dots / Arabic nuqṭa) to
+ * after every body stroke in the word has drawn.
  */
 export function drawGlyph(
   ctx: CanvasRenderingContext2D,
@@ -104,6 +110,7 @@ export function drawGlyph(
   strokeEasing: ((t: number) => number) | undefined = defaultStrokeEasing,
   strokeScale = 1,
   strokeStyleOverride?: string | CanvasGradient | CanvasPattern,
+  strokeDelays?: (number | undefined)[],
 ) {
   // Default stroke paint. When a layout-spanning effect (e.g. `globalGradient`)
   // provides a CanvasGradient/Pattern via `strokeStyleOverride`, use it as the
@@ -185,17 +192,26 @@ export function drawGlyph(
     return m;
   };
 
-  for (const stroke of glyph.s) {
-    if (localTime < stroke.d) continue;
-    const elapsed = localTime - stroke.d;
+  for (let si = 0; si < glyph.s.length; si++) {
+    const stroke = glyph.s[si]!;
+    const delay = strokeDelays?.[si] ?? stroke.d;
+    if (localTime < delay) continue;
+    const elapsed = localTime - delay;
     const linearProgress = Math.min(elapsed / stroke.a, 1);
     const progress = strokeEasing ? strokeEasing(linearProgress) : linearProgress;
 
     const rawPts = stroke.p;
     if (rawPts.length === 0) continue;
 
+    // Degenerate polylines (all points coincident) render as dots. Older
+    // bundles can emit `[[x,y,w],[x,y,w]]` for Arabic nuqta-sized blobs where
+    // the pipeline's orient step collapsed two near-identical skeleton pixels
+    // into the same point; without this check they'd be dropped by the
+    // `totalLen <= 0` guard below.
+    const isDegenerate = rawPts.length > 1 && rawPts.every((p) => p[0] === rawPts[0]![0] && p[1] === rawPts[0]![1]);
+
     // --- Single-point dot (bypass cache; there is nothing to subdivide) ---
-    if (rawPts.length === 1) {
+    if (rawPts.length === 1 || isDegenerate) {
       if (progress <= 0) continue;
       const p = rawPts[0]!;
       const dotX = px(p[0]! + wobbleDx(p[0]!, p[1]!, 0));

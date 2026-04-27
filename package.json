@@ -45,5 +45,8 @@
     "*": [
       "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
     ]
+  },
+  "dependencies": {
+    "harfbuzzjs": "^0.10.3"
   }
 }

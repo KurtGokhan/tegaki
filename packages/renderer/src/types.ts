@@ -36,6 +36,14 @@ export interface Stroke {
   length: number;
   animationDuration: number;
   delay: number;
+  /**
+   * Draw-priority rank. `0` (default) is the glyph body; negative numbers are
+   * rendered later within word-level scheduling so disconnected marks — i-dots,
+   * Arabic nuqṭa, diacritics — follow after every body stroke in the word.
+   * Only `0` and `-1` are used today; the range is open for future priority
+   * tiers.
+   */
+  priority?: number;
 }
 
 export interface GlyphData {
@@ -76,7 +84,9 @@ export interface PathCommand {
  * Compact glyph data for rendering.
  * - `w`: advance width
  * - `t`: total animation duration
- * - `s`: strokes, each with `p` (points as `[x, y, width]` tuples), `d` (delay), `a` (animation duration)
+ * - `s`: strokes, each with `p` (points as `[x, y, width]` tuples), `d` (delay),
+ *   `a` (animation duration), and optional `r` (priority — see `Stroke.priority`;
+ *   omitted when `0`)
  */
 export interface TegakiGlyphData {
   w: number;
@@ -85,6 +95,7 @@ export interface TegakiGlyphData {
     p: ([x: number, y: number, width: number] | number[])[];
     d: number;
     a: number;
+    r?: number;
   }[];
 }
 
@@ -144,11 +155,36 @@ export interface TegakiBundle {
   fullFamily?: string;
   lineCap: LineCap;
   fontUrl: string;
+  /**
+   * Additional subset font URLs (e.g. Arabic/Hebrew/CJK subsets served alongside
+   * Latin). Registered under the same `family` as `fontUrl` for DOM layout and
+   * fed into the shaper so cross-script text gets shaped against the subset
+   * that actually contains its glyphs — required for positional forms in
+   * Arabic, conjuncts in Indic, etc.
+   */
+  extraFontUrls?: string[];
   /** URL to the full (non-subsetted) font file bundled for fallback rendering. */
   fullFontUrl?: string;
   fontFaceCSS: string;
   unitsPerEm: number;
   ascender: number;
   descender: number;
+  /** Default glyphs keyed by character. Used as a fallback when a shaped glyph id is absent. */
   glyphData: Record<string, TegakiGlyphData>;
+  /**
+   * Variant glyphs keyed by shaper output. Populated when the bundle was
+   * generated with ligature/contextual-alternate support. Keys are the shaper's
+   * opentype glyph id as a string (e.g. `"42"`) for glyphs from the primary
+   * font, or `"<subsetIndex>:<gid>"` (e.g. `"1:42"`) for glyphs from an
+   * `extraFontUrls` subset — subset index matches the position in
+   * `extraFontUrls` + 1 (0 is reserved for the primary). Misses fall back to
+   * `glyphData[char]` so default glyphs aren't duplicated.
+   */
+  glyphDataById?: Record<string, TegakiGlyphData>;
+  /**
+   * OpenType feature tags the bundle was generated with (e.g. `['liga', 'calt']`).
+   * The renderer enables these during shaping. Absent when no variant glyphs
+   * were generated.
+   */
+  features?: string[];
 }
