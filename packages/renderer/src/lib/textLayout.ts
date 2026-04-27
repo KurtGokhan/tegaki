@@ -17,6 +17,41 @@ export interface TextLayout {
 }
 
 /**
+ * Axis-aligned bounding box of the laid-out text in the ctx coordinate space
+ * used by the engine's glyph loop (i.e. after `padH`/`padV` translation).
+ * `width` is the max line advance; `height` is `lines.length * lineHeight`.
+ */
+export interface LayoutBBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Compute the text bounding box from a measured layout. Inputs are in CSS
+ * pixels. Assumes the layout's char offsets are em-relative to the left edge
+ * of each line (as produced by `computeTextLayout`).
+ */
+export function computeLayoutBbox(layout: TextLayout, fontSize: number, lineHeight: number): LayoutBBox {
+  let maxRight = 0;
+  for (const lineIndices of layout.lines) {
+    for (const charIdx of lineIndices) {
+      const offset = layout.charOffsets[charIdx] ?? 0;
+      const width = layout.charWidths[charIdx] ?? 0;
+      const right = (offset + width) * fontSize;
+      if (right > maxRight) maxRight = right;
+    }
+  }
+  return {
+    x: 0,
+    y: 0,
+    width: maxRight,
+    height: layout.lines.length * lineHeight,
+  };
+}
+
+/**
  * Measure text layout using the Range API on an existing DOM element.
  * The element must already be in the document with correct text content,
  * font, line-height, white-space, and width styles applied.

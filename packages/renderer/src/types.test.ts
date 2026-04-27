@@ -14,8 +14,10 @@ describe.skip('TegakiEffects', () => {
   test('known key with config', () => {
     assertType({ glow: { radius: 5 } });
     assertType({ wobble: { amplitude: 2, frequency: 3 } });
-    assertType({ gradient: { colors: ['#ff0000', '#00ff00'] } });
-    assertType({ gradient: { colors: 'rainbow', saturation: 80 } });
+    assertType({ strokeGradient: { colors: ['#ff0000', '#00ff00'] } });
+    assertType({ strokeGradient: { colors: 'rainbow', saturation: 80 } });
+    assertType({ globalGradient: { colors: ['#ff0000', '#00ff00'] } });
+    assertType({ globalGradient: { colors: ['#ff0000', '#00ff00'], angle: 45 } });
     assertType({ taper: { startLength: 0.2, endLength: 0.1 } });
     assertType({ pressureWidth: {} });
   });
@@ -24,7 +26,7 @@ describe.skip('TegakiEffects', () => {
     assertType({ glow: true });
     assertType({ wobble: true });
     assertType({ taper: true });
-    assertType({ gradient: true });
+    assertType({ strokeGradient: true });
   });
 
   test('known key with explicit effect field', () => {
@@ -45,7 +47,7 @@ describe.skip('TegakiEffects', () => {
       glow: { radius: 20 },
       innerGlow: { effect: 'glow', radius: 5, order: 1 },
       wobble: true,
-      gradient: { colors: 'rainbow' },
+      strokeGradient: { colors: 'rainbow' },
       taper: { startLength: 0.2 },
     });
   });
@@ -84,8 +86,10 @@ describe.skip('TegakiEffects', () => {
     assertType({ myPressure: { effect: 'pressureWidth', strength: 0.5 } });
     // @ts-expect-error — wobble is singleton, cannot be duplicated via custom key
     assertType({ myWobble: { effect: 'wobble', amplitude: 2 } });
-    // @ts-expect-error — gradient is singleton, cannot be duplicated via custom key
-    assertType({ myGradient: { effect: 'gradient', colors: 'rainbow' } });
+    // @ts-expect-error — strokeGradient is singleton, cannot be duplicated via custom key
+    assertType({ myGradient: { effect: 'strokeGradient', colors: 'rainbow' } });
+    // @ts-expect-error — globalGradient is singleton, cannot be duplicated via custom key
+    assertType({ myGlobalGradient: { effect: 'globalGradient', colors: ['#f00', '#00f'] } });
     // @ts-expect-error — taper is singleton, cannot be duplicated via custom key
     assertType({ myTaper: { effect: 'taper', startLength: 0.2 } });
   });
@@ -94,6 +98,12 @@ describe.skip('TegakiEffects', () => {
     assertType({ pressureWidth: { strength: 0.5 } });
     assertType({ pressureWidth: true });
     assertType({ taper: { startLength: 0.2 } });
-    assertType({ gradient: { colors: 'rainbow' } });
+    assertType({ strokeGradient: { colors: 'rainbow' } });
+    assertType({ globalGradient: { colors: ['#f00', '#00f'] } });
+  });
+
+  test('globalGradient rejects `rainbow` (per-stroke only)', () => {
+    // @ts-expect-error — globalGradient only accepts string[]; rainbow is per-stroke
+    assertType({ globalGradient: { colors: 'rainbow' } });
   });
 });
