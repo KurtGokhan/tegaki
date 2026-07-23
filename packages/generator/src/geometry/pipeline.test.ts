@@ -183,6 +183,21 @@ describe('geometry pipeline — junctions', () => {
     expect(r.strokesFontUnits.length).toBe(1);
   });
 
+  test('a ring crossed by a separate bar keeps its counter (Caveat R/Q construction)', () => {
+    // Overlapping-stroke glyphs draw each pen stroke as its own contour and
+    // rely on nonzero-winding union. The ring's counter must ride with the
+    // ring even though the ring CROSSES the bar — the region split used to
+    // orphan it (nesting only looked at non-crossing contours), and the hole
+    // came back as standalone solid ink with its own axis stroke.
+    const outer = circle(500, 400, 300);
+    const hole = circle(500, 400, 180);
+    const bar = rect(460, 620, 540, 1000); // crosses the ring's lower boundary
+    const r = run('Q', commandsFromPolygons(outer, hole, bar));
+    expect(r.contours.filter((c) => c.isHole).length).toBe(1);
+    expect(r.strokesFontUnits.length).toBe(2);
+    expect(r.geoStrokes.some((s) => s.isLoop)).toBe(true);
+  });
+
   test('arch (∩): elongated 2-cut faces are segments, whole arch is one stroke', () => {
     // Legs x 100–200 / x 400–500 (y 300–900), top bar y 100–300. The two
     // concave corners at the gap bottom carve the top bar out as a 2-cut face.

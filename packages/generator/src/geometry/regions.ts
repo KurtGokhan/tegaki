@@ -15,10 +15,16 @@
 // A single decomposition can't serve both. This stage groups contours into
 // regions the rest of the pipeline runs independently:
 //
-//   - Contours that overlap another contour become standalone regions (one pen
+//   - Contours that cross another contour become standalone regions (one pen
 //     stroke each), so a crossing of two strokes stays two strokes.
-//   - Contours that never overlap are grouped by nesting into outer+holes
-//     regions (an O's ring and counter stay one annulus).
+//   - Nesting (full containment, which is never a crossing) assigns holes to
+//     the smallest outer containing them — INCLUDING outers that cross other
+//     contours. Caveat's R draws its bowl+stem as one outline that crosses
+//     the leg stroke; the bowl's counter must ride with that outline as its
+//     hole. Restricting nesting to non-crossing contours orphaned the
+//     counter at depth 0, so it came back as a standalone SOLID region — the
+//     hole was drawn as ink with its own medial axis, while the hole-less
+//     bowl got a filled-teardrop axis through the middle of the counter.
 //
 // With no overlaps this yields exactly one region = all contours, so union
 // glyphs are unaffected.
@@ -50,55 +56,49 @@ export function partitionRegions(contours: Contour[], overlaps: [number, number]
   const n = contours.length;
   if (n === 0) return [];
 
-  const overlapping = new Set<number>();
-  for (const [i, j] of overlaps) {
-    overlapping.add(i);
-    overlapping.add(j);
-  }
-
   // Fast path: no overlaps → one region, keep as already oriented.
-  if (overlapping.size === 0) return [contours];
+  if (overlaps.length === 0) return [contours];
 
-  const regions: Contour[][] = [];
+  // Boundary-CROSSING pairs (what findContourOverlaps detects): neither
+  // contains the other, so they are excluded from the nesting relation.
+  // Containment is only tested between non-crossing pairs, where a single
+  // vertex test decides the whole contour.
+  const crossing = new Set<number>();
+  for (const [i, j] of overlaps) {
+    crossing.add(i * n + j);
+    crossing.add(j * n + i);
+  }
+  const contains = (outer: number, inner: number): boolean =>
+    outer !== inner && !crossing.has(outer * n + inner) && pointInPolygon(contours[inner]!.points[0]!, contours[outer]!.points);
 
-  // Non-overlapping contours: standard even/odd nesting → outer+holes regions.
-  const nonOverlap = [];
-  for (let i = 0; i < n; i++) if (!overlapping.has(i)) nonOverlap.push(i);
-
-  const depth = new Map<number, number>();
-  for (const i of nonOverlap) {
+  // Nesting parity over ALL contours: even depth = outer (solid), odd = hole.
+  const depth = contours.map((_, i) => {
     let d = 0;
-    for (const j of nonOverlap) {
-      if (i === j) continue;
-      if (pointInPolygon(contours[i]!.points[0]!, contours[j]!.points)) d++;
-    }
-    depth.set(i, d);
-  }
+    for (let j = 0; j < n; j++) if (contains(j, i)) d++;
+    return d;
+  });
 
-  // Each even-depth contour is an outer; odd-depth are holes assigned to the
-  // smallest even-depth contour containing them.
-  const outerRegion = new Map<number, Contour[]>();
-  for (const i of nonOverlap) {
-    if (depth.get(i)! % 2 === 0) outerRegion.set(i, [reorient(contours[i]!.points, false)]);
+  // Each outer is its own region — crossing outers stay separate pen strokes.
+  // Holes ride with the smallest outer containing them, whether or not that
+  // outer crosses other contours (Caveat R's bowl counter). Unowned holes
+  // (degenerate input) are dropped, never emitted as solid ink.
+  const regionOf = new Map<number, Contour[]>();
+  for (let i = 0; i < n; i++) {
+    if (depth[i]! % 2 === 0) regionOf.set(i, [reorient(contours[i]!.points, false)]);
   }
-  for (const i of nonOverlap) {
-    if (depth.get(i)! % 2 === 0) continue;
+  for (let i = 0; i < n; i++) {
+    if (depth[i]! % 2 !== 1) continue;
     let owner = -1;
     let ownerArea = Infinity;
-    for (const [oi] of outerRegion) {
-      if (!pointInPolygon(contours[i]!.points[0]!, contours[oi]!.points)) continue;
+    for (const [oi] of regionOf) {
+      if (!contains(oi, i)) continue;
       const a = Math.abs(contours[oi]!.area);
       if (a < ownerArea) {
         ownerArea = a;
         owner = oi;
       }
     }
-    if (owner >= 0) outerRegion.get(owner)!.push(reorient(contours[i]!.points, true));
+    if (owner >= 0) regionOf.get(owner)!.push(reorient(contours[i]!.points, true));
   }
-  for (const region of outerRegion.values()) regions.push(region);
-
-  // Overlapping contours: each its own standalone solid region.
-  for (const i of overlapping) regions.push([reorient(contours[i]!.points, false)]);
-
-  return regions;
+  return [...regionOf.values()];
 }
