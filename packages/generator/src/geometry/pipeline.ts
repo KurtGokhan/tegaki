@@ -21,6 +21,7 @@ import { extendUnpairedEnds, routeJunctionPaths } from './junction-routing.ts';
 import { clampWidthsToBoundary, computeSegmentAxes } from './medial.ts';
 import { orderAndTimeStrokes } from './ordering.ts';
 import { classifyFaces, dissolvePartitionDebris, partitionFaces } from './partition.ts';
+import { dist, pointInPolygon, sub } from './primitives.ts';
 import { partitionRegions } from './regions.ts';
 import { assembleStrokes, buildJunctions, type JunctionNode, matchContinuations, simplifyStroke, type TrialJoinScorer } from './strokes.ts';
 import { trialJoinAlignment } from './trial-join.ts';
@@ -113,6 +114,64 @@ function refineStrokesThroughJunctions(
     const axis = straightSkeletonStrokeAxis(merged, resolved, gs.points[0]!, gs.points[gs.points.length - 1]!, otherInk);
     if (axis) gs.points = axis;
   });
+}
+
+/**
+ * Straighten each stroke's passage through junction kernels: project runs of
+ * axis points lying INSIDE a junction face onto the run's entry→exit chord.
+ * The straight skeleton of two strokes crossing at a shallow angle has no
+ * straight-through edge — a path across the kernel must jog along the
+ * kernel's bisector diagonals (Caveat &'s crossings read as zig-zags). The
+ * pen truth is straight: kernel ink is shared, so deviating from the
+ * skeleton there loses nothing. Guard: every projected point must stay
+ * within half its own width of where it was — a genuinely CURVED corridor
+ * junction (R's bowl band, 家's hook) fails immediately and keeps its curve.
+ * Positions move; widths stay (the fused-mass width through a kernel is
+ * real ink — the width-aware simplify preserves it downstream).
+ */
+function straightenJunctionRuns(geoStrokes: GeometryPipelineResult['geoStrokes'], faces: Face[]): void {
+  const kernels = faces.filter((f) => f.kind === 'junction');
+  if (kernels.length === 0) return;
+  for (const gs of geoStrokes) {
+    const pts = gs.points;
+    for (const kernel of kernels) {
+      let i = 1;
+      while (i < pts.length - 1) {
+        if (!pointInPolygon(pts[i]!, kernel.polygon)) {
+          i++;
+          continue;
+        }
+        let j = i;
+        while (j + 1 < pts.length - 1 && pointInPolygon(pts[j + 1]!, kernel.polygon)) j++;
+        // Interior run pts[i..j]; anchors A/B are the neighbours outside.
+        const a = pts[i - 1]!;
+        const b = pts[j + 1]!;
+        const ab = sub(b, a);
+        const abLen2 = ab.x * ab.x + ab.y * ab.y;
+        if (abLen2 > 1e-12) {
+          const projected: { x: number; y: number }[] = [];
+          let ok = true;
+          for (let k = i; k <= j; k++) {
+            const p = pts[k]!;
+            const t = Math.max(0, Math.min(1, ((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / abLen2));
+            const q = { x: a.x + ab.x * t, y: a.y + ab.y * t };
+            if (dist(p, q) > p.width / 2) {
+              ok = false;
+              break;
+            }
+            projected.push(q);
+          }
+          if (ok) {
+            for (let k = i; k <= j; k++) {
+              pts[k]!.x = projected[k - i]!.x;
+              pts[k]!.y = projected[k - i]!.y;
+            }
+          }
+        }
+        i = j + 1;
+      }
+    }
+  }
 }
 
 /** Per-region intermediates (region-local cut / face / segment indices). */
@@ -342,6 +401,7 @@ function processRegion(
   if (resolved.medialMethod === 'straight-skeleton') {
     refineStrokesThroughJunctions(geoStrokes, junctions, segmentMemberFaces, faceById, resolved);
   }
+  straightenJunctionRuns(geoStrokes, faces);
   for (const gs of geoStrokes) gs.points = simplifyStroke(gs.points, simplifyEps);
 
   return { cuts, faces, segments, junctions, corners, geoStrokes, warnings };

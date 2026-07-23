@@ -375,8 +375,80 @@ export function assembleStrokes(segments: SegmentInfo[], junctions: JunctionInfo
   return strokes;
 }
 
-/** Merge collinear runs and drop near-duplicate points to tidy assembled strokes. */
+/**
+ * Merge collinear runs and drop near-duplicate points to tidy assembled
+ * strokes. WIDTH-AWARE: a point whose width deviates from the chord's
+ * interpolated width also survives, even when positionally collinear — the
+ * renderer interpolates widths between kept points, so dropping a fat
+ * straight run's interior draws it at the thin endpoint widths (Caveat @'s
+ * loop closure crosses the fused loop+spiral corridor on a straight line
+ * whose skeleton width is ~2× its endpoints'; position-only RDP collapsed it
+ * to a thin chord and the closure ink vanished).
+ */
 export function simplifyStroke(points: import('./types.ts').AxisPoint[], epsilon: number): import('./types.ts').AxisPoint[] {
+  // Alternate RDP with the pinch-excursion prune until stable. The prune
+  // needs RDP to run FIRST: on the dense raw polyline a waist node's
+  // neighbours are the taper toward it (widths 10, 5, 2, 5, 10 …), so the
+  // sliver ratio never fires — only against RDP-kept FAT neighbours does a
+  // pinch read as the excursion it is. Both passes only remove points, so
+  // an unchanged length is a fixpoint.
+  let pts = points;
+  for (let round = 0; round < 4; round++) {
+    const before = pts.length;
+    pts = pinchPrune(rdpPass(pts, epsilon), epsilon);
+    if (pts.length === before) break;
+  }
+  return pts;
+}
+
+/**
+ * Pinch prune — two rules, both aimed at skeleton WAIST artifacts. Where a
+ * self-crossing glyph's outline walls nearly touch, the merged skeleton
+ * threads a hairline channel, dragging the path sideways to near-zero-width
+ * nodes and half-width jog points (Caveat &'s crossings read as zig-zags of
+ * exactly these). An interior point is dropped when:
+ *
+ * - SLIVER: its width collapses below 30% of both neighbours' AND below the
+ *   sub-visible floor — that ink no round pen could meaningfully draw (same
+ *   philosophy as the graph wisp prune). Hairline strokes are safe: their
+ *   neighbours are equally thin, so the ratio never fires.
+ * - COVERED JOG: its whole pen disk lies inside the pen sweep of its
+ *   neighbours' direct chord — dropping it straightens the path with ZERO
+ *   ink change. Genuine curvature is safe by construction: a full-width
+ *   point off the chord always pokes past the chord's sweep.
+ */
+function pinchPrune(pts: import('./types.ts').AxisPoint[], epsilon: number): import('./types.ts').AxisPoint[] {
+  if (pts.length <= 2) return pts;
+  const out: import('./types.ts').AxisPoint[] = [pts[0]!];
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p = pts[i]!;
+    const prev = out[out.length - 1]!;
+    const next = pts[i + 1]!;
+    if (p.width < 5 * epsilon && p.width < 0.3 * Math.min(prev.width, next.width)) continue;
+    const ab = sub(next, prev);
+    const abLen2 = ab.x * ab.x + ab.y * ab.y;
+    if (abLen2 > 1e-12) {
+      const t = Math.max(0, Math.min(1, ((p.x - prev.x) * ab.x + (p.y - prev.y) * ab.y) / abLen2));
+      const q = { x: prev.x + ab.x * t, y: prev.y + ab.y * t };
+      const chordWidth = prev.width + (next.width - prev.width) * t;
+      if (dist(p, q) + p.width / 2 <= chordWidth / 2) continue;
+    }
+    out.push(p);
+  }
+  out.push(pts[pts.length - 1]!);
+  // Dropping an excursion can leave consecutive near-duplicates (an
+  // out-and-back collapses onto itself) — dedupe.
+  const deduped: import('./types.ts').AxisPoint[] = [];
+  for (const p of out) {
+    const last = deduped[deduped.length - 1];
+    if (last && Math.hypot(last.x - p.x, last.y - p.y) < 1e-9) continue;
+    deduped.push(p);
+  }
+  return deduped;
+}
+
+/** One width-aware Ramer-Douglas-Peucker pass (see simplifyStroke). */
+function rdpPass(points: import('./types.ts').AxisPoint[], epsilon: number): import('./types.ts').AxisPoint[] {
   if (points.length <= 2) return points;
   const keep = new Uint8Array(points.length);
   keep[0] = 1;
@@ -406,7 +478,13 @@ export function simplifyStroke(points: import('./types.ts').AxisPoint[], epsilon
       const nx = -ab.y / abLen;
       const ny = ab.x / abLen;
       for (let i = lo + 1; i < hi; i++) {
-        const d = Math.abs((points[i]!.x - a.x) * nx + (points[i]!.y - a.y) * ny);
+        const p = points[i]!;
+        const positional = Math.abs((p.x - a.x) * nx + (p.y - a.y) * ny);
+        // Width deviation from the chord's linear interpolation, halved so it
+        // measures the drawn RADIUS error — the same units as positional.
+        const t = Math.max(0, Math.min(1, ((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / (abLen * abLen)));
+        const widthDev = Math.abs(p.width - (a.width + (b.width - a.width) * t)) / 2;
+        const d = Math.max(positional, widthDev);
         if (d > farD) {
           farD = d;
           far = i;

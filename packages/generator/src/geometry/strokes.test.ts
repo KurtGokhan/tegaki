@@ -29,6 +29,41 @@ describe('simplifyStroke', () => {
     const out = simplifyStroke(hairpin, 2);
     expect(out.some((p) => p.y === 100)).toBe(true);
   });
+
+  const wpt = (x: number, y: number, width: number): AxisPoint => ({ x, y, width });
+
+  test('a straight run keeps its FAT interior point — the renderer interpolates widths (Caveat @ closure)', () => {
+    // Positionally collinear, but the middle rides a fused two-stroke
+    // corridor at twice the width. Position-only RDP collapsed it and the
+    // loop-closure ink vanished.
+    const out = simplifyStroke([wpt(0, 0, 40), wpt(100, 0, 100), wpt(200, 0, 40)], 4);
+    expect(out.some((p) => p.width === 100)).toBe(true);
+  });
+
+  test('a sliver-width excursion is pruned — skeleton waist nodes read as zig-zags (Caveat &)', () => {
+    // The merged skeleton threads a hairline pinch channel: a w2 node ~25
+    // units off the flow line. Its ink is sub-visible; the pen crosses the
+    // pinch at full width.
+    const out = simplifyStroke([wpt(0, 0, 50), wpt(25, 20, 2), wpt(10, 0, 48), wpt(120, 0, 50)], 4);
+    expect(out.some((p) => p.width === 2)).toBe(false);
+  });
+
+  test('a half-width jog whose pen disk the chord sweep covers is pruned (Caveat & crossings)', () => {
+    // dist-to-chord 10 + radius 12.5 ≤ chord radius 30 — dropping it changes
+    // no ink and straightens the crossing.
+    const out = simplifyStroke([wpt(0, 0, 60), wpt(30, 10, 25), wpt(60, 0, 60)], 4);
+    expect(out.length).toBe(2);
+  });
+
+  test('genuine curvature survives the jog prune — a full-width point always pokes past the chord sweep', () => {
+    const out = simplifyStroke([wpt(0, 0, 40), wpt(30, 15, 40), wpt(60, 0, 40)], 4);
+    expect(out.length).toBe(3);
+  });
+
+  test('hairline strokes are untouched — thin neighbours never trip the sliver ratio', () => {
+    const out = simplifyStroke([wpt(0, 0, 4), wpt(50, 8, 4), wpt(100, 0, 4)], 2);
+    expect(out.length).toBe(3);
+  });
 });
 
 describe('matchContinuations — trial-join re-ranking', () => {
