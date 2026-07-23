@@ -14,7 +14,7 @@ import { computePathBBox, flattenPath } from '../processing/bezier.ts';
 import { buildContours, findContourOverlaps } from './contours.ts';
 import { detectCorners } from './corners.ts';
 import { generateCuts } from './cuts.ts';
-import type { InkDisk } from './face-medial.ts';
+import { type InkDisk, polylineInkDisks } from './face-medial.ts';
 import { mergeSegmentFaces } from './face-merge.ts';
 import { straightSkeletonFaceAxes, straightSkeletonStrokeAxis } from './face-straight-skeleton.ts';
 import { extendUnpairedEnds, routeJunctionPaths } from './junction-routing.ts';
@@ -103,10 +103,12 @@ function refineStrokesThroughJunctions(
     if (!touchesJunction || faceIds.size < 2) return;
     const merged = mergeSegmentFaces([...faceIds].map((id) => faceById.get(id)!));
     if (!merged) return;
+    // Other strokes' pen sweep as disks, densified along each segment so
+    // coverage does not depend on vertex spacing — see polylineInkDisks.
     const otherInk: InkDisk[] = [];
     originals.forEach((pts, o) => {
       if (o === k) return;
-      for (const p of pts) otherInk.push({ x: p.x, y: p.y, radius: p.width / 2 });
+      otherInk.push(...polylineInkDisks(pts, resolved.resampleSpacing / 2));
     });
     const axis = straightSkeletonStrokeAxis(merged, resolved, gs.points[0]!, gs.points[gs.points.length - 1]!, otherInk);
     if (axis) gs.points = axis;

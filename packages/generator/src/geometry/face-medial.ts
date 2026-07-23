@@ -810,6 +810,35 @@ export interface InkDisk {
 }
 
 /**
+ * A stroke polyline as ink disks, DENSIFIED along each segment (interpolated
+ * centers and radii every ≤ `step`), not just at its vertices. The pen inks
+ * continuously between vertices, but assembled axes can carry 40+ unit gaps
+ * on smooth arcs; vertex-only disks left phantom "uncovered" spots there, and
+ * a single spot poking half a spacing past the refs made chainEscapes retrace
+ * an entire limb (Caveat R re-drew its whole 728-unit bowl arc inside the nib
+ * stub's stroke over an 11-unit poke at one mid-arc gap).
+ */
+export function polylineInkDisks(points: AxisPoint[], step: number): InkDisk[] {
+  const out: InkDisk[] = [];
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i]!;
+    out.push({ x: a.x, y: a.y, radius: a.width / 2 });
+    if (i + 1 >= points.length) continue;
+    const b = points[i + 1]!;
+    const pieces = Math.floor(dist(a, b) / Math.max(1e-6, step));
+    for (let s = 1; s <= pieces; s++) {
+      const t = s / (pieces + 1);
+      out.push({
+        x: a.x + (b.x - a.x) * t,
+        y: a.y + (b.y - a.y) * t,
+        radius: (a.width + (b.width - a.width) * t) / 2,
+      });
+    }
+  }
+  return out;
+}
+
+/**
  * Anchored axis extraction for a FINAL stroke recomputed on its fully merged
  * region (segment chains + the junction faces the stroke traverses). The
  * primary path runs between the graph nodes nearest the stroke's existing
@@ -1001,7 +1030,23 @@ export function anchoredAxisFromMedialGraph(
     const ids = walkPath(pPrim, i);
     if (ids.length < 2) continue;
     if (dPrim[i]! < Math.max(2 * step, spacing)) continue;
-    if (!chainEscapes(nodes, ids.slice(1), coverRefs, spacing)) continue;
+    const escapes = chainEscapes(nodes, ids.slice(1), coverRefs, spacing);
+    if (REFINE_DEBUG) {
+      let worst = -Infinity;
+      let worstId = -1;
+      for (const id of ids.slice(1)) {
+        let poke = Infinity;
+        for (const ref of coverRefs) poke = Math.min(poke, dist(nodes[id]!, ref) + nodes[id]!.width / 2 - ref.radius);
+        if (poke > worst) {
+          worst = poke;
+          worstId = id;
+        }
+      }
+      console.error(
+        `[refine] limb len=${dPrim[i]!.toFixed(0)} tip=(${nodes[i]!.x.toFixed(0)},${nodes[i]!.y.toFixed(0)}) ${escapes ? 'RETRACE' : 'suppressed'} worstPoke=${worst.toFixed(1)}@(${worstId >= 0 ? `${nodes[worstId]!.x.toFixed(0)},${nodes[worstId]!.y.toFixed(0)}` : '?'})`,
+      );
+    }
+    if (!escapes) continue;
     limbs.push({ attach: ids[0]!, ids });
   }
 

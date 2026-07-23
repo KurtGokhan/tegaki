@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { Point } from 'tegaki';
-import { anchoredAxisFromMedialGraph, chainEscapes, type MedialNode, medialFaceAxes } from './face-medial.ts';
+import { anchoredAxisFromMedialGraph, chainEscapes, type MedialNode, medialFaceAxes, polylineInkDisks } from './face-medial.ts';
 import { clampWidthsToBoundary, computeSegmentAxes } from './medial.ts';
 import { add, closestPointOnPolyline, dist, normalize, pointInPolygon, resamplePolyline, scale, signedArea, sub } from './primitives.ts';
 import { type AxisPoint, DEFAULT_GEOMETRY_OPTIONS, type Face, resolveGeometryOptions, type SegmentInfo } from './types.ts';
@@ -824,6 +824,9 @@ describe('anchoredAxisFromMedialGraph — raw anchors append only when they exte
   // hook that read as an extra branch of the stroke (Caveat d's bowl at its
   // stem junction).
 
+  /** Deep copy — anchoredAxisFromMedialGraph mutates node aliveness. */
+  const spawnCopy = (nodes: MedialNode[]): MedialNode[] => nodes.map((n) => ({ ...n, adj: [...n.adj] }));
+
   /** Chain of nodes along a horizontal spine, plus a generous enclosing face. */
   const spineNodes = (): MedialNode[] => {
     const nodes: MedialNode[] = Array.from({ length: 5 }, (_, i) => ({ x: 100 + i * 50, y: 100, width: 40, adj: [], alive: true }));
@@ -869,6 +872,49 @@ describe('anchoredAxisFromMedialGraph — raw anchors append only when they exte
     const last = axis[axis.length - 1]!;
     expect(last.x).toBe(315); // dropped — the axis ends at the limb tip
     expect(last.y).toBe(115);
+  });
+
+  test('a limb covered by a sparse-vertex stroke is suppressed, not retraced (Caveat R)', () => {
+    // R's nib-stub stroke saw the whole bowl arc as a leftover limb. The
+    // bowl WAS already inked by the stem stroke, but its assembled axis had
+    // 40+ unit vertex gaps on the smooth arc — vertex-only ink disks left a
+    // phantom 11-unit poke at one mid-arc gap, and chainEscapes retraced the
+    // entire 728-unit limb out-and-back over it. Ink must be measured along
+    // the pen's continuous sweep: polylineInkDisks densifies the segments.
+    const nodes = spineNodes(); // primary spine y=100, x 100..300
+    // Long limb hanging off the spine end, heading up: (300,100)→(300,40)→…→(300,-140).
+    const limbYs = [40, -20, -80, -140];
+    limbYs.forEach((y, li) => {
+      nodes.push({ x: 300, y, width: 40, adj: [li === 0 ? 4 : 4 + li], alive: true });
+      nodes[li === 0 ? 4 : 4 + li]!.adj.push(5 + li);
+    });
+    const face = buildFace(
+      [
+        { x: 40, y: -200 },
+        { x: 360, y: -200 },
+        { x: 360, y: 160 },
+        { x: 40, y: 160 },
+      ],
+      [-1, -1, -1, -1],
+    );
+    const anchors: [AxisPoint, AxisPoint] = [
+      { x: 100, y: 100, width: 40 },
+      { x: 300, y: 100, width: 40 },
+    ];
+    // Another stroke's ink lying exactly along the limb — but described by
+    // only TWO vertices, 240 apart.
+    const coveringStroke: AxisPoint[] = [
+      { x: 300, y: 60, width: 44 },
+      { x: 300, y: -180, width: 44 },
+    ];
+    const sparse = coveringStroke.map((p) => ({ x: p.x, y: p.y, radius: p.width / 2 }));
+    const withSparse = anchoredAxisFromMedialGraph(face, OPTIONS, spawnCopy(nodes), anchors, sparse)!;
+    const dense = polylineInkDisks(coveringStroke, 10);
+    const withDense = anchoredAxisFromMedialGraph(face, OPTIONS, spawnCopy(nodes), anchors, dense)!;
+    // Sparse vertex disks leave phantom gaps → the limb wrongly retraces.
+    expect(withSparse.some((p) => p.y < 0)).toBe(true);
+    // Densified sweep covers the limb → suppressed; the axis stays on the spine.
+    expect(withDense.some((p) => p.y < 0)).toBe(false);
   });
 
   test('cycle regions drop sideways anchors too (a bowl closing onto its stem)', () => {
