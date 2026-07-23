@@ -1,10 +1,17 @@
-import { describe, expect, test } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test';
 import type { PathCommand, Point } from 'tegaki';
+import { initStraightSkeleton } from './face-straight-skeleton.ts';
 import type { GeometryPipelineInput } from './pipeline.ts';
 import { runGeometryPipeline } from './pipeline.ts';
 import { DEFAULT_GEOMETRY_OPTIONS } from './types.ts';
 
 const UPM = 1000;
+
+// These tests run the pipeline with DEFAULT options, and the default medial
+// method needs its wasm module loaded once.
+beforeAll(async () => {
+  await initStraightSkeleton();
+});
 
 /** Build M/L…Z path commands from one or more closed polygons. */
 function commandsFromPolygons(...polygons: Point[][]): PathCommand[] {
@@ -50,11 +57,14 @@ const circle = (cx: number, cy: number, radius: number, sides = 48): Point[] =>
   });
 
 describe('geometry pipeline — defaults', () => {
-  test('the default medial method is the true (voronoi) medial axis', () => {
+  test('the default medial method is the exact straight skeleton', () => {
     // The chain approximation loses whole limbs on descender/loop faces
-    // (Caveat r's descender, Klee One そ/ゆ/れ/わ) — the default must be the
-    // method that reaches every thin limb by construction.
-    expect(DEFAULT_GEOMETRY_OPTIONS.medialMethod).toBe('voronoi');
+    // (Caveat r's descender, Klee One そ/ゆ/れ/わ), and voronoi's sampled
+    // axis wobbles at junction mouths. The straight skeleton reaches every
+    // limb exactly and is what the merged-shape trial join scores against —
+    // the default must match or the join ranking measures a different axis
+    // than the one strokes are built from.
+    expect(DEFAULT_GEOMETRY_OPTIONS.medialMethod).toBe('straight-skeleton');
   });
 });
 
@@ -118,7 +128,14 @@ describe('geometry pipeline — junctions', () => {
     // The stem's unpaired end must EXTEND into the bar junction (the pen
     // writes the stem into the bar) — not stop at the bar's bottom edge
     // (y=250), which would leave the junction quad unswept by the stem.
-    const stem = r.geoStrokes.find((s) => Math.max(...s.points.map((p) => p.y)) > 800)!;
+    // (The stem is the tall stroke. Its axis legitimately ends half a width
+    // above the glyph's bottom edge — the round cap covers the rest — so it
+    // is selected by span, not by how close it gets to y=900.)
+    const spanOf = (s: (typeof r.geoStrokes)[number], pick: (p: Point) => number) => {
+      const vals = s.points.map(pick);
+      return Math.max(...vals) - Math.min(...vals);
+    };
+    const stem = r.geoStrokes.find((s) => spanOf(s, (p) => p.y) > spanOf(s, (p) => p.x))!;
     expect(stem).toBeDefined();
     const stemTop = Math.min(...stem.points.map((p) => p.y));
     expect(stemTop).toBeLessThan(240);

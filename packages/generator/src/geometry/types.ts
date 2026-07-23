@@ -168,14 +168,14 @@ export interface GeometryOptions {
   /** Medial-axis sample spacing as a fraction of unitsPerEm. */
   resampleSpacingRatio: number;
   /**
-   * Axis computation for hole-free segment faces: 'voronoi' computes the
-   * true medial axis from the Voronoi diagram of boundary samples (reaches
-   * every thin limb by construction); 'straight-skeleton' computes the exact
-   * CGAL straight skeleton of the face polygon (no sampling artifacts, but
-   * ~100× slower and requires `await initStraightSkeleton()` first); 'chain'
-   * pairs opposite walls (faster approximation, but stops short of thin
-   * tapering parts and drops limbs on descender/loop faces — kept as a
-   * debugging comparison).
+   * Axis computation for segment faces: 'straight-skeleton' (the default)
+   * computes the exact CGAL straight skeleton of the face polygon (no
+   * sampling artifacts, but requires `await initStraightSkeleton()` first);
+   * 'voronoi' approximates the true medial axis from the Voronoi diagram of
+   * boundary samples (~100× faster, but the sampled axis wobbles and forks
+   * at junction mouths); 'chain' pairs opposite walls (fastest, but stops
+   * short of thin tapering parts and drops limbs on descender/loop faces —
+   * kept as a debugging comparison).
    */
   medialMethod: 'chain' | 'voronoi' | 'straight-skeleton';
 }
@@ -192,8 +192,11 @@ export const DEFAULT_GEOMETRY_OPTIONS: GeometryOptions = {
   continuationMaxBendDeg: 75,
   resampleSpacingRatio: 0.02,
   // The chain approximation loses whole limbs on descender/loop faces
-  // (Caveat r, Klee One そ/ゆ/れ/わ); the true medial axis covers them.
-  medialMethod: 'voronoi',
+  // (Caveat r, Klee One そ/ゆ/れ/わ); voronoi covers them but its sampled
+  // axis wobbles and forks at junction mouths. The exact straight skeleton
+  // has neither problem and is what the merged-shape trial join (strokes.ts)
+  // measures against, so defaults stay consistent with the join ranking.
+  medialMethod: 'straight-skeleton',
 };
 
 /** Options resolved to absolute font units / radians for the core algorithms. */
