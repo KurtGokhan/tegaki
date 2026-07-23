@@ -27,7 +27,7 @@
 import { Delaunay } from 'd3-delaunay';
 import type { Point } from 'tegaki';
 import { buildEnds, extractRuns } from './medial.ts';
-import { cross, dist, distToSegment, midpoint, normalize, pointInPolygon, polylineLength, sub } from './primitives.ts';
+import { cross, dist, distToSegment, dot, midpoint, normalize, pointInPolygon, polylineLength, sub } from './primitives.ts';
 import type { AxisPoint, Face, ResolvedGeometryOptions, SegmentInfo } from './types.ts';
 
 export interface MedialNode extends Point {
@@ -831,6 +831,43 @@ export function anchoredAxisFromMedialGraph(
   const step = Math.max(3, spacing / 2);
   if (nodes.length < 2) return null;
 
+  // Per-stroke anchor/gate diagnostics to stderr (GEO_REFINE_DEBUG=1).
+  const REFINE_DEBUG = typeof process !== 'undefined' && !!process.env?.GEO_REFINE_DEBUG;
+
+  // A RAW anchor is appended to the axis only when it EXTENDS the path's flow
+  // at that end. Anchors born from a segment axis or a perpendicular junction
+  // ray sit on (or dead ahead of) the merged skeleton and pass trivially —
+  // but an OBLIQUE ray extension (a bowl closing onto its stem writes into
+  // the junction at a shallow angle: Caveat d/b/g/q) lands beside the spine,
+  // and appending it verbatim draws a sideways hook that reads as a branch of
+  // the stroke. Such anchors end on the skeleton instead — the pen's ink
+  // there is junction territory the crossing stroke already sweeps.
+  const anchorExtendsFlow = (anchor: AxisPoint, pathIds: number[], atStart: boolean): boolean => {
+    const nearNode = nodes[pathIds[atStart ? 0 : pathIds.length - 1]!]!;
+    const d = dist(anchor, nearNode);
+    if (d < step) return true; // effectively on the skeleton — harmless
+    // Flow at the path end over a ≥ spacing chord (single skeleton edges near
+    // event clusters are too short to give a stable direction).
+    let k = atStart ? 0 : pathIds.length - 1;
+    let acc = 0;
+    while (acc < spacing && (atStart ? k + 1 < pathIds.length : k - 1 >= 0)) {
+      const nk = atStart ? k + 1 : k - 1;
+      acc += dist(nodes[pathIds[k]!]!, nodes[pathIds[nk]!]!);
+      k = nk;
+    }
+    const inner = nodes[pathIds[k]!]!;
+    if (dist(inner, nearNode) < 1e-9) return true;
+    const flow = normalize(sub(nearNode, inner)); // inward → outward at this end
+    const toAnchor = normalize(sub(anchor, nearNode));
+    const align = dot(flow, toAnchor);
+    if (REFINE_DEBUG) {
+      console.error(
+        `[refine] anchor${atStart ? 0 : 1}=(${anchor.x.toFixed(0)},${anchor.y.toFixed(0)}) node=(${nearNode.x.toFixed(0)},${nearNode.y.toFixed(0)}) d=${d.toFixed(0)} align=${align.toFixed(2)} → ${align > 0.1 ? 'keep' : 'drop'}`,
+      );
+    }
+    return align > 0.1;
+  };
+
   // Anchor nodes are the stroke's endpoints inside the region — protected
   // from pruning. A far-off anchor means the region does not actually
   // contain this stroke's end (bookkeeping mismatch) — bail.
@@ -883,6 +920,7 @@ export function anchoredAxisFromMedialGraph(
   // and on to the end anchor's attachment via the short arc (the natural pen
   // overlap where a bowl closes) before leaving along the exit limb.
   const cycle = findSingleCycle(nodes);
+  if (REFINE_DEBUG) console.error(`[refine] cycle=${cycle.kind} anchorNodes=${anchorNode[0]},${anchorNode[1]}`);
   if (cycle.kind === 'reject') return null;
   if (cycle.kind === 'cycle') {
     const ring = cycle.ring;
@@ -891,6 +929,10 @@ export function anchoredAxisFromMedialGraph(
     if (!Number.isFinite(dCore[anchorNode[0]]!) || !Number.isFinite(dCore[anchorNode[1]]!)) return null;
     const limbIn = walkPath(pCore, anchorNode[0]); // attach0 … anchor0
     const limbOut = walkPath(pCore, anchorNode[1]); // attach1 … anchor1
+    if (REFINE_DEBUG) {
+      const fmt = (ids: number[]) => ids.map((id) => `#${id}(${nodes[id]!.x.toFixed(0)},${nodes[id]!.y.toFixed(0)})`).join('→');
+      console.error(`[refine] ring n=${n} limbIn=${fmt(limbIn)} limbOut=${fmt(limbOut)}`);
+    }
     const i0 = ring.indexOf(limbIn[0]!);
     const i1 = ring.indexOf(limbOut[0]!);
     if (i0 < 0 || i1 < 0) return null;
@@ -918,7 +960,8 @@ export function anchoredAxisFromMedialGraph(
       list.push(ids);
       retraces.set(ids[0]!, list);
     }
-    const axis: AxisPoint[] = [{ x: anchors[0].x, y: anchors[0].y, width: anchors[0].width }];
+    const axis: AxisPoint[] = [];
+    if (anchorExtendsFlow(anchors[0], pathIds, true)) axis.push({ x: anchors[0].x, y: anchors[0].y, width: anchors[0].width });
     const emitted = new Set<number>();
     for (const id of pathIds) {
       axis.push({ x: nodes[id]!.x, y: nodes[id]!.y, width: nodes[id]!.width });
@@ -932,7 +975,7 @@ export function anchoredAxisFromMedialGraph(
         axis.push(...out.slice(0, -1).reverse());
       }
     }
-    axis.push({ x: anchors[1].x, y: anchors[1].y, width: anchors[1].width });
+    if (anchorExtendsFlow(anchors[1], pathIds, false)) axis.push({ x: anchors[1].x, y: anchors[1].y, width: anchors[1].width });
     const dedupedRing = dedupe(axis);
     return dedupedRing.length >= 2 ? dedupedRing : null;
   }
@@ -962,7 +1005,8 @@ export function anchoredAxisFromMedialGraph(
     limbs.push({ attach: ids[0]!, ids });
   }
 
-  const axis: AxisPoint[] = [{ x: anchors[0].x, y: anchors[0].y, width: anchors[0].width }];
+  const axis: AxisPoint[] = [];
+  if (anchorExtendsFlow(anchors[0], primaryIds, true)) axis.push({ x: anchors[0].x, y: anchors[0].y, width: anchors[0].width });
   for (const id of primaryIds) {
     axis.push({ x: nodes[id]!.x, y: nodes[id]!.y, width: nodes[id]!.width });
     for (const limb of limbs) {
@@ -973,7 +1017,7 @@ export function anchoredAxisFromMedialGraph(
       axis.push(...out.slice(0, -1).reverse());
     }
   }
-  axis.push({ x: anchors[1].x, y: anchors[1].y, width: anchors[1].width });
+  if (anchorExtendsFlow(anchors[1], primaryIds, false)) axis.push({ x: anchors[1].x, y: anchors[1].y, width: anchors[1].width });
   const deduped = dedupe(axis);
   return deduped.length >= 2 ? deduped : null;
 }

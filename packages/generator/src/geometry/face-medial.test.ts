@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { Point } from 'tegaki';
-import { chainEscapes, medialFaceAxes } from './face-medial.ts';
+import { anchoredAxisFromMedialGraph, chainEscapes, type MedialNode, medialFaceAxes } from './face-medial.ts';
 import { clampWidthsToBoundary, computeSegmentAxes } from './medial.ts';
 import { add, closestPointOnPolyline, dist, normalize, pointInPolygon, resamplePolyline, scale, signedArea, sub } from './primitives.ts';
 import { type AxisPoint, DEFAULT_GEOMETRY_OPTIONS, type Face, resolveGeometryOptions, type SegmentInfo } from './types.ts';
@@ -814,5 +814,93 @@ describe('computeSegmentAxes (voronoi) — pipeline entry', () => {
     expect(infos.length).toBeGreaterThanOrEqual(1);
     expect(penGap(infos, { x: 500, y: 120 })).toBeLessThanOrEqual(8);
     expect(penGap(infos, { x: 500, y: 480 })).toBeLessThanOrEqual(8);
+  });
+});
+
+describe('anchoredAxisFromMedialGraph — raw anchors append only when they extend the flow', () => {
+  // Hand-built graphs (no wasm): the gate is pure geometry. Raw anchors come
+  // from assembly and can be straight-ray junction-extension tips that sit
+  // BESIDE the merged skeleton — appending those verbatim drew a sideways
+  // hook that read as an extra branch of the stroke (Caveat d's bowl at its
+  // stem junction).
+
+  /** Chain of nodes along a horizontal spine, plus a generous enclosing face. */
+  const spineNodes = (): MedialNode[] => {
+    const nodes: MedialNode[] = Array.from({ length: 5 }, (_, i) => ({ x: 100 + i * 50, y: 100, width: 40, adj: [], alive: true }));
+    for (let i = 0; i + 1 < nodes.length; i++) {
+      nodes[i]!.adj.push(i + 1);
+      nodes[i + 1]!.adj.push(i);
+    }
+    return nodes;
+  };
+  const spineFace = (): Face =>
+    buildFace(
+      [
+        { x: 40, y: 40 },
+        { x: 360, y: 40 },
+        { x: 360, y: 160 },
+        { x: 40, y: 160 },
+      ],
+      [-1, -1, -1, -1],
+    );
+
+  test('a collinear anchor ahead of the spine is kept; a sideways ray tip is dropped', () => {
+    const start = { x: 60, y: 100, width: 40 }; // dead ahead of node (100,100)
+    const end = { x: 300, y: 140, width: 40 }; // beside node (300,100) — the d-bowl hook shape
+    const axis = anchoredAxisFromMedialGraph(spineFace(), OPTIONS, spineNodes(), [start, end], [])!;
+    expect(axis).not.toBeNull();
+    expect(axis[0]!.x).toBe(60); // kept — extends the flow backward from the spine start
+    const last = axis[axis.length - 1]!;
+    expect(last.x).toBe(300); // dropped — the axis ends ON the skeleton
+    expect(last.y).toBe(100);
+  });
+
+  test('an anchor that doubles back on a terminal limb is dropped (the d-bowl end hook)', () => {
+    // Caveat d's bowl END: the path leaves the spine on a short SE limb, and
+    // the raw ray tip sits back NW of the limb tip — appending it drew a
+    // doubling-back hook (measured align −0.83 on the real glyph).
+    const nodes = spineNodes();
+    nodes.push({ x: 315, y: 115, width: 40, adj: [4], alive: true }); // SE limb off the spine end
+    nodes[4]!.adj.push(5);
+    const start = { x: 100, y: 100, width: 40 };
+    const end = { x: 322, y: 105, width: 40 }; // nearest the limb tip, but bent back off its direction
+    const axis = anchoredAxisFromMedialGraph(spineFace(), OPTIONS, nodes, [start, end], [])!;
+    expect(axis).not.toBeNull();
+    const last = axis[axis.length - 1]!;
+    expect(last.x).toBe(315); // dropped — the axis ends at the limb tip
+    expect(last.y).toBe(115);
+  });
+
+  test('cycle regions drop sideways anchors too (a bowl closing onto its stem)', () => {
+    // Octagonal ring; anchors offset radially INWARD from two ring nodes —
+    // against the ring's flow at both ends (a bowl's ray tips landing in the
+    // junction beside the spine, the Caveat d start hook: align −0.10).
+    const n = 8;
+    const nodes: MedialNode[] = Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2;
+      return { x: 500 + 100 * Math.cos(a), y: 500 + 100 * Math.sin(a), width: 40, adj: [], alive: true };
+    });
+    for (let i = 0; i < n; i++) {
+      nodes[i]!.adj.push((i + 1) % n);
+      nodes[(i + 1) % n]!.adj.push(i);
+    }
+    const face = buildFace(
+      [
+        { x: 340, y: 340 },
+        { x: 660, y: 340 },
+        { x: 660, y: 660 },
+        { x: 340, y: 660 },
+      ],
+      [-1, -1, -1, -1],
+    );
+    const start = { x: 560, y: 500, width: 40 }; // radially inside node (600,500)
+    const end = { x: 500, y: 560, width: 40 }; // radially inside node (500,600)
+    const axis = anchoredAxisFromMedialGraph(face, OPTIONS, nodes, [start, end], [])!;
+    expect(axis).not.toBeNull();
+    // Neither raw anchor may appear: the pen enters and leaves ON the ring.
+    expect(axis.some((p) => dist(p, start) < 1)).toBe(false);
+    expect(axis.some((p) => dist(p, end) < 1)).toBe(false);
+    // The ring is still walked in full (all 8 ring nodes visited).
+    for (const node of nodes) expect(axis.some((p) => dist(p, node) < 1)).toBe(true);
   });
 });
