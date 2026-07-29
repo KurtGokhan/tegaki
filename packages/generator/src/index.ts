@@ -44,6 +44,7 @@ export { type GeometryStage, renderGeometryStage } from './geometry/visualize.ts
 export { glyphToAnimatedSVG } from './processing/animated-svg.ts';
 export { isRtlChar, isRtlCodepoint } from './processing/rtl.ts';
 export { renderStage, STROKE_COLORS, type VisualizationStage } from './processing/visualize.ts';
+export { createHersheyProvider, HERSHEY_LICENSE } from './stroke-order/hershey.ts';
 export {
   createKanjiVGProvider,
   KANJIVG_LICENSE,
@@ -53,6 +54,7 @@ export {
   parseKanjiVGSvg,
 } from './stroke-order/kanjivg.ts';
 export { matchStrokes, type StrokeMatchPair, type StrokeMatchResult } from './stroke-order/match.ts';
+export { collectReferences } from './stroke-order/providers.ts';
 export { referenceBBox, registerReference } from './stroke-order/register.ts';
 export type {
   ReferenceGlyph,

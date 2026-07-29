@@ -345,11 +345,7 @@ function renderReference(result: GeometryPipelineResult): string {
   });
 
   const applied =
-    result.strokeOrderSource === 'dataset'
-      ? result.strokeOrderRegrouped
-        ? ' · dataset order applied (re-grouped)'
-        : ' · dataset order applied'
-      : '';
+    result.strokeOrderSource === 'dataset' ? ` · ${ref.source} order applied${result.strokeOrderRegrouped ? ' (re-grouped)' : ''}` : '';
   const counts = `${result.strokesFontUnits.length} extracted / ${n} reference${applied}`;
   const countColor = result.strokesFontUnits.length === n ? '#3a7d44' : '#c0392b';
   parts.push(

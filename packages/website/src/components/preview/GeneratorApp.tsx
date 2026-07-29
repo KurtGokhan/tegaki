@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LineCap } from 'tegaki';
 import {
   CHARSET_PRESETS,
+  collectReferences,
+  createHersheyProvider,
   createKanjiVGProvider,
   DEFAULT_GEOMETRY_OPTIONS,
   DEFAULT_OPTIONS,
@@ -42,15 +44,20 @@ import { TextPreview } from './TextPreview.tsx';
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
-// Stroke-order reference data, fetched per character straight from the pinned
-// KanjiVG release (raw.githubusercontent.com is CORS-open). The provider
-// memoizes parses; module scope makes the cache survive re-renders.
-const kanjiVGProvider = createKanjiVGProvider(async (char) => {
-  const response = await fetch(kanjiVGUrl(char));
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`KanjiVG fetch failed: ${response.status}`);
-  return response.text();
-});
+// Stroke-order reference data: KanjiVG fetched per character straight from
+// the pinned release (raw.githubusercontent.com is CORS-open), Hershey
+// cursive Latin embedded in the generator. Both are queried and the pipeline
+// adopts whichever variant matches the extracted ink best. Providers memoize;
+// module scope makes the caches survive re-renders.
+const strokeOrderProviders = [
+  createKanjiVGProvider(async (char) => {
+    const response = await fetch(kanjiVGUrl(char));
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error(`KanjiVG fetch failed: ${response.status}`);
+    return response.text();
+  }),
+  createHersheyProvider(),
+];
 
 export function GeneratorApp() {
   const [initialUrlState] = useState(parseUrlState);
@@ -120,10 +127,11 @@ export function GeneratorApp() {
   const [geometryOptions, setGeometryOptions] = useState<GeometryOptions>(initialUrlState.geometryOptions);
   const [geoResult, setGeoResult] = useState<GeometryPipelineResult | null>(null);
   const geoResultsCache = useRef(new Map<string, GeometryPipelineResult>());
-  // Stroke-order reference for the selected char: undefined = fetch in flight,
-  // null = dataset has no entry (or fetch failed). Fetched BEFORE the pipeline
-  // runs so the (synchronous) pipeline can register + match it.
-  const [refGlyph, setRefGlyph] = useState<ReferenceGlyph | null | undefined>(undefined);
+  // Stroke-order reference variants for the selected char: undefined = fetch
+  // in flight, [] = no dataset has an entry (or fetches failed). Fetched
+  // BEFORE the pipeline runs so the (synchronous) pipeline can register +
+  // match them.
+  const [refGlyphs, setRefGlyphs] = useState<ReferenceGlyph[] | undefined>(undefined);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>(initialUrlState.previewMode);
   const [previewText, setPreviewText] = useState(initialUrlState.previewText);
@@ -243,20 +251,19 @@ export function GeneratorApp() {
     return () => clearTimeout(id);
   }, [fontInfo, selectedChar, options]);
 
-  // Fetch the stroke-order reference for the selected char (memoized per
-  // character by the provider). Failures (offline, rate limit) degrade to
+  // Fetch the stroke-order reference variants for the selected char (memoized
+  // per character by each provider). Failures (offline, rate limit) degrade to
   // "no reference" and the pipeline falls back to heuristic ordering.
   useEffect(() => {
     if (pipeline !== 'geometry' || previewMode !== 'glyph' || !selectedChar) return;
     let cancelled = false;
-    setRefGlyph(undefined);
-    kanjiVGProvider
-      .get(selectedChar)
-      .then((ref) => {
-        if (!cancelled) setRefGlyph(ref);
+    setRefGlyphs(undefined);
+    collectReferences(selectedChar, strokeOrderProviders)
+      .then((refs) => {
+        if (!cancelled) setRefGlyphs(refs);
       })
       .catch(() => {
-        if (!cancelled) setRefGlyph(null);
+        if (!cancelled) setRefGlyphs([]);
       });
     return () => {
       cancelled = true;
@@ -269,12 +276,12 @@ export function GeneratorApp() {
       setGeoResult(null);
       return;
     }
-    // Wait for the reference fetch to settle so a single pipeline run sees it.
-    if (refGlyph === undefined) {
+    // Wait for the reference fetches to settle so a single pipeline run sees them.
+    if (refGlyphs === undefined) {
       setProcessing(true);
       return;
     }
-    const cacheKey = `${selectedChar}:${options.bezierTolerance}:${JSON.stringify(geometryOptions)}:${refGlyph ? 'ref' : 'noref'}`;
+    const cacheKey = `${selectedChar}:${options.bezierTolerance}:${JSON.stringify(geometryOptions)}:${refGlyphs.map((r) => r.source).join('+') || 'noref'}`;
     const cached = geoResultsCache.current.get(cacheKey);
     if (cached) {
       setGeoResult(cached);
@@ -288,7 +295,7 @@ export function GeneratorApp() {
       // the (synchronous) pipeline can use it.
       if (geometryOptions.medialMethod === 'straight-skeleton') await initStraightSkeleton();
       if (cancelled) return;
-      const res = processGlyphGeometry(fontInfo, selectedChar, geometryOptions, options.bezierTolerance, refGlyph);
+      const res = processGlyphGeometry(fontInfo, selectedChar, geometryOptions, options.bezierTolerance, refGlyphs);
       if (res) geoResultsCache.current.set(cacheKey, res);
       setGeoResult(res);
       setProcessing(false);
@@ -297,7 +304,7 @@ export function GeneratorApp() {
       cancelled = true;
       clearTimeout(id);
     };
-  }, [pipeline, previewMode, fontInfo, selectedChar, geometryOptions, options.bezierTolerance, refGlyph]);
+  }, [pipeline, previewMode, fontInfo, selectedChar, geometryOptions, options.bezierTolerance, refGlyphs]);
 
   // The result whose strokes drive the animation controls / loop for the active pipeline.
   const animResult: PipelineResult | GeometryPipelineResult | null = pipeline === 'geometry' ? geoResult : result;

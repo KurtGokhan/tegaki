@@ -11,6 +11,7 @@ import { writeDebugOutput } from '../debug/output.ts';
 import { downloadFont } from '../font/download.ts';
 import { enumerateFontChars } from '../font/parse.ts';
 import { initStraightSkeleton } from '../geometry/face-straight-skeleton.ts';
+import { createHersheyProvider } from '../stroke-order/hershey.ts';
 import { createKanjiVGProvider } from '../stroke-order/kanjivg.ts';
 import { createKanjiVGFileLoader } from '../stroke-order/kanjivg-fetch.ts';
 
@@ -137,9 +138,9 @@ export const tegakiProgram = createPadrone('tegaki')
         const fontInfo = await parseFont(fontBuffer, extraFontBuffers, family);
 
         await initStraightSkeleton();
-        const provider = createKanjiVGProvider(createKanjiVGFileLoader());
+        const providers = [createKanjiVGProvider(createKanjiVGFileLoader()), createHersheyProvider()];
 
-        const { summary, glyphs } = await runStrokeOrderReport(fontInfo, chars, provider, {
+        const { summary, glyphs } = await runStrokeOrderReport(fontInfo, chars, providers, {
           onProgress: (done, total, char) => {
             progress?.update({ message: `Matching ${char || 'done'} (${done}/${total})`, progress: total > 0 ? done / total : 1 });
           },

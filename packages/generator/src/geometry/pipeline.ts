@@ -52,9 +52,12 @@ export interface GeometryPipelineInput {
    * Stroke-order reference for this character (raw dataset frame), fetched by
    * the caller — providers are async, the pipeline is not. The pipeline
    * registers it onto the glyph ink and, per `GeometryOptions.strokeOrder`,
-   * lets it decide draw order and pen direction.
+   * lets it decide draw order and pen direction. An array supplies VARIANTS
+   * of the same character from different datasets (KanjiVG's print-style
+   * Latin vs Hershey's cursive) — each is evaluated against the extracted
+   * ink and the best-matching one is adopted.
    */
-  reference?: ReferenceGlyph;
+  reference?: ReferenceGlyph | ReferenceGlyph[];
 }
 
 /** Union-find helper for grouping adjacent junction faces. */
@@ -499,49 +502,80 @@ export function runGeometryPipeline(
   let strokeOrderSource: GeometryPipelineResult['strokeOrderSource'] = 'heuristic';
   let strokeOrderRegrouped = false;
   let outStrokes = geoStrokes;
-  if (input.reference) {
-    reference = registerReference(input.reference, pathBBox);
+  const referenceVariants = input.reference ? (Array.isArray(input.reference) ? input.reference : [input.reference]) : [];
+  if (referenceVariants.length > 0) {
+    reference = registerReference(referenceVariants[0]!, pathBBox);
     if (geometryOptions.strokeOrder !== 'heuristic' && geoStrokes.length > 0) {
       const glyphDiag = Math.hypot(pathBBox.x2 - pathBBox.x1, pathBBox.y2 - pathBBox.y1);
-      const refPolylines = reference.strokes.map((s) => s.points);
       // Matched pairs (0.01–0.06 measured on Klee One) sit far below
       // wrong-stroke assignments (≥ ~0.15); between them a generous margin.
       const AUTO_MAX_MEAN_COST = 0.15;
       const isClean = (m: StrokeMatchResult) => m.extractedCount === m.referenceCount && m.meanCost <= AUTO_MAX_MEAN_COST;
-      let match = matchStrokes(
-        geoStrokes.map((g) => g.points),
-        refPolylines,
-        glyphDiag,
-      );
-      let clean = isClean(match);
-      if (!clean) {
-        const proposal = regroupStrokesByReference(geoStrokes, refPolylines, {
-          spacing: resolved.resampleSpacing,
-          minRunLength: resolved.resampleSpacing * 3,
+      // Evaluate every reference variant independently — register, match,
+      // and (when unclean) attempt a re-grouping — then adopt whichever
+      // fits the extracted ink best: clean beats unclean, then count
+      // agreement, then mean cost. Variants let handwriting STYLES coexist:
+      // KanjiVG's print-style m (three strokes) loses to Hershey's cursive
+      // m (one trajectory) on a cursive font, and the reverse on a print
+      // font. Only the winner's warnings surface.
+      const evals = referenceVariants.map((variant) => {
+        const registered = registerReference(variant, pathBBox);
+        const refPolylines = registered.strokes.map((s) => s.points);
+        let match = matchStrokes(
+          geoStrokes.map((g) => g.points),
+          refPolylines,
           glyphDiag,
-          maxMeanCost: AUTO_MAX_MEAN_COST,
-        });
-        if (proposal) {
-          const candidate = proposal.strokes.map((gs) => ({ ...gs, points: simplifyStroke(gs.points, simplifyEps) }));
-          const rematch = matchStrokes(
-            candidate.map((g) => g.points),
-            refPolylines,
+        );
+        let clean = isClean(match);
+        let variantStrokes = geoStrokes;
+        let regrouped = false;
+        const variantWarnings: string[] = [];
+        if (!clean) {
+          const proposal = regroupStrokesByReference(geoStrokes, refPolylines, {
+            spacing: resolved.resampleSpacing,
+            minRunLength: resolved.resampleSpacing * 3,
             glyphDiag,
-          );
-          if (isClean(rematch)) {
-            warnings.push(
-              `stroke order: re-grouped ${geoStrokes.length} extracted strokes into ${candidate.length} matching the dataset (${proposal.splits} split, ${proposal.merges} merged${proposal.retraces > 0 ? `, ${proposal.retraces} retraced` : ''}${proposal.pruned > 0 ? `, ${Math.round(proposal.pruned)} units of duplicated ink pruned` : ''})`,
+            maxMeanCost: AUTO_MAX_MEAN_COST,
+          });
+          if (proposal) {
+            const candidate = proposal.strokes.map((gs) => ({ ...gs, points: simplifyStroke(gs.points, simplifyEps) }));
+            const rematch = matchStrokes(
+              candidate.map((g) => g.points),
+              refPolylines,
+              glyphDiag,
             );
-            outStrokes = candidate;
-            match = rematch;
-            clean = true;
-            strokeOrderRegrouped = true;
-          } else {
-            warnings.push(
-              `stroke order: dataset re-grouping rejected (${rematch.extractedCount} strokes vs ${rematch.referenceCount} reference, cost ${rematch.meanCost.toFixed(3)})`,
-            );
+            if (isClean(rematch)) {
+              variantWarnings.push(
+                `stroke order: re-grouped ${geoStrokes.length} extracted strokes into ${candidate.length} matching the dataset (${proposal.splits} split, ${proposal.merges} merged${proposal.retraces > 0 ? `, ${proposal.retraces} retraced` : ''}${proposal.pruned > 0 ? `, ${Math.round(proposal.pruned)} units of duplicated ink pruned` : ''})`,
+              );
+              variantStrokes = candidate;
+              match = rematch;
+              clean = true;
+              regrouped = true;
+            } else {
+              variantWarnings.push(
+                `stroke order: dataset re-grouping rejected (${rematch.extractedCount} strokes vs ${rematch.referenceCount} reference, cost ${rematch.meanCost.toFixed(3)})`,
+              );
+            }
           }
         }
+        return { registered, match, clean, strokes: variantStrokes, regrouped, warnings: variantWarnings };
+      });
+      evals.sort(
+        (a, b) =>
+          Number(b.clean) - Number(a.clean) ||
+          Number(b.match.extractedCount === b.match.referenceCount) - Number(a.match.extractedCount === a.match.referenceCount) ||
+          a.match.meanCost - b.match.meanCost,
+      );
+      const bestEval = evals[0]!;
+      reference = bestEval.registered;
+      outStrokes = bestEval.strokes;
+      strokeOrderRegrouped = bestEval.regrouped;
+      const match = bestEval.match;
+      const clean = bestEval.clean;
+      warnings.push(...bestEval.warnings);
+      if (referenceVariants.length > 1) {
+        warnings.push(`stroke order: adopted '${bestEval.registered.source}' among ${referenceVariants.length} reference variants`);
       }
       const countsAgree = match.extractedCount === match.referenceCount;
       if (clean || geometryOptions.strokeOrder === 'dataset') {

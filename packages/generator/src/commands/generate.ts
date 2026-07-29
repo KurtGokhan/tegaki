@@ -247,10 +247,11 @@ export function processGlyphGeometry(
   char: string,
   geometryOptions?: GeometryOptions,
   bezierTolerance?: number,
-  reference?: ReferenceGlyph | null,
+  reference?: ReferenceGlyph | ReferenceGlyph[] | null,
 ): GeometryPipelineResult | null {
   const rawGlyph = extractGlyph(fontInfo.font, char, fontInfo.extraFonts);
   if (!rawGlyph) return null;
+  const hasReference = Array.isArray(reference) ? reference.length > 0 : reference != null;
   return runGeometryPipeline(
     {
       char: rawGlyph.char,
@@ -262,7 +263,7 @@ export function processGlyphGeometry(
       descender: fontInfo.descender,
       unitsPerEm: fontInfo.unitsPerEm,
       rtl: isRtlChar(char),
-      ...(reference ? { reference } : {}),
+      ...(hasReference && reference ? { reference } : {}),
     },
     rawGlyph,
     geometryOptions,

@@ -11,6 +11,7 @@ import { processGlyphGeometry } from '../commands/generate.ts';
 import type { GeometryOptions } from '../geometry/types.ts';
 import { DEFAULT_GEOMETRY_OPTIONS } from '../geometry/types.ts';
 import { matchStrokes } from '../stroke-order/match.ts';
+import { collectReferences } from '../stroke-order/providers.ts';
 import type { StrokeOrderProvider } from '../stroke-order/types.ts';
 
 export interface GlyphStrokeOrderReport {
@@ -87,9 +88,10 @@ export interface StrokeOrderReportResult {
 export async function runStrokeOrderReport(
   fontInfo: ParsedFontInfo,
   chars: string,
-  provider: StrokeOrderProvider,
+  provider: StrokeOrderProvider | StrokeOrderProvider[],
   options: { geometryOptions?: GeometryOptions; onProgress?: (done: number, total: number, char: string) => void } = {},
 ): Promise<StrokeOrderReportResult> {
+  const providers = Array.isArray(provider) ? provider : [provider];
   const geometryOptions = options.geometryOptions ?? DEFAULT_GEOMETRY_OPTIONS;
   const uniqueChars = [...new Set([...chars])].filter((c) => c.trim().length > 0);
   const glyphs: GlyphStrokeOrderReport[] = [];
@@ -98,8 +100,8 @@ export async function runStrokeOrderReport(
   for (let i = 0; i < uniqueChars.length; i++) {
     const char = uniqueChars[i]!;
     options.onProgress?.(i, uniqueChars.length, char);
-    const reference = await provider.get(char).catch(() => null);
-    const result = processGlyphGeometry(fontInfo, char, geometryOptions, undefined, reference);
+    const references = await collectReferences(char, providers);
+    const result = processGlyphGeometry(fontInfo, char, geometryOptions, undefined, references);
     if (!result) {
       missingGlyph++;
       continue;

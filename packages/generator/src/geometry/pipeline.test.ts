@@ -443,6 +443,45 @@ describe('geometry pipeline — dataset re-grouping', () => {
     expect(stroke.points[stroke.points.length - 1]!.x).toBeGreaterThan(500);
   });
 
+  test('reference variants: the best-matching dataset wins (print vs cursive styles)', () => {
+    // One vertical bar of ink. Variant 'print3' prescribes three horizontal
+    // strokes (a hopeless style mismatch); variant 'cursive1' prescribes the
+    // single vertical. The pipeline must evaluate both and adopt cursive1.
+    const commands = commandsFromPolygons(rect(400, 100, 480, 900));
+    const bar = (y: number) => ({
+      points: [
+        { x: 10, y },
+        { x: 100, y },
+      ],
+    });
+    const print3 = {
+      char: 'ǀ',
+      strokes: [bar(20), bar(55), bar(90)],
+      viewBox: { width: 109, height: 109 },
+      source: 'print3',
+      license: 'test',
+    };
+    const cursive1 = {
+      char: 'ǀ',
+      strokes: [
+        {
+          points: [
+            { x: 55, y: 10 },
+            { x: 55, y: 100 },
+          ],
+        },
+      ],
+      viewBox: { width: 109, height: 109 },
+      source: 'cursive1',
+      license: 'test',
+    };
+    const r = runGlyph('ǀ', commands, [print3, cursive1]);
+    expect(r.strokeOrderSource).toBe('dataset');
+    expect(r.reference?.source).toBe('cursive1');
+    expect(r.strokesFontUnits.length).toBe(1);
+    expect(r.warnings.some((w) => w.includes("adopted 'cursive1'"))).toBe(true);
+  });
+
   test('a rejected re-grouping keeps the heuristic strokes untouched', () => {
     // Two disjoint bars against one diagonal reference nowhere near them: the
     // merge gap check fails and any candidate re-matches unclean, so the
