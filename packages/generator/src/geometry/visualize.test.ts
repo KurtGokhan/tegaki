@@ -72,3 +72,60 @@ describe('order stage', () => {
     expect(svg).not.toContain('stroke="#999"');
   });
 });
+
+describe('reference stage', () => {
+  test('without a reference the stage says so instead of rendering nothing', () => {
+    const r = run('I', commandsFromPolygons(rect(400, 100, 520, 900)));
+    const svg = renderGeometryStage(r, 'reference');
+    expect(svg).toContain('no reference data');
+  });
+
+  test('registered reference strokes render dashed with badges, counts, and attribution', () => {
+    const r = run('I', commandsFromPolygons(rect(400, 100, 520, 900)));
+    r.reference = {
+      source: 'kanjivg',
+      license: 'KanjiVG © Ulrich Apel, CC BY-SA 3.0',
+      transform: { scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 },
+      strokes: [
+        {
+          points: [
+            { x: 460, y: 120 },
+            { x: 460, y: 880 },
+          ],
+        },
+      ],
+    };
+    const svg = renderGeometryStage(r, 'reference');
+    expect(svg).toContain('stroke-dasharray');
+    expect(svg).toContain('>1</text>');
+    expect(svg).toContain('1 extracted / 1 reference');
+    expect(svg).toContain('CC BY-SA');
+    expect(svg).not.toContain('no reference data');
+  });
+
+  test('a count mismatch is flagged in red', () => {
+    const r = run('I', commandsFromPolygons(rect(400, 100, 520, 900)));
+    r.reference = {
+      source: 'kanjivg',
+      license: 'test',
+      transform: { scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 },
+      strokes: [
+        {
+          points: [
+            { x: 460, y: 120 },
+            { x: 460, y: 880 },
+          ],
+        },
+        {
+          points: [
+            { x: 400, y: 500 },
+            { x: 520, y: 500 },
+          ],
+        },
+      ],
+    };
+    const svg = renderGeometryStage(r, 'reference');
+    expect(svg).toContain('1 extracted / 2 reference');
+    expect(svg).toContain('#c0392b');
+  });
+});

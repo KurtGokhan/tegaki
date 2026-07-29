@@ -36,3 +36,20 @@ export interface StrokeOrderProvider {
   /** Reference strokes for a character, or null when the dataset has no entry. */
   get(char: string): Promise<ReferenceGlyph | null>;
 }
+
+/** Affine map from dataset frame to font units: p' = p·scale + offset. */
+export interface ReferenceTransform {
+  scaleX: number;
+  scaleY: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+/** A ReferenceGlyph registered onto a specific glyph's ink (font units, y-down). */
+export interface RegisteredReference {
+  source: string;
+  license: string;
+  /** Reference strokes mapped into the glyph's font-unit space, draw order preserved. */
+  strokes: ReferenceStroke[];
+  transform: ReferenceTransform;
+}

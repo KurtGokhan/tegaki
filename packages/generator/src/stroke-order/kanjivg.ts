@@ -15,6 +15,14 @@ import type { ReferenceGlyph, ReferenceStroke, StrokeOrderProvider } from './typ
 
 export const KANJIVG_LICENSE = 'KanjiVG © Ulrich Apel, CC BY-SA 3.0 (https://kanjivg.tagaini.net)';
 
+/** Pinned KanjiVG release tag so generated data is reproducible. */
+export const KANJIVG_RELEASE = 'r20250816';
+
+/** Raw-file URL for a character at the pinned release (CORS-open, browser-fetchable). */
+export function kanjiVGUrl(char: string, release: string = KANJIVG_RELEASE): string {
+  return `https://raw.githubusercontent.com/KanjiVG/kanjivg/${release}/kanji/${kanjiVGFilename(char)}`;
+}
+
 /** KanjiVG file basename for a character: 5-hex-digit lowercase codepoint. */
 export function kanjiVGFilename(char: string): string {
   const cp = char.codePointAt(0);

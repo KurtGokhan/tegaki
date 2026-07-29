@@ -5,10 +5,7 @@
 
 import { existsSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { kanjiVGFilename } from './kanjivg.ts';
-
-/** Pinned KanjiVG release tag so generated bundles are reproducible. */
-export const KANJIVG_RELEASE = 'r20250816';
+import { KANJIVG_RELEASE, kanjiVGFilename, kanjiVGUrl } from './kanjivg.ts';
 
 export const KANJIVG_CACHE_DIR = '.cache/kanjivg';
 
@@ -39,7 +36,7 @@ export function createKanjiVGFileLoader(options: KanjiVGLoaderOptions = {}): (ch
       if (existsSync(missPath)) return null;
     }
 
-    const url = `https://raw.githubusercontent.com/KanjiVG/kanjivg/${release}/kanji/${filename}`;
+    const url = kanjiVGUrl(char, release);
     const response = await fetch(url);
     mkdirSync(cacheDir, { recursive: true });
     if (response.status === 404) {

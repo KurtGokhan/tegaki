@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LineCap } from 'tegaki';
 import {
   CHARSET_PRESETS,
+  createKanjiVGProvider,
   DEFAULT_GEOMETRY_OPTIONS,
   DEFAULT_OPTIONS,
   EXAMPLE_FONTS,
@@ -11,12 +12,15 @@ import {
   type GeometryOptions,
   type GeometryPipelineResult,
   initStraightSkeleton,
+  kanjiVGUrl,
   type ParsedFontInfo,
   type PipelineOptions,
   type PipelineResult,
   parseFont,
   processGlyph,
   processGlyphGeometry,
+  type RegisteredReference,
+  registerReference,
   type SkeletonMethod,
 } from 'tegaki-generator';
 import { ZoomCanvas } from '../reactive-canvas.tsx';
@@ -38,6 +42,16 @@ import { AnimationControls, GeometryStageRenderer, StageRenderer } from './stage
 import { TextPreview } from './TextPreview.tsx';
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+// Stroke-order reference data, fetched per character straight from the pinned
+// KanjiVG release (raw.githubusercontent.com is CORS-open). The provider
+// memoizes parses; module scope makes the cache survive re-renders.
+const kanjiVGProvider = createKanjiVGProvider(async (char) => {
+  const response = await fetch(kanjiVGUrl(char));
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`KanjiVG fetch failed: ${response.status}`);
+  return response.text();
+});
 
 export function GeneratorApp() {
   const [initialUrlState] = useState(parseUrlState);
@@ -107,6 +121,7 @@ export function GeneratorApp() {
   const [geometryOptions, setGeometryOptions] = useState<GeometryOptions>(initialUrlState.geometryOptions);
   const [geoResult, setGeoResult] = useState<GeometryPipelineResult | null>(null);
   const geoResultsCache = useRef(new Map<string, GeometryPipelineResult>());
+  const [geoReference, setGeoReference] = useState<RegisteredReference | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>(initialUrlState.previewMode);
   const [previewText, setPreviewText] = useState(initialUrlState.previewText);
@@ -255,6 +270,35 @@ export function GeneratorApp() {
       clearTimeout(id);
     };
   }, [pipeline, previewMode, fontInfo, selectedChar, geometryOptions, options.bezierTolerance]);
+
+  // Fetch + register the stroke-order reference for the current geometry
+  // result. Registration is cheap; the network hit is memoized per character
+  // by the provider. Failures (offline, rate limit) degrade to "no reference".
+  useEffect(() => {
+    if (!geoResult) {
+      setGeoReference(null);
+      return;
+    }
+    let cancelled = false;
+    kanjiVGProvider
+      .get(geoResult.char)
+      .then((ref) => {
+        if (!cancelled) setGeoReference(ref ? registerReference(ref, geoResult.pathBBox) : null);
+      })
+      .catch(() => {
+        if (!cancelled) setGeoReference(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [geoResult]);
+
+  // The reference rides on the result object so renderGeometryStage stays a
+  // single-signature (result, stage) renderer.
+  const geoResultWithReference = useMemo(
+    () => (geoResult && geoReference ? { ...geoResult, reference: geoReference } : geoResult),
+    [geoResult, geoReference],
+  );
 
   // The result whose strokes drive the animation controls / loop for the active pipeline.
   const animResult: PipelineResult | GeometryPipelineResult | null = pipeline === 'geometry' ? geoResult : result;
@@ -1000,7 +1044,9 @@ export function GeneratorApp() {
                   ) : (
                     <>
                       {!processing && !geoResult && fontInfo && <p className="text-gray-400">No glyph data for "{selectedChar}"</p>}
-                      {!processing && geoResult && <GeometryStageRenderer result={geoResult} stage={geometryStage} animTime={animTime} />}
+                      {!processing && geoResultWithReference && (
+                        <GeometryStageRenderer result={geoResultWithReference} stage={geometryStage} animTime={animTime} />
+                      )}
                     </>
                   )}
                 </div>

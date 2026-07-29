@@ -13,6 +13,7 @@
 // so the y-down convention never needs special-casing.
 
 import type { BBox, Point, Stroke } from 'tegaki';
+import type { RegisteredReference } from '../stroke-order/types.ts';
 
 /** A closed outline polygon (no duplicate closing point). */
 export interface Contour {
@@ -246,4 +247,10 @@ export interface GeometryPipelineResult {
   strokesFontUnits: (Stroke & { animationDuration: number; delay: number; length: number })[];
   /** Non-fatal issues encountered (e.g. overlapping contours). */
   warnings: string[];
+  /**
+   * Dataset stroke-order reference registered onto this glyph, attached by the
+   * caller after the (synchronous) pipeline runs — providers are async. Feeds
+   * the 'reference' visualization stage and, later, dataset-driven ordering.
+   */
+  reference?: RegisteredReference;
 }

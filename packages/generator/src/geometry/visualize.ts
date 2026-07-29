@@ -7,7 +7,7 @@ import { STROKE_COLORS } from '../processing/visualize.ts';
 import { add, scale } from './primitives.ts';
 import type { GeometryPipelineResult } from './types.ts';
 
-export type GeometryStage = 'contours' | 'corners' | 'cuts' | 'faces' | 'segments' | 'strokes' | 'order';
+export type GeometryStage = 'contours' | 'corners' | 'cuts' | 'faces' | 'segments' | 'strokes' | 'order' | 'reference';
 
 interface ViewBox {
   vx: number;
@@ -70,6 +70,8 @@ export function renderGeometryStage(result: GeometryPipelineResult, stage: Geome
       return renderStrokes(result);
     case 'order':
       return renderOrder(result);
+    case 'reference':
+      return renderReference(result);
   }
 }
 
@@ -291,6 +293,65 @@ function renderOrder(result: GeometryPipelineResult): string {
       `  <text x="${start.x.toFixed(2)}" y="${(start.y + vb.u * 4).toFixed(2)}" text-anchor="middle" font-size="${(vb.u * 11).toFixed(2)}" fill="white" font-family="sans-serif">${i + 1}</text>`,
     );
   });
+  return svgWrap(vb, parts.join('\n'));
+}
+
+/**
+ * Reference overlay: the registered dataset strokes (dashed, order-ramp
+ * colored, numbered, with direction arrows) over the extracted strokes
+ * (neutral gray). Registration quality reads directly — dashed lines should
+ * lie on the gray ink. A count line summarizes agreement; the dataset
+ * attribution renders with the data (CC BY-SA requires it wherever the
+ * reference strokes are shown).
+ */
+function renderReference(result: GeometryPipelineResult): string {
+  const vb = viewBox(result);
+  const parts = [outlinePaths(result, vb.u, 'rgba(0,0,0,0.04)')];
+
+  // Extracted strokes: neutral underlay for the overlay comparison.
+  for (const stroke of result.strokesFontUnits) {
+    const pts = stroke.points;
+    if (pts.length === 1) {
+      parts.push(`  <circle cx="${pts[0]!.x.toFixed(2)}" cy="${pts[0]!.y.toFixed(2)}" r="${(vb.u * 2).toFixed(2)}" fill="#8899aa"/>`);
+      continue;
+    }
+    parts.push(
+      `  <path d="${polyD(pts)}" fill="none" stroke="#8899aa" stroke-width="${(vb.u * 2.2).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>`,
+    );
+  }
+
+  const ref = result.reference;
+  if (!ref) {
+    parts.push(
+      `  <text x="${(vb.vx + vb.vw / 2).toFixed(2)}" y="${(vb.vy + vb.vh / 2).toFixed(2)}" text-anchor="middle" font-size="${(vb.u * 12).toFixed(2)}" fill="#999" font-family="sans-serif">no reference data</text>`,
+    );
+    return svgWrap(vb, parts.join('\n'));
+  }
+
+  const n = ref.strokes.length;
+  ref.strokes.forEach((stroke, i) => {
+    const color = orderColor(i, n);
+    const pts = stroke.points;
+    if (pts.length < 2) return;
+    parts.push(
+      `  <path d="${polyD(pts)}" fill="none" stroke="${color}" stroke-width="${(vb.u * 1.4).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="${(vb.u * 4).toFixed(2)} ${(vb.u * 2.5).toFixed(2)}"/>`,
+    );
+    parts.push(penDirectionArrows(pts, vb.u, color));
+    const start = pts[0]!;
+    parts.push(`  <circle cx="${start.x.toFixed(2)}" cy="${start.y.toFixed(2)}" r="${(vb.u * 7).toFixed(2)}" fill="${color}"/>`);
+    parts.push(
+      `  <text x="${start.x.toFixed(2)}" y="${(start.y + vb.u * 3.5).toFixed(2)}" text-anchor="middle" font-size="${(vb.u * 10).toFixed(2)}" fill="white" font-family="sans-serif">${i + 1}</text>`,
+    );
+  });
+
+  const counts = `${result.strokesFontUnits.length} extracted / ${n} reference`;
+  const countColor = result.strokesFontUnits.length === n ? '#3a7d44' : '#c0392b';
+  parts.push(
+    `  <text x="${(vb.vx + vb.u * 4).toFixed(2)}" y="${(vb.vy + vb.u * 14).toFixed(2)}" font-size="${(vb.u * 11).toFixed(2)}" fill="${countColor}" font-family="sans-serif">${counts}</text>`,
+  );
+  parts.push(
+    `  <text x="${(vb.vx + vb.u * 4).toFixed(2)}" y="${(vb.vy + vb.vh - vb.u * 5).toFixed(2)}" font-size="${(vb.u * 6).toFixed(2)}" fill="#999" font-family="sans-serif">${ref.license}</text>`,
+  );
   return svgWrap(vb, parts.join('\n'));
 }
 

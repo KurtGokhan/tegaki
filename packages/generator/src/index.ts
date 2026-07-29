@@ -37,5 +37,19 @@ export { type GeometryStage, renderGeometryStage } from './geometry/visualize.ts
 export { glyphToAnimatedSVG } from './processing/animated-svg.ts';
 export { isRtlChar, isRtlCodepoint } from './processing/rtl.ts';
 export { renderStage, STROKE_COLORS, type VisualizationStage } from './processing/visualize.ts';
-export { createKanjiVGProvider, KANJIVG_LICENSE, kanjiVGFilename, parseKanjiVGSvg } from './stroke-order/kanjivg.ts';
-export type { ReferenceGlyph, ReferenceStroke, StrokeOrderProvider } from './stroke-order/types.ts';
+export {
+  createKanjiVGProvider,
+  KANJIVG_LICENSE,
+  KANJIVG_RELEASE,
+  kanjiVGFilename,
+  kanjiVGUrl,
+  parseKanjiVGSvg,
+} from './stroke-order/kanjivg.ts';
+export { referenceBBox, registerReference } from './stroke-order/register.ts';
+export type {
+  ReferenceGlyph,
+  ReferenceStroke,
+  ReferenceTransform,
+  RegisteredReference,
+  StrokeOrderProvider,
+} from './stroke-order/types.ts';
