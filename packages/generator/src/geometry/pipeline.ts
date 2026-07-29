@@ -529,7 +529,7 @@ export function runGeometryPipeline(
           );
           if (isClean(rematch)) {
             warnings.push(
-              `stroke order: re-grouped ${geoStrokes.length} extracted strokes into ${candidate.length} matching the dataset (${proposal.splits} split, ${proposal.merges} merged)`,
+              `stroke order: re-grouped ${geoStrokes.length} extracted strokes into ${candidate.length} matching the dataset (${proposal.splits} split, ${proposal.merges} merged${proposal.retraces > 0 ? `, ${proposal.retraces} retraced` : ''})`,
             );
             outStrokes = candidate;
             match = rematch;

@@ -16,7 +16,10 @@
 //   meet. A cursive kana like れ legitimately bends far beyond the
 //   continuation gate's 75°, so the heuristic splits what the dataset knows
 //   is one stroke; strokes drawn as separate overlapping contours land in
-//   different pipeline regions and could never merge before.
+//   different pipeline regions and could never merge before. When the join
+//   point sits on a piece's INTERIOR rather than an endpoint, the chain
+//   RETRACES that piece's own polyline (see the retrace note in the merge
+//   phase) — the pen legitimately travels a fused corridor twice.
 //
 // Edge labels use nearest-reference distance plus a DIRECTION penalty: where
 // a stroke crosses another, its points pass within half a width of the other
@@ -51,6 +54,8 @@ export interface RegroupResult {
   splits: number;
   /** End-to-end links applied between same-reference pieces. */
   merges: number;
+  /** Of merges: links that re-travel a piece's own polyline (fused corridors). */
+  retraces: number;
 }
 
 interface RefIndex {
@@ -97,6 +102,33 @@ function projectToRef(p: Point, ref: RefIndex): Projection {
         tangent: len > 0 ? { x: abx / len, y: aby / len } : { x: 0, y: 0 },
       };
     }
+  }
+  return best;
+}
+
+interface PolylineHit {
+  /** Distance from the query point to the polyline. */
+  d: number;
+  /** Segment index i (hit lies on pts[i] → pts[i+1]). */
+  seg: number;
+  /** The hit point, width interpolated. */
+  q: AxisPoint;
+}
+
+/** Nearest point of a piece polyline to `p` (for retrace entry points). */
+function projectOntoPolyline(pts: AxisPoint[], p: Point): PolylineHit | null {
+  if (pts.length < 2) return null;
+  let best: PolylineHit | null = null;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]!;
+    const b = pts[i]!;
+    const abx = b.x - a.x;
+    const aby = b.y - a.y;
+    const len2 = abx * abx + aby * aby;
+    const s = len2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2)) : 0;
+    const q = { x: a.x + abx * s, y: a.y + aby * s, width: a.width + (b.width - a.width) * s };
+    const d = Math.hypot(p.x - q.x, p.y - q.y);
+    if (!best || d < best.d) best = { d, seg: i - 1, q };
   }
   return best;
 }
@@ -331,34 +363,69 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
   }
 
   let merges = 0;
+  let retraces = 0;
+  // A join gap spans at most the junction ink between the two pieces (~ a
+  // stroke width where they cross another stroke); anything larger means the
+  // reference genuinely lifts the pen or the assignment is off.
+  const tolerance = (a: AxisPoint, b: AxisPoint) => Math.max(2 * Math.max(a.width, b.width), options.glyphDiag * 0.05);
+  const appendDedup = (dst: AxisPoint[], src: AxisPoint[]) => {
+    for (const p of src) {
+      const last = dst[dst.length - 1];
+      if (last && dist(last, p) < 1e-6) continue;
+      dst.push({ ...p });
+    }
+  };
+
   for (const infos of groups.values()) {
     infos.sort((a, b) => a.tMean - b.tMean);
     let current: GeoStroke | null = null;
     for (const info of infos) {
+      const piece = info.piece;
       if (!current) {
-        current = info.piece;
+        current = piece;
         continue;
       }
       const tail = current.points[current.points.length - 1]!;
-      const head = info.piece.points[0]!;
-      const gap = dist(tail, head);
-      // A gap spans at most the junction ink between the two pieces (~ a
-      // stroke width where they cross another stroke); anything larger means
-      // the reference genuinely lifts the pen or the assignment is off.
-      const tolerance = Math.max(2 * Math.max(tail.width, head.width), options.glyphDiag * 0.05);
-      if (gap <= tolerance) {
-        const joined = gap < 1e-6 ? info.piece.points.slice(1) : info.piece.points;
-        current.points = [...current.points, ...joined];
-        current.segmentIndices = [...current.segmentIndices, ...info.piece.segmentIndices];
-        merges++;
+      const head = piece.points[0]!;
+      const joined = [...current.points];
+
+      if (dist(tail, head) <= tolerance(tail, head)) {
+        appendDedup(joined, piece.points);
       } else {
-        out.push(current);
-        current = info.piece;
+        // RETRACE joins: the reference can travel a fused ink corridor twice
+        // (れ's descent and ascent share ONE extracted diagonal), so the two
+        // pieces don't meet end-to-end — but the join point sits on a piece's
+        // INTERIOR. Re-travel that piece's own polyline instead of bridging
+        // across empty space: enter the next piece where the current tail
+        // touches it, walk back to its head, then forward through it again —
+        // or symmetrically walk the current piece back from its tail to where
+        // the next head touches it. Font ink only; the re-match decides if
+        // the doubled travel is what the reference actually prescribes.
+        const enter = projectOntoPolyline(piece.points, tail);
+        const back = projectOntoPolyline(current.points, head);
+        const enterOk = enter !== null && enter.d <= tolerance(tail, enter.q);
+        const backOk = back !== null && back.d <= tolerance(head, back.q);
+        if (enterOk && (!backOk || enter.d <= back.d)) {
+          appendDedup(joined, [enter.q, ...piece.points.slice(0, enter.seg + 1).reverse()]);
+          appendDedup(joined, piece.points);
+          retraces++;
+        } else if (backOk) {
+          appendDedup(joined, [...current.points.slice(back.seg + 1, current.points.length - 1).reverse(), back.q]);
+          appendDedup(joined, piece.points);
+          retraces++;
+        } else {
+          out.push(current);
+          current = piece;
+          continue;
+        }
       }
+      current.points = joined;
+      current.segmentIndices = [...current.segmentIndices, ...piece.segmentIndices];
+      merges++;
     }
     if (current) out.push(current);
   }
 
   if (splits === 0 && merges === 0) return null;
-  return { strokes: out, splits, merges };
+  return { strokes: out, splits, merges, retraces };
 }

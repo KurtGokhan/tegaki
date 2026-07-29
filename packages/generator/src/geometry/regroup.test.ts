@@ -166,6 +166,98 @@ describe('regroupStrokesByReference — merging', () => {
     expect(regroupStrokesByReference([a, b], refs, OPTIONS)).toBeNull();
   });
 
+  test('retrace within the NEXT piece: enter its interior, walk to its head, then forward (れ corridor)', () => {
+    // Reference travels right, down a corridor, back UP the same corridor,
+    // then right again — the font fuses the double-travel into one diagonal,
+    // so the extracted continuation piece B starts at the corridor's FAR end
+    // while piece A's tail touches B's interior.
+    const a = stroke(
+      pts(
+        [
+          [0, 0],
+          [95, 0],
+        ],
+        30,
+      ),
+    );
+    const b = stroke(
+      pts(
+        [
+          [100, 200],
+          [100, 5],
+          [300, 5],
+        ],
+        30,
+      ),
+    );
+    const refs = [
+      ref([
+        [0, 0],
+        [100, 0],
+        [100, 200],
+        [100, 0],
+        [300, 0],
+      ]),
+    ];
+    const result = regroupStrokesByReference([a, b], refs, OPTIONS);
+    expect(result).not.toBeNull();
+    expect(result!.merges).toBe(1);
+    expect(result!.retraces).toBe(1);
+    expect(result!.strokes.length).toBe(1);
+    const merged = result!.strokes[0]!;
+    // Path: entry → down the corridor to its bottom → back up → out right.
+    expect(merged.points[0]!.x).toBe(0);
+    expect(Math.max(...ys(merged))).toBe(200);
+    const bottomIdx = merged.points.findIndex((p) => p.y === 200);
+    expect(bottomIdx).toBeGreaterThan(0);
+    expect(bottomIdx).toBeLessThan(merged.points.length - 1);
+    expect(merged.points[merged.points.length - 1]!.x).toBe(300);
+  });
+
+  test('retrace within the CURRENT piece: walk back from its tail to where the next head touches', () => {
+    // Piece A ends deep in the corridor; piece B continues from the
+    // corridor's MOUTH — the pen must back out of A along A's own ink.
+    const a = stroke(
+      pts(
+        [
+          [0, 0],
+          [100, 0],
+          [100, 200],
+        ],
+        30,
+      ),
+    );
+    const b = stroke(
+      pts(
+        [
+          [105, 5],
+          [300, 5],
+        ],
+        30,
+      ),
+    );
+    const refs = [
+      ref([
+        [0, 0],
+        [100, 0],
+        [100, 200],
+        [100, 0],
+        [300, 0],
+      ]),
+    ];
+    const result = regroupStrokesByReference([a, b], refs, OPTIONS);
+    expect(result).not.toBeNull();
+    expect(result!.merges).toBe(1);
+    expect(result!.retraces).toBe(1);
+    expect(result!.strokes.length).toBe(1);
+    const merged = result!.strokes[0]!;
+    // Reaches the corridor bottom mid-path, then returns and exits right.
+    const bottomIdx = merged.points.findIndex((p) => p.y === 200);
+    expect(bottomIdx).toBeGreaterThan(0);
+    expect(bottomIdx).toBeLessThan(merged.points.length - 1);
+    expect(merged.points[merged.points.length - 1]!.x).toBe(300);
+  });
+
   test('rejected proposals leave the input strokes untouched', () => {
     const a = stroke(
       pts(
