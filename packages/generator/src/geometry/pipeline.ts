@@ -26,7 +26,7 @@ import { type OrderPlan, orderAndTimeStrokes } from './ordering.ts';
 import { classifyFaces, dissolvePartitionDebris, partitionFaces } from './partition.ts';
 import { dist, pointInPolygon, sub } from './primitives.ts';
 import { partitionRegions } from './regions.ts';
-import { regroupStrokesByReference } from './regroup.ts';
+import { PRUNE_COST_WEIGHT, regroupStrokesByReference } from './regroup.ts';
 import { assembleStrokes, buildJunctions, type JunctionNode, matchContinuations, simplifyStroke, type TrialJoinScorer } from './strokes.ts';
 import { trialJoinAlignment } from './trial-join.ts';
 import {
@@ -511,6 +511,10 @@ export function runGeometryPipeline(
       // wrong-stroke assignments (≥ ~0.15); between them a generous margin.
       const AUTO_MAX_MEAN_COST = 0.15;
       const isClean = (m: StrokeMatchResult) => m.extractedCount === m.referenceCount && m.meanCost <= AUTO_MAX_MEAN_COST;
+      const totalInk = geoStrokes.reduce(
+        (sum, g) => sum + g.points.reduce((len, p, i) => (i > 0 ? len + dist(g.points[i - 1]!, p) : len), 0),
+        0,
+      );
       // Evaluate every reference variant independently — register, match,
       // and (when unclean) attempt a re-grouping — then adopt whichever
       // fits the extracted ink best: clean beats unclean, then count
@@ -529,6 +533,7 @@ export function runGeometryPipeline(
         let clean = isClean(match);
         let variantStrokes = geoStrokes;
         let regrouped = false;
+        let rankCost = match.meanCost;
         const variantWarnings: string[] = [];
         if (!clean) {
           const proposal = regroupStrokesByReference(geoStrokes, refPolylines, {
@@ -544,7 +549,11 @@ export function runGeometryPipeline(
               refPolylines,
               glyphDiag,
             );
-            if (isClean(rematch)) {
+            // Pruned ink counts against the proposal, mirroring the regroup
+            // portfolio's own ranking — a proposal must not clear the gate
+            // by deleting the ink that didn't match.
+            const rematchCost = rematch.meanCost + (totalInk > 0 ? PRUNE_COST_WEIGHT * (proposal.pruned / totalInk) : 0);
+            if (rematch.extractedCount === rematch.referenceCount && rematchCost <= AUTO_MAX_MEAN_COST) {
               variantWarnings.push(
                 `stroke order: re-grouped ${geoStrokes.length} extracted strokes into ${candidate.length} matching the dataset (${proposal.splits} split, ${proposal.merges} merged${proposal.retraces > 0 ? `, ${proposal.retraces} retraced` : ''}${proposal.pruned > 0 ? `, ${Math.round(proposal.pruned)} units of duplicated ink pruned` : ''})`,
               );
@@ -552,6 +561,7 @@ export function runGeometryPipeline(
               match = rematch;
               clean = true;
               regrouped = true;
+              rankCost = rematchCost;
             } else {
               variantWarnings.push(
                 `stroke order: dataset re-grouping rejected (${rematch.extractedCount} strokes vs ${rematch.referenceCount} reference, cost ${rematch.meanCost.toFixed(3)})`,
@@ -559,13 +569,13 @@ export function runGeometryPipeline(
             }
           }
         }
-        return { registered, match, clean, strokes: variantStrokes, regrouped, warnings: variantWarnings };
+        return { registered, match, clean, strokes: variantStrokes, regrouped, rankCost, warnings: variantWarnings };
       });
       evals.sort(
         (a, b) =>
           Number(b.clean) - Number(a.clean) ||
           Number(b.match.extractedCount === b.match.referenceCount) - Number(a.match.extractedCount === a.match.referenceCount) ||
-          a.match.meanCost - b.match.meanCost,
+          a.rankCost - b.rankCost,
       );
       const bestEval = evals[0]!;
       reference = bestEval.registered;

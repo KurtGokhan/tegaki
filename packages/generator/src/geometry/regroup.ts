@@ -58,6 +58,16 @@ import type { AxisPoint, GeoStroke } from './types.ts';
 // where `process` does not exist).
 const DEBUG = typeof process !== 'undefined' && !!process.env?.TEGAKI_REGROUP_DEBUG;
 
+/**
+ * How strongly pruned ink counts against a candidate, as mean-cost units per
+ * fraction of total ink pruned. Deliberately mild: coverage SAFETY is the
+ * veto's job (legitimate prunes run to 60%+ of path length on heavily
+ * wandering extractions like ね, so a strong penalty would re-break them);
+ * this only makes the portfolio prefer keeping ink when candidates are
+ * otherwise close. Shared with the pipeline's adoption gate.
+ */
+export const PRUNE_COST_WEIGHT = 0.02;
+
 export interface RegroupOptions {
   /** Densification spacing for edge labeling (≈ the pipeline's resample spacing). */
   spacing: number;
@@ -507,9 +517,11 @@ interface KeptEdge {
  * arc interval is already covered by kept ink AND a kept edge runs alongside
  * it (within the local ink width, roughly parallel or antiparallel). Pieces
  * are cut at the drop boundaries and the chaining phase reconnects what
- * remains. Legitimate prescribed doubling (れ's corridor) is protected by
- * the portfolio: dedup only ADDS a piece-set variant, and the re-match
- * arbitrates. Returns null when nothing drops.
+ * remains. A final COVERAGE VETO then reinstates any dropped span whose ink
+ * is not genuinely re-drawn by kept ink alongside it — pruning may remove
+ * duplicated travel, never coverage. Legitimate prescribed doubling (れ's
+ * corridor) is protected by the portfolio: dedup only ADDS a piece-set
+ * variant, and the re-match arbitrates. Returns null when nothing drops.
  */
 function dedupOverlap(
   pieces: GeoStroke[],
@@ -528,8 +540,15 @@ function dedupOverlap(
   });
 
   const out: GeoStroke[] = [];
-  let dropped = 0;
   for (let i = 0; i < pieces.length; i++) if (!infos[i]) out.push(pieces[i]!); // loops and degenerates pass through
+
+  interface Decision {
+    idx: number;
+    piece: GeoStroke;
+    pts: AxisPoint[];
+    keepEdge: boolean[];
+  }
+  const decisions: Decision[] = [];
 
   for (const [label, indices] of byGroup) {
     const ref = refs[label];
@@ -581,47 +600,158 @@ function dedupOverlap(
         if (!covered) {
           for (let bi = b0; bi <= b1; bi++) coveredBuckets[bi] = true;
           kept.push({ mid, dir, width: w, pieceIdx: idx, edgeIdx: e });
-        } else {
-          dropped += len;
         }
       }
-      if (DEBUG) {
-        const spans: string[] = [];
-        let from = -1;
-        for (let e = 0; e <= keepEdge.length; e++) {
-          const drop = e < keepEdge.length && !keepEdge[e];
-          if (drop && from < 0) from = e;
-          if (!drop && from >= 0) {
-            spans.push(`(${pts[from]!.x.toFixed(0)},${pts[from]!.y.toFixed(0)})..(${pts[e]!.x.toFixed(0)},${pts[e]!.y.toFixed(0)})`);
-            from = -1;
-          }
-        }
-        if (spans.length > 0) {
-          console.log(
-            `[dedup] piece ${idx} label ${infos[idx]!.label} meanD ${infos[idx]!.meanD.toFixed(0)} len ${polylineLength(piece.points).toFixed(0)}: dropped ${spans.join(' ')}`,
-          );
-        }
-      }
-      // Cut into sub-pieces at drop boundaries; slivers dissolve.
-      let run: AxisPoint[] = [];
-      const flush = () => {
-        if (run.length >= 2 && polylineLength(run) >= options.spacing) {
-          out.push({ points: run, isLoop: false, segmentIndices: [...piece.segmentIndices] });
-        }
-        run = [];
-      };
-      for (let e = 0; e < pts.length - 1; e++) {
-        if (keepEdge[e]) {
-          if (run.length === 0) run.push({ ...pts[e]! });
-          run.push({ ...pts[e + 1]! });
-        } else {
-          flush();
-        }
-      }
-      flush();
+      decisions.push({ idx, piece, pts, keepEdge });
     }
   }
+
+  // COVERAGE VETO — pruning must never lose ink. The per-edge test above is
+  // a heuristic (reference-arc buckets + midpoint proximity) and misfires
+  // when the ink has a feature the reference lacks (a crossbar 7 against a
+  // crossbar-less reference: everything projects onto already-covered arcs)
+  // or when strokes are wide (a fat straight run sits within an ink width
+  // of its own kept edges beyond the hairpin window). So every dropped span
+  // must prove, against the kept geometry itself, that its ink is genuinely
+  // re-drawn by kept ink running alongside; spans that can't are reinstated.
+  const keptSpans: AxisPoint[][] = out.filter((p) => p.points.length >= 2).map((p) => p.points);
+  for (const d of decisions) {
+    let run: AxisPoint[] = [];
+    for (let e = 0; e < d.pts.length - 1; e++) {
+      if (d.keepEdge[e]) {
+        if (run.length === 0) run.push(d.pts[e]!);
+        run.push(d.pts[e + 1]!);
+      } else {
+        if (run.length >= 2) keptSpans.push(run);
+        run = [];
+      }
+    }
+    if (run.length >= 2) keptSpans.push(run);
+  }
+  for (const d of decisions) {
+    let from = -1;
+    for (let e = 0; e <= d.keepEdge.length; e++) {
+      const dropping = e < d.keepEdge.length && !d.keepEdge[e];
+      if (dropping && from < 0) from = e;
+      if (!dropping && from >= 0) {
+        const gap = spanCoverageGap(d.pts.slice(from, e + 1), keptSpans);
+        if (gap) {
+          if (DEBUG) {
+            console.log(
+              `[dedup] veto (${gap}): reinstated (${d.pts[from]!.x.toFixed(0)},${d.pts[from]!.y.toFixed(0)})..(${d.pts[e]!.x.toFixed(0)},${d.pts[e]!.y.toFixed(0)}) of piece ${d.idx}`,
+            );
+          }
+          for (let k = from; k < e; k++) d.keepEdge[k] = true;
+        }
+        from = -1;
+      }
+    }
+  }
+
+  let dropped = 0;
+  for (const d of decisions) {
+    const { idx, piece, pts, keepEdge } = d;
+    for (let e = 0; e < keepEdge.length; e++) if (!keepEdge[e]) dropped += dist(pts[e]!, pts[e + 1]!);
+    if (DEBUG) {
+      const spans: string[] = [];
+      let from = -1;
+      for (let e = 0; e <= keepEdge.length; e++) {
+        const drop = e < keepEdge.length && !keepEdge[e];
+        if (drop && from < 0) from = e;
+        if (!drop && from >= 0) {
+          spans.push(`(${pts[from]!.x.toFixed(0)},${pts[from]!.y.toFixed(0)})..(${pts[e]!.x.toFixed(0)},${pts[e]!.y.toFixed(0)})`);
+          from = -1;
+        }
+      }
+      if (spans.length > 0) {
+        console.log(
+          `[dedup] piece ${idx} label ${infos[idx]!.label} meanD ${infos[idx]!.meanD.toFixed(0)} len ${polylineLength(piece.points).toFixed(0)}: dropped ${spans.join(' ')}`,
+        );
+      }
+    }
+    // Cut into sub-pieces at drop boundaries; slivers dissolve.
+    let run: AxisPoint[] = [];
+    const flush = () => {
+      if (run.length >= 2 && polylineLength(run) >= options.spacing) {
+        out.push({ points: run, isLoop: false, segmentIndices: [...piece.segmentIndices] });
+      }
+      run = [];
+    };
+    for (let e = 0; e < pts.length - 1; e++) {
+      if (keepEdge[e]) {
+        if (run.length === 0) run.push({ ...pts[e]! });
+        run.push({ ...pts[e + 1]! });
+      } else {
+        flush();
+      }
+    }
+    flush();
+  }
+  if (DEBUG && dropped > 0) {
+    const keptLen = out.reduce((s, p) => s + polylineLength(p.points), 0);
+    const inLen = pieces.reduce((s, p) => s + polylineLength(p.points), 0);
+    console.log(`[dedup] total: in ${inLen.toFixed(0)}, kept ${keptLen.toFixed(0)}, dropped ${dropped.toFixed(0)}`);
+  }
   return dropped > 0 ? { pieces: out, dropped } : null;
+}
+
+/**
+ * Is `span`'s ink genuinely re-drawn by kept ink running ALONGSIDE it? Each
+ * sample (an edge midpoint — never a vertex shared with a kept run) must
+ * find a kept span within an ink width, roughly parallel (or antiparallel)
+ * to its edge. Two refusals separate real duplicates from gaps cut out of a
+ * stroke's middle: a hit landing on a kept span's terminal vertex counts
+ * only when the sample sits BESIDE that end, not in its forward cone (a
+ * collinear gap continues past the fragment's end; a loop-closure duplicate
+ * lies laterally next to it), and an interior hit must run parallel so a
+ * perpendicular crossing stroke (a crossbar over its stem) can't vouch for
+ * ink it doesn't re-draw — unless the sample sits inside the kept pen's own
+ * radius, where the kept stroke paints it whatever its direction (hairpin
+ * turn TIPS point sideways mid-duplicate). Covered when most samples
+ * qualify — returns null (the drop may stand), else which condition failed.
+ */
+function spanCoverageGap(span: AxisPoint[], keptSpans: AxisPoint[][]): 'far' | 'static' | null {
+  if (span.length < 2 || polylineLength(span) <= 0) return null;
+  let far = false;
+  let qualified = 0;
+  const samples = span.length - 1;
+  for (let s = 0; s < span.length - 1; s++) {
+    const a = span[s]!;
+    const b = span[s + 1]!;
+    const edgeLen = dist(a, b);
+    if (edgeLen <= 0) {
+      qualified++;
+      continue;
+    }
+    const p: AxisPoint = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, width: (a.width + b.width) / 2 };
+    const dir = { x: (b.x - a.x) / edgeLen, y: (b.y - a.y) / edgeLen };
+    let near = false;
+    let alongside = false;
+    for (const ks of keptSpans) {
+      const hit = projectOntoPolyline(ks, p);
+      if (!hit || hit.d > Math.max(p.width, hit.q.width)) continue;
+      near = true;
+      const ha = ks[hit.seg]!;
+      const hb = ks[hit.seg + 1]!;
+      const segLen = dist(ha, hb);
+      if (segLen <= 0) continue;
+      const tangent = { x: (hb.x - ha.x) / segLen, y: (hb.y - ha.y) / segLen };
+      const clamped = dist(hit.q, ks[0]!) < 1e-6 || dist(hit.q, ks[ks.length - 1]!) < 1e-6;
+      if (clamped) {
+        if (hit.d <= 0) continue; // the sample IS the terminal vertex — touching, not alongside
+        const away = { x: (p.x - hit.q.x) / hit.d, y: (p.y - hit.q.y) / hit.d };
+        if (Math.abs(away.x * tangent.x + away.y * tangent.y) >= 0.7) continue; // forward cone: a continuation gap
+      } else if (hit.d > hit.q.width / 2 && Math.abs(dir.x * tangent.x + dir.y * tangent.y) < 0.7) {
+        continue;
+      }
+      alongside = true;
+      break;
+    }
+    if (!near) far = true;
+    if (alongside) qualified++;
+  }
+  if (qualified >= samples * 0.6) return null;
+  return far ? 'far' : 'static';
 }
 
 /**
@@ -1043,6 +1173,7 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
     ['global', false],
     ['global', true],
   ];
+  const totalInk = pieces.reduce((sum, p) => sum + polylineLength(p.points), 0);
   const runPortfolio = (extras: ChainExtras) =>
     pieceSets.flatMap((set) =>
       combos.map(([strategy, allowVia]) => {
@@ -1057,6 +1188,10 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
           options.glyphDiag,
         );
         const countsAgree = match.extractedCount === match.referenceCount;
+        // Pruning is a last resort: even coverage-safe drops count against a
+        // candidate, so deleting awkward ink can never beat keeping it unless
+        // the match improves by more than the ink was worth.
+        const rankCost = match.meanCost + (totalInk > 0 ? PRUNE_COST_WEIGHT * (set.pruned / totalInk) : 0);
         if (DEBUG) {
           const ends = chained.strokes
             .map((s) => {
@@ -1067,7 +1202,7 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
             .join(' ');
           const tag = `${extras.fillEmpty ? '+fill' : ''}${extras.rescue ? '+rescue' : ''}`;
           console.log(
-            `[regroup] ${set.name}/${strategy}${allowVia ? '+via' : ''}${tag}: ${chained.strokes.length} strokes, mean ${match.meanCost.toFixed(3)}, pairs ${match.pairs.map((p) => p.cost.toFixed(3)).join('/')} ${ends}`,
+            `[regroup] ${set.name}/${strategy}${allowVia ? '+via' : ''}${tag}: ${chained.strokes.length} strokes, mean ${match.meanCost.toFixed(3)}, rank ${rankCost.toFixed(3)}${countsAgree && rankCost <= options.maxMeanCost ? ' adoptable' : ''}, pairs ${match.pairs.map((p) => p.cost.toFixed(3)).join('/')} ${ends}`,
           );
         }
         return {
@@ -1077,8 +1212,8 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
           filled: chained.filled,
           pruned: set.pruned,
           countsAgree,
-          adoptable: countsAgree && match.meanCost <= options.maxMeanCost,
-          meanCost: match.meanCost,
+          adoptable: countsAgree && rankCost <= options.maxMeanCost,
+          rankCost,
         };
       }),
     );
@@ -1094,7 +1229,7 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
     );
   }
   scored.sort(
-    (a, b) => Number(b.adoptable) - Number(a.adoptable) || Number(b.countsAgree) - Number(a.countsAgree) || a.meanCost - b.meanCost,
+    (a, b) => Number(b.adoptable) - Number(a.adoptable) || Number(b.countsAgree) - Number(a.countsAgree) || a.rankCost - b.rankCost,
   );
   const best = scored[0]!;
 

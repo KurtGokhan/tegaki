@@ -494,6 +494,49 @@ describe('regroupStrokesByReference — merging', () => {
     // chain end-to-end pieces instead of dropping them.
   });
 
+  test('coverage veto: crossing ink the reference lacks is never pruned as duplicate (crossbar 7)', () => {
+    // A fat stem plus a perpendicular crossbar, against a reference that has
+    // no crossbar. Everything the crossbar covers projects onto reference
+    // arcs the stem already claimed, and (being wide) its edges sit within
+    // an ink width of its own kept fragments — the dedup heuristic reads it
+    // as duplicated travel. But no kept ink runs ALONGSIDE it: pruning it
+    // would lose real coverage, so the veto must reinstate every drop.
+    const stem = stroke(
+      pts(
+        [
+          [400, 100],
+          [400, 400],
+          [400, 700],
+        ],
+        70,
+      ),
+    );
+    const crossbar = stroke(
+      pts(
+        [
+          [250, 400],
+          [400, 400],
+          [550, 400],
+        ],
+        70,
+      ),
+    );
+    const refs = [
+      ref([
+        [400, 100],
+        [400, 700],
+      ]),
+    ];
+    const result = regroupStrokesByReference([stem, crossbar], refs, OPTIONS);
+    expect(result).not.toBeNull();
+    expect(result!.pruned).toBe(0);
+    // Both crossbar tips survive in the proposal — the ink is re-organized,
+    // never deleted.
+    const all = result!.strokes.flatMap((s) => s.points);
+    expect(Math.min(...all.map((p) => p.x))).toBeLessThanOrEqual(260);
+    expect(Math.max(...all.map((p) => p.x))).toBeGreaterThanOrEqual(540);
+  });
+
   test('empty-reference fill: a reference stroke landing off-ink still claims its nearest spare piece (星/歌/歩 proportion drift)', () => {
     // The dataset draws the component wider than the font, so ref 0 (a
     // vertical) maps ~150 units left of its real ink — the vertical piece
