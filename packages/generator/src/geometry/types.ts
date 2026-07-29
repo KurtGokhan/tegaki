@@ -269,4 +269,11 @@ export interface GeometryPipelineResult {
   reference?: RegisteredReference;
   /** Whether the final draw order/direction came from the dataset or the heuristics. */
   strokeOrderSource: 'dataset' | 'heuristic';
+  /**
+   * True when the strokes themselves were re-grouped (split at reference
+   * seams / chained along one reference stroke) to match the dataset's
+   * segmentation — see geometry/regroup.ts. Only ever set alongside
+   * `strokeOrderSource: 'dataset'`.
+   */
+  strokeOrderRegrouped?: boolean;
 }

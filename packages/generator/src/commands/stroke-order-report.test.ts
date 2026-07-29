@@ -7,6 +7,7 @@ const glyph = (over: Partial<GlyphStrokeOrderReport>): GlyphStrokeOrderReport =>
   reference: 2,
   meanCost: 0.05,
   applied: true,
+  regrouped: false,
   warnings: [],
   ...over,
 });
@@ -27,6 +28,15 @@ describe('summarizeStrokeOrderReports', () => {
     expect(s.countsAgree).toBe(1);
     expect(s.applied).toBe(1);
     expect(s.meanCostApplied).toBeCloseTo(0.05);
+  });
+
+  test('regrouped counts only applied glyphs that needed re-grouping', () => {
+    const s = summarizeStrokeOrderReports(
+      [glyph({ char: 'あ' }), glyph({ char: '口', regrouped: true }), glyph({ char: 'い', applied: false, regrouped: false })],
+      0,
+    );
+    expect(s.applied).toBe(2);
+    expect(s.regrouped).toBe(1);
   });
 
   test('worst count mismatches sort by |difference|, largest first', () => {

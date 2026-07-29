@@ -351,3 +351,121 @@ describe('geometry pipeline — dataset stroke order', () => {
     expect(r.warnings).toEqual([]);
   });
 });
+
+describe('geometry pipeline — dataset re-grouping', () => {
+  function runGlyph(char: string, commands: PathCommand[], reference: GeometryPipelineInput['reference']) {
+    const input: GeometryPipelineInput = {
+      char,
+      unicode: char.codePointAt(0) ?? 0,
+      advanceWidth: UPM,
+      boundingBox: { x1: 0, y1: 0, x2: UPM, y2: UPM },
+      pathString: '',
+      ascender: 800,
+      descender: -200,
+      unitsPerEm: UPM,
+      reference,
+    };
+    return runGeometryPipeline(input, { commands });
+  }
+
+  test('a box annulus splits into the three prescribed strokes (口)', () => {
+    // Square ring: extracted as ONE closed loop (corner turns merge through
+    // bare cuts — no junction exists anywhere to re-pair). The reference
+    // prescribes left / top+right / bottom; only re-grouping can honor it.
+    const commands = commandsFromPolygons(rect(200, 200, 800, 800), rect(320, 320, 680, 680));
+    const reference = {
+      char: '口',
+      strokes: [
+        {
+          points: [
+            { x: 10, y: 10 },
+            { x: 10, y: 90 },
+          ],
+        },
+        {
+          points: [
+            { x: 10, y: 10 },
+            { x: 90, y: 10 },
+            { x: 90, y: 90 },
+          ],
+        },
+        {
+          points: [
+            { x: 10, y: 90 },
+            { x: 90, y: 90 },
+          ],
+        },
+      ],
+      viewBox: { width: 109, height: 109 },
+      source: 'test',
+      license: 'test',
+    };
+    const r = runGlyph('口', commands, reference);
+    expect(r.geoStrokes.length).toBe(3);
+    expect(r.strokesFontUnits.length).toBe(3);
+    expect(r.strokeOrderSource).toBe('dataset');
+    expect(r.strokeOrderRegrouped).toBe(true);
+    expect(r.warnings.some((w) => w.includes('re-grouped'))).toBe(true);
+    // Stroke 1 is the left vertical, drawn top-to-bottom.
+    const first = r.strokesFontUnits[0]!;
+    expect(Math.max(...first.points.map((p) => p.x))).toBeLessThan(350);
+    expect(first.points[0]!.y).toBeLessThan(first.points[first.points.length - 1]!.y);
+  });
+
+  test('overlapping-contour pieces of one prescribed stroke merge across regions (∟)', () => {
+    // Vertical and horizontal bars drawn as SEPARATE overlapping contours —
+    // they land in different pipeline regions, so no junction pairing could
+    // ever join them. The reference says they are one pen stroke.
+    const commands = commandsFromPolygons(rect(200, 100, 280, 700), rect(200, 620, 700, 700));
+    const reference = {
+      char: '∟',
+      strokes: [
+        {
+          points: [
+            { x: 15, y: 10 },
+            { x: 15, y: 90 },
+            { x: 90, y: 90 },
+          ],
+        },
+      ],
+      viewBox: { width: 109, height: 109 },
+      source: 'test',
+      license: 'test',
+    };
+    const r = runGlyph('∟', commands, reference);
+    expect(r.geoStrokes.length).toBe(1);
+    expect(r.strokesFontUnits.length).toBe(1);
+    expect(r.strokeOrderSource).toBe('dataset');
+    expect(r.strokeOrderRegrouped).toBe(true);
+    // The pen travels down the stem then out along the foot.
+    const stroke = r.strokesFontUnits[0]!;
+    expect(stroke.points[0]!.y).toBeLessThan(300);
+    expect(stroke.points[stroke.points.length - 1]!.x).toBeGreaterThan(500);
+  });
+
+  test('a rejected re-grouping keeps the heuristic strokes untouched', () => {
+    // Two disjoint bars against one diagonal reference nowhere near them: the
+    // merge gap check fails and any candidate re-matches unclean, so the
+    // heuristic grouping and order must survive unchanged.
+    const commands = commandsFromPolygons(rect(200, 100, 320, 900), rect(600, 100, 720, 900));
+    const reference = {
+      char: 'Ⅱ',
+      strokes: [
+        {
+          points: [
+            { x: 10, y: 10 },
+            { x: 100, y: 100 },
+          ],
+        },
+      ],
+      viewBox: { width: 109, height: 109 },
+      source: 'test',
+      license: 'test',
+    };
+    const r = runGlyph('Ⅱ', commands, reference);
+    expect(r.strokeOrderSource).toBe('heuristic');
+    expect(r.strokeOrderRegrouped).toBeUndefined();
+    expect(r.strokesFontUnits.length).toBe(2);
+    expect(r.strokesFontUnits[0]!.points[0]!.x).toBeLessThan(500);
+  });
+});
