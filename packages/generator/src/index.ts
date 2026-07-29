@@ -14,6 +14,13 @@ export {
   processGlyphGeometry,
   type TegakiBundleOutput,
 } from './commands/generate.ts';
+export {
+  formatStrokeOrderSummary,
+  type GlyphStrokeOrderReport,
+  runStrokeOrderReport,
+  type StrokeOrderSummary,
+  summarizeStrokeOrderReports,
+} from './commands/stroke-order-report.ts';
 export { DEFAULT_CHARS, EXAMPLE_FONTS, type SkeletonMethod } from './constants.ts';
 export { createHbShaper, type HbShaper, type ShapedGlyph } from './font/hb-shaper.ts';
 export { enumerateFontChars } from './font/parse.ts';

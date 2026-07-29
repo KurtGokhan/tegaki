@@ -2,11 +2,17 @@ import { mkdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import * as opentype from 'opentype.js';
 import { createPadrone, padroneProgress } from 'padrone';
-import { extractTegakiBundle, generateArgsSchema, type PipelineOptions } from '../commands/generate.ts';
+import * as z from 'zod/v4';
+import { JAPANESE_CHARS } from '../charsets.ts';
+import { extractTegakiBundle, generateArgsSchema, type PipelineOptions, parseFont } from '../commands/generate.ts';
+import { formatStrokeOrderSummary, runStrokeOrderReport } from '../commands/stroke-order-report.ts';
 import { DEFAULT_CHARS } from '../constants.ts';
 import { writeDebugOutput } from '../debug/output.ts';
 import { downloadFont } from '../font/download.ts';
 import { enumerateFontChars } from '../font/parse.ts';
+import { initStraightSkeleton } from '../geometry/face-straight-skeleton.ts';
+import { createKanjiVGProvider } from '../stroke-order/kanjivg.ts';
+import { createKanjiVGFileLoader } from '../stroke-order/kanjivg-fetch.ts';
 
 export const tegakiProgram = createPadrone('tegaki')
   .configure({
@@ -100,6 +106,53 @@ export const tegakiProgram = createPadrone('tegaki')
 
         progress?.succeed(`Processed ${bundle.stats.processed} glyphs (${bundle.stats.skipped} skipped). Output: ${outputDir}`);
         return { outputDir, ...bundle.stats };
+      }),
+  )
+  .command('stroke-order-report', (c) =>
+    c
+      .extend(padroneProgress({ spinner: true, bar: true, time: true, eta: true }))
+      .configure({
+        title: 'Score dataset stroke-order matching over a character set',
+        description:
+          'Sweeps every character through the geometry pipeline with its KanjiVG reference and reports count agreement, match costs, and the worst offenders. The regression scoreboard for matcher/pipeline changes.',
+      })
+      .arguments(
+        z.object({
+          family: z.string().default('Klee One').describe('Google Fonts family name'),
+          chars: z.string().default(JAPANESE_CHARS).describe('Characters to sweep (default: the Japanese preset)'),
+          json: z.string().optional().describe('Write the full per-glyph report to this JSON file').meta({ flags: 'j' }),
+          force: z.boolean().default(false).describe('Re-download font even if cached').meta({ flags: 'f' }),
+        }),
+        { positional: ['family'] },
+      )
+      .action(async (args, ctx) => {
+        const progress = ctx.context.progress;
+        const { family, chars, json, force } = args;
+
+        progress?.update(`Downloading font "${family}"...`);
+        const fontPaths = await downloadFont(family, { force, chars });
+        const fontBuffer = await Bun.file(fontPaths[0]!).arrayBuffer();
+        const extraFontBuffers =
+          fontPaths.length > 1 ? await Promise.all(fontPaths.slice(1).map((p) => Bun.file(p).arrayBuffer())) : undefined;
+        const fontInfo = await parseFont(fontBuffer, extraFontBuffers, family);
+
+        await initStraightSkeleton();
+        const provider = createKanjiVGProvider(createKanjiVGFileLoader());
+
+        const { summary, glyphs } = await runStrokeOrderReport(fontInfo, chars, provider, {
+          onProgress: (done, total, char) => {
+            progress?.update({ message: `Matching ${char || 'done'} (${done}/${total})`, progress: total > 0 ? done / total : 1 });
+          },
+        });
+
+        if (json) {
+          mkdirSync(dirname(join(json)), { recursive: true });
+          await Bun.write(json, JSON.stringify({ family, summary, glyphs }, null, 2));
+        }
+
+        progress?.succeed(`Matched ${summary.withReference}/${summary.totalGlyphs} glyphs against KanjiVG`);
+        console.log(`\n${formatStrokeOrderSummary(summary)}${json ? `\n\nfull report: ${json}` : ''}`);
+        return summary;
       }),
   );
 
