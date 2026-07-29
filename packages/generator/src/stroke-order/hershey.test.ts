@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { createHersheyProvider } from './hershey.ts';
+import { createHersheyProvider, createHersheySimplexProvider } from './hershey.ts';
 import { collectReferences } from './providers.ts';
 import type { ReferenceGlyph, StrokeOrderProvider } from './types.ts';
 
@@ -31,6 +31,33 @@ describe('createHersheyProvider', () => {
     const a = await provider.get('a');
     const b = await provider.get('a');
     expect(a).toBe(b!);
+  });
+});
+
+describe('createHersheySimplexProvider', () => {
+  test('print letters keep their pen lifts (m is arch-by-arch, not one motion)', async () => {
+    const provider = createHersheySimplexProvider();
+    const m = await provider.get('m');
+    expect(m!.strokes.length).toBe(2);
+    expect(m!.source).toBe('hershey-simplex');
+    const M = await provider.get('M');
+    expect(M!.strokes.length).toBe(2);
+  });
+
+  test('digits are covered, as single print trajectories where connected', async () => {
+    const provider = createHersheySimplexProvider();
+    for (const char of ['0', '2', '5', '8']) {
+      const ref = await provider.get(char);
+      expect(ref).not.toBeNull();
+      expect(ref!.strokes.length).toBe(1);
+    }
+    const seven = await provider.get('7');
+    expect(seven!.strokes.length).toBe(2);
+  });
+
+  test('non-Latin characters have no entry', async () => {
+    const provider = createHersheySimplexProvider();
+    expect(await provider.get('あ')).toBeNull();
   });
 });
 

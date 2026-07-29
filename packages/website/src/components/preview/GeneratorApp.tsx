@@ -5,6 +5,7 @@ import {
   CHARSET_PRESETS,
   collectReferences,
   createHersheyProvider,
+  createHersheySimplexProvider,
   createKanjiVGProvider,
   DEFAULT_GEOMETRY_OPTIONS,
   DEFAULT_OPTIONS,
@@ -46,9 +47,9 @@ const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
 // Stroke-order reference data: KanjiVG fetched per character straight from
 // the pinned release (raw.githubusercontent.com is CORS-open), Hershey
-// cursive Latin embedded in the generator. Both are queried and the pipeline
-// adopts whichever variant matches the extracted ink best. Providers memoize;
-// module scope makes the caches survive re-renders.
+// cursive + print Latin embedded in the generator. All are queried and the
+// pipeline adopts whichever variant matches the extracted ink best. Providers
+// memoize; module scope makes the caches survive re-renders.
 const strokeOrderProviders = [
   createKanjiVGProvider(async (char) => {
     const response = await fetch(kanjiVGUrl(char));
@@ -57,6 +58,7 @@ const strokeOrderProviders = [
     return response.text();
   }),
   createHersheyProvider(),
+  createHersheySimplexProvider(),
 ];
 
 export function GeneratorApp() {

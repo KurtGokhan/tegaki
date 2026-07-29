@@ -1,17 +1,22 @@
-// Hershey Script stroke-order provider (Latin letters, cursive style).
+// Hershey stroke-order providers (Latin letters and digits).
 //
 // KanjiVG's Latin references are print-style — M as four strokes, m as
 // three — which cursive fonts like Caveat genuinely contradict (their m is
-// one continuous trajectory). The Hershey Script simplex font is a digitized
-// cursive PEN trajectory per letter, so it supplies the cursive-style
-// reference variant; the pipeline evaluates every variant against the
-// extracted ink and adopts whichever re-matches best, so print fonts keep
-// KanjiVG and cursive fonts pick these.
+// one continuous trajectory). The Hershey fonts are digitized PEN
+// trajectories per letter, so they supply style variants the pipeline can
+// choose between: `hershey-script` (Script simplex, formal cursive) and
+// `hershey-simplex` (Simplex/futural, plain print — also the only reliable
+// digit reference; the Script digits are double-stroked ornamentals and are
+// excluded). Every variant is evaluated against the extracted ink and the
+// best re-match wins, so print fonts pick print references and cursive
+// fonts pick cursive ones.
 //
-// Like every provider, this is consultation-only: reference polylines inform
-// order/direction/grouping decisions and never enter generated bundles.
+// Like every provider, these are consultation-only: reference polylines
+// inform order/direction/grouping decisions and never enter generated
+// bundles.
 
 import { HERSHEY_SCRIPT_GLYPHS } from './hershey-data.ts';
+import { HERSHEY_SIMPLEX_GLYPHS } from './hershey-simplex-data.ts';
 import type { ReferenceGlyph, StrokeOrderProvider } from './types.ts';
 
 export const HERSHEY_LICENSE =
@@ -24,21 +29,20 @@ export const HERSHEY_LICENSE =
  */
 const HERSHEY_VIEWBOX = { width: 32, height: 32 };
 
-/** Cursive Latin stroke-order references from the Hershey Script simplex font. */
-export function createHersheyProvider(): StrokeOrderProvider {
+function createProvider(name: string, glyphs: Record<string, [number, number][][]>): StrokeOrderProvider {
   const cache = new Map<string, ReferenceGlyph | null>();
   return {
-    name: 'hershey-script',
+    name,
     async get(char: string): Promise<ReferenceGlyph | null> {
       let entry = cache.get(char);
       if (entry === undefined) {
-        const strokes = HERSHEY_SCRIPT_GLYPHS[char];
+        const strokes = glyphs[char];
         entry = strokes
           ? {
               char,
               strokes: strokes.map((s) => ({ points: s.map(([x, y]) => ({ x, y })) })),
               viewBox: HERSHEY_VIEWBOX,
-              source: 'hershey-script',
+              source: name,
               license: HERSHEY_LICENSE,
             }
           : null;
@@ -47,4 +51,14 @@ export function createHersheyProvider(): StrokeOrderProvider {
       return entry;
     },
   };
+}
+
+/** Cursive Latin stroke-order references from the Hershey Script simplex font. */
+export function createHersheyProvider(): StrokeOrderProvider {
+  return createProvider('hershey-script', HERSHEY_SCRIPT_GLYPHS);
+}
+
+/** Print Latin + digit stroke-order references from the Hershey Simplex (futural) font. */
+export function createHersheySimplexProvider(): StrokeOrderProvider {
+  return createProvider('hershey-simplex', HERSHEY_SIMPLEX_GLYPHS);
 }
