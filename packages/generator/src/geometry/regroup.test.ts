@@ -535,6 +535,12 @@ describe('regroupStrokesByReference — merging', () => {
     const all = result!.strokes.flatMap((s) => s.points);
     expect(Math.min(...all.map((p) => p.x))).toBeLessThanOrEqual(260);
     expect(Math.max(...all.map((p) => p.x))).toBeGreaterThanOrEqual(540);
+    // And better: the crossbar is a stroke of its own, appended after the
+    // reference-matched stem — not spliced into it as an excursion.
+    expect(result!.extras).toBe(1);
+    const extra = result!.strokes[result!.strokes.length - 1]!;
+    expect(spanX(extra)).toBeGreaterThanOrEqual(290);
+    expect(spanY(extra)).toBeLessThanOrEqual(10);
   });
 
   test('empty-reference fill: a reference stroke landing off-ink still claims its nearest spare piece (星/歌/歩 proportion drift)', () => {

@@ -68,6 +68,27 @@ const DEBUG = typeof process !== 'undefined' && !!process.env?.TEGAKI_REGROUP_DE
  */
 export const PRUNE_COST_WEIGHT = 0.02;
 
+/**
+ * Flat rank-and-gate surcharge for proposals that lift extra strokes outside
+ * the canonical match. Deviating from the prescribed stroke count must buy a
+ * MATERIAL match improvement — without this, shedding an awkward piece into
+ * the extras always slims the chains a little and partial proposals would
+ * shadow perfectly good full matches (月's bars drawn out of order).
+ */
+export const LIFT_RANK_PENALTY = 0.03;
+
+/**
+ * How strongly EXCESS travel counts against a candidate in RANKING, as
+ * mean-cost units per fraction of total ink. Excess is what the proposal
+ * draws beyond both the ink itself and the reference's own arc length — so
+ * prescribed doubled travel (れ's fused corridor, where the reference walks
+ * the corridor twice) is free, while re-traveling a feature the reference
+ * never visits twice is the "a retrace that could be a stroke should BE a
+ * stroke" smell and loses to a lift proposal that draws it once. Ordering
+ * only — never part of the adoption gate.
+ */
+const RETRACE_COST_WEIGHT = 0.3;
+
 export interface RegroupOptions {
   /** Densification spacing for edge labeling (≈ the pipeline's resample spacing). */
   spacing: number;
@@ -93,6 +114,12 @@ export interface RegroupResult {
   retraces: number;
   /** Arc length of duplicated (re-traveled corridor) ink dropped by the overlap dedup. */
   pruned: number;
+  /**
+   * Misfit strokes the reference has no stroke for (a crossed 7's crossbar),
+   * lifted out of the chains and appended at the END of `strokes`. The
+   * leading strokes match the reference; these draw after them.
+   */
+  extras: number;
 }
 
 interface RefIndex {
@@ -634,7 +661,10 @@ function dedupOverlap(
       const dropping = e < d.keepEdge.length && !d.keepEdge[e];
       if (dropping && from < 0) from = e;
       if (!dropping && from >= 0) {
-        const gap = spanCoverageGap(d.pts.slice(from, e + 1), keptSpans);
+        // A span long enough to read as a stroke of its own must prove it is
+        // a pure corridor duplicate; short jitter gets the lenient test.
+        const slice = d.pts.slice(from, e + 1);
+        const gap = spanCoverageGap(slice, keptSpans, polylineLength(slice) >= options.minRunLength);
         if (gap) {
           if (DEBUG) {
             console.log(
@@ -709,8 +739,14 @@ function dedupOverlap(
  * radius, where the kept stroke paints it whatever its direction (hairpin
  * turn TIPS point sideways mid-duplicate). Covered when most samples
  * qualify — returns null (the drop may stand), else which condition failed.
+ *
+ * `strict` drops both leniencies (no clamped qualification, no pen-disk
+ * direction bypass): only interior parallel hits count. Anything long
+ * enough to read as a stroke of its own must pass this bar — a fat crossing
+ * feature sits inside the crossing stroke's pen radius without being a
+ * duplicate of anything, and only pure corridor re-travel survives strict.
  */
-function spanCoverageGap(span: AxisPoint[], keptSpans: AxisPoint[][]): 'far' | 'static' | null {
+function spanCoverageGap(span: AxisPoint[], keptSpans: AxisPoint[][], strict = false): 'far' | 'static' | null {
   if (span.length < 2 || polylineLength(span) <= 0) return null;
   let far = false;
   let qualified = 0;
@@ -738,10 +774,11 @@ function spanCoverageGap(span: AxisPoint[], keptSpans: AxisPoint[][]): 'far' | '
       const tangent = { x: (hb.x - ha.x) / segLen, y: (hb.y - ha.y) / segLen };
       const clamped = dist(hit.q, ks[0]!) < 1e-6 || dist(hit.q, ks[ks.length - 1]!) < 1e-6;
       if (clamped) {
+        if (strict) continue;
         if (hit.d <= 0) continue; // the sample IS the terminal vertex — touching, not alongside
         const away = { x: (p.x - hit.q.x) / hit.d, y: (p.y - hit.q.y) / hit.d };
         if (Math.abs(away.x * tangent.x + away.y * tangent.y) >= 0.7) continue; // forward cone: a continuation gap
-      } else if (hit.d > hit.q.width / 2 && Math.abs(dir.x * tangent.x + dir.y * tangent.y) < 0.7) {
+      } else if ((strict || hit.d > hit.q.width / 2) && Math.abs(dir.x * tangent.x + dir.y * tangent.y) < 0.7) {
         continue;
       }
       alongside = true;
@@ -752,6 +789,92 @@ function spanCoverageGap(span: AxisPoint[], keptSpans: AxisPoint[][]): 'far' | '
   }
   if (qualified >= samples * 0.6) return null;
   return far ? 'far' : 'static';
+}
+
+/**
+ * Lift MISFIT pieces out as standalone EXTRA strokes. A piece is a misfit
+ * when it is long enough to read as a pen stroke of its own, everything it
+ * contributes to its reference stroke's arc is already covered by
+ * better-hugging pieces of the same group (removing it from the chain loses
+ * no reference coverage), and its ink is NOT a strict corridor duplicate of
+ * that better ink — it is a real feature the reference simply doesn't have:
+ * a crossed 7's crossbar, a Z̶'s middle dash, serif flourishes, the personal
+ * marks of casual handwriting. Corridor duplicates stay for dedup to prune;
+ * misfits become their own strokes so the chains can match the reference
+ * cleanly, with the extras appended after the prescribed order.
+ */
+function liftMisfits(
+  pieces: GeoStroke[],
+  refs: (RefIndex | null)[],
+  options: RegroupOptions,
+): { pieces: GeoStroke[]; extras: GeoStroke[] } | null {
+  const infos: (PieceInfo | null)[] = pieces.map((p) =>
+    labelPiece({ points: [...p.points], isLoop: p.isLoop, segmentIndices: [...p.segmentIndices] }, refs),
+  );
+  const byGroup = new Map<number, number[]>();
+  infos.forEach((info, i) => {
+    if (!info) return;
+    const list = byGroup.get(info.label);
+    if (list) list.push(i);
+    else byGroup.set(info.label, [i]);
+  });
+
+  const lifted = new Set<number>();
+  for (const [label, indices] of byGroup) {
+    const ref = refs[label];
+    if (!ref || indices.length < 2) continue;
+    const bucketCount = Math.max(1, Math.ceil(ref.total / options.spacing));
+    const covered = new Array<boolean>(bucketCount).fill(false);
+    const bucketRange = (tMid: number, len: number): [number, number] => {
+      const arc = tMid * ref.total;
+      const b0 = Math.max(0, Math.min(bucketCount - 1, Math.floor((arc - len / 2) / options.spacing)));
+      const b1 = Math.max(0, Math.min(bucketCount - 1, Math.floor((arc + len / 2) / options.spacing)));
+      return [b0, b1];
+    };
+    // Best-hugging first: each piece is judged against the arc coverage of
+    // the pieces that fit the reference better than it does.
+    indices.sort((a, b) => infos[a]!.meanD - infos[b]!.meanD);
+    const betterInk: AxisPoint[][] = [];
+    for (const idx of indices) {
+      const piece = infos[idx]!.piece;
+      const pts = densify(piece.points, options.spacing);
+      let total = 0;
+      let redundant = 0;
+      const ranges: [number, number][] = [];
+      for (let e = 0; e < pts.length - 1; e++) {
+        const a = pts[e]!;
+        const b = pts[e + 1]!;
+        const len = dist(a, b);
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const [b0, b1] = bucketRange(projectToRef(mid, ref).t, len);
+        ranges.push([b0, b1]);
+        total += len;
+        let dup = true;
+        for (let bi = b0; bi <= b1; bi++) if (!covered[bi]) dup = false;
+        if (dup) redundant += len;
+      }
+      const misfit =
+        betterInk.length > 0 && total >= options.minRunLength && redundant >= total * 0.7 && spanCoverageGap(pts, betterInk, true) !== null;
+      if (misfit) {
+        lifted.add(idx);
+        if (DEBUG) {
+          const f = piece.points[0]!;
+          const l = piece.points[piece.points.length - 1]!;
+          console.log(
+            `[lift] piece ${idx} label ${label} len ${total.toFixed(0)} (${f.x.toFixed(0)},${f.y.toFixed(0)})->(${l.x.toFixed(0)},${l.y.toFixed(0)}): misfit stroke, lifted as extra`,
+          );
+        }
+        continue; // its buckets don't count — the chain must cover them without it
+      }
+      for (const [b0, b1] of ranges) for (let bi = b0; bi <= b1; bi++) covered[bi] = true;
+      betterInk.push(piece.points);
+    }
+  }
+  if (lifted.size === 0) return null;
+  return {
+    pieces: pieces.filter((_, i) => !lifted.has(i)),
+    extras: pieces.filter((_, i) => lifted.has(i)),
+  };
 }
 
 /**
@@ -1156,15 +1279,19 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
       );
     });
   }
-  const pieceSets: { name: string; pieces: GeoStroke[]; absorbed: number; pruned: number }[] = [
-    { name: 'raw', pieces, absorbed: 0, pruned: 0 },
+  const pieceSets: { name: string; pieces: GeoStroke[]; absorbed: number; pruned: number; extras: GeoStroke[] }[] = [
+    { name: 'raw', pieces, absorbed: 0, pruned: 0, extras: [] },
   ];
   const absorbedSet = absorbStubs(pieces, options);
-  if (absorbedSet) pieceSets.push({ name: 'absorb', ...absorbedSet, pruned: 0 });
+  if (absorbedSet) pieceSets.push({ name: 'absorb', ...absorbedSet, pruned: 0, extras: [] });
   // Dedup applies to the RAW pieces only: absorption splices out-and-back
   // excursions on purpose, and dedup would immediately unpick them.
   const deduped = dedupOverlap(pieces, refs, options);
-  if (deduped) pieceSets.push({ name: 'dedup', pieces: deduped.pieces, absorbed: 0, pruned: deduped.dropped });
+  if (deduped) pieceSets.push({ name: 'dedup', pieces: deduped.pieces, absorbed: 0, pruned: deduped.dropped, extras: [] });
+  // Misfit features the reference has no stroke for leave the chains and
+  // ride along as extra strokes (drawn after the prescribed order).
+  const liftedSet = liftMisfits(pieces, refs, options);
+  if (liftedSet) pieceSets.push({ name: 'lift', pieces: liftedSet.pieces, absorbed: 0, pruned: 0, extras: liftedSet.extras });
   const combos: [ChainStrategy, boolean][] = [
     ['reference', false],
     ['reference', true],
@@ -1174,6 +1301,7 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
     ['global', true],
   ];
   const totalInk = pieces.reduce((sum, p) => sum + polylineLength(p.points), 0);
+  const refTravel = refs.reduce((sum, r) => sum + (r ? r.total : 0), 0);
   const runPortfolio = (extras: ChainExtras) =>
     pieceSets.flatMap((set) =>
       combos.map(([strategy, allowVia]) => {
@@ -1190,8 +1318,26 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
         const countsAgree = match.extractedCount === match.referenceCount;
         // Pruning is a last resort: even coverage-safe drops count against a
         // candidate, so deleting awkward ink can never beat keeping it unless
-        // the match improves by more than the ink was worth.
-        const rankCost = match.meanCost + (totalInk > 0 ? PRUNE_COST_WEIGHT * (set.pruned / totalInk) : 0);
+        // the match improves by more than the ink was worth. Lifted extras
+        // pay a flat surcharge for deviating from the prescribed count.
+        const gateCost =
+          match.meanCost +
+          (totalInk > 0 ? PRUNE_COST_WEIGHT * (set.pruned / totalInk) : 0) +
+          (set.extras.length > 0 ? LIFT_RANK_PENALTY : 0);
+        // Excess travel: everything the proposal draws beyond the raw ink
+        // AND beyond what the reference itself travels (prescribed doubles
+        // are free) — retrace walks, via corridors, absorb excursions.
+        const drawn =
+          chained.strokes.reduce((sum, s) => sum + polylineLength(s.points), 0) +
+          set.extras.reduce((sum, p) => sum + polylineLength(p.points), 0);
+        const extraTravel = Math.max(0, drawn - Math.max(totalInk, refTravel));
+        const rankCost = gateCost + (totalInk > 0 ? RETRACE_COST_WEIGHT * (extraTravel / totalInk) : 0);
+        // The deviation ladder: a faithful full match (nothing pruned, no
+        // unprescribed re-travel) beats a lift proposal (all ink kept but
+        // extra strokes outside the canon), which beats destroying ink or
+        // re-traveling a would-be stroke. Cost only arbitrates within a
+        // rung. The 10% allowance is ordinary join glue, not re-travel.
+        const deviation = set.pruned > 0 || extraTravel > totalInk * 0.1 ? 2 : set.extras.length > 0 ? 1 : 0;
         if (DEBUG) {
           const ends = chained.strokes
             .map((s) => {
@@ -1202,17 +1348,19 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
             .join(' ');
           const tag = `${extras.fillEmpty ? '+fill' : ''}${extras.rescue ? '+rescue' : ''}`;
           console.log(
-            `[regroup] ${set.name}/${strategy}${allowVia ? '+via' : ''}${tag}: ${chained.strokes.length} strokes, mean ${match.meanCost.toFixed(3)}, rank ${rankCost.toFixed(3)}${countsAgree && rankCost <= options.maxMeanCost ? ' adoptable' : ''}, pairs ${match.pairs.map((p) => p.cost.toFixed(3)).join('/')} ${ends}`,
+            `[regroup] ${set.name}/${strategy}${allowVia ? '+via' : ''}${tag}: ${chained.strokes.length} strokes${set.extras.length > 0 ? ` +${set.extras.length} extras` : ''}, mean ${match.meanCost.toFixed(3)}, rank ${rankCost.toFixed(3)} dev${deviation}${countsAgree && gateCost <= options.maxMeanCost ? ' adoptable' : ''}, pairs ${match.pairs.map((p) => p.cost.toFixed(3)).join('/')} ${ends}`,
           );
         }
         return {
-          strokes: chained.strokes,
+          strokes: [...chained.strokes, ...set.extras],
           merges,
           retraces,
           filled: chained.filled,
           pruned: set.pruned,
+          extras: set.extras.length,
           countsAgree,
-          adoptable: countsAgree && rankCost <= options.maxMeanCost,
+          adoptable: countsAgree && gateCost <= options.maxMeanCost,
+          deviation,
           rankCost,
         };
       }),
@@ -1229,10 +1377,14 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
     );
   }
   scored.sort(
-    (a, b) => Number(b.adoptable) - Number(a.adoptable) || Number(b.countsAgree) - Number(a.countsAgree) || a.rankCost - b.rankCost,
+    (a, b) =>
+      Number(b.adoptable) - Number(a.adoptable) ||
+      Number(b.countsAgree) - Number(a.countsAgree) ||
+      (a.adoptable ? a.deviation - b.deviation : 0) ||
+      a.rankCost - b.rankCost,
   );
   const best = scored[0]!;
 
-  if (splits === 0 && best.merges === 0 && best.pruned === 0 && best.filled === 0) return null;
-  return { strokes: best.strokes, splits, merges: best.merges, retraces: best.retraces, pruned: best.pruned };
+  if (splits === 0 && best.merges === 0 && best.pruned === 0 && best.filled === 0 && best.extras === 0) return null;
+  return { strokes: best.strokes, splits, merges: best.merges, retraces: best.retraces, pruned: best.pruned, extras: best.extras };
 }

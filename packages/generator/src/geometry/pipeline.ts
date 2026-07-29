@@ -26,7 +26,7 @@ import { type OrderPlan, orderAndTimeStrokes } from './ordering.ts';
 import { classifyFaces, dissolvePartitionDebris, partitionFaces } from './partition.ts';
 import { dist, pointInPolygon, sub } from './primitives.ts';
 import { partitionRegions } from './regions.ts';
-import { PRUNE_COST_WEIGHT, regroupStrokesByReference } from './regroup.ts';
+import { LIFT_RANK_PENALTY, PRUNE_COST_WEIGHT, regroupStrokesByReference } from './regroup.ts';
 import { assembleStrokes, buildJunctions, type JunctionNode, matchContinuations, simplifyStroke, type TrialJoinScorer } from './strokes.ts';
 import { trialJoinAlignment } from './trial-join.ts';
 import {
@@ -544,18 +544,25 @@ export function runGeometryPipeline(
           });
           if (proposal) {
             const candidate = proposal.strokes.map((gs) => ({ ...gs, points: simplifyStroke(gs.points, simplifyEps) }));
+            // Lifted extras sit at the END of the proposal and have no
+            // reference stroke by design — only the chains face the match;
+            // the plan appends unmatched strokes after the prescribed order.
+            const chains = candidate.slice(0, candidate.length - proposal.extras);
             const rematch = matchStrokes(
-              candidate.map((g) => g.points),
+              chains.map((g) => g.points),
               refPolylines,
               glyphDiag,
             );
-            // Pruned ink counts against the proposal, mirroring the regroup
-            // portfolio's own ranking — a proposal must not clear the gate
-            // by deleting the ink that didn't match.
-            const rematchCost = rematch.meanCost + (totalInk > 0 ? PRUNE_COST_WEIGHT * (proposal.pruned / totalInk) : 0);
+            // Pruned ink and lifted extras count against the proposal,
+            // mirroring the regroup portfolio's own gate — a proposal must
+            // not clear it by deleting or shedding the ink that didn't match.
+            const rematchCost =
+              rematch.meanCost +
+              (totalInk > 0 ? PRUNE_COST_WEIGHT * (proposal.pruned / totalInk) : 0) +
+              (proposal.extras > 0 ? LIFT_RANK_PENALTY : 0);
             if (rematch.extractedCount === rematch.referenceCount && rematchCost <= AUTO_MAX_MEAN_COST) {
               variantWarnings.push(
-                `stroke order: re-grouped ${geoStrokes.length} extracted strokes into ${candidate.length} matching the dataset (${proposal.splits} split, ${proposal.merges} merged${proposal.retraces > 0 ? `, ${proposal.retraces} retraced` : ''}${proposal.pruned > 0 ? `, ${Math.round(proposal.pruned)} units of duplicated ink pruned` : ''})`,
+                `stroke order: re-grouped ${geoStrokes.length} extracted strokes into ${chains.length} matching the dataset (${proposal.splits} split, ${proposal.merges} merged${proposal.retraces > 0 ? `, ${proposal.retraces} retraced` : ''}${proposal.pruned > 0 ? `, ${Math.round(proposal.pruned)} units of duplicated ink pruned` : ''}${proposal.extras > 0 ? `; ${proposal.extras} leftover stroke${proposal.extras === 1 ? '' : 's'} appended after the dataset order` : ''})`,
               );
               variantStrokes = candidate;
               match = rematch;
