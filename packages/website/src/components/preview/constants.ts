@@ -42,6 +42,7 @@ export const GEOMETRY_STAGES: { key: GeometryStageKey; label: string }[] = [
   { key: 'faces', label: 'Partition' },
   { key: 'segments', label: 'Axes' },
   { key: 'strokes', label: 'Strokes' },
+  { key: 'order', label: 'Order' },
   { key: 'animation', label: 'Animation' },
 ];
 

@@ -7,7 +7,7 @@ import { STROKE_COLORS } from '../processing/visualize.ts';
 import { add, scale } from './primitives.ts';
 import type { GeometryPipelineResult } from './types.ts';
 
-export type GeometryStage = 'contours' | 'corners' | 'cuts' | 'faces' | 'segments' | 'strokes';
+export type GeometryStage = 'contours' | 'corners' | 'cuts' | 'faces' | 'segments' | 'strokes' | 'order';
 
 interface ViewBox {
   vx: number;
@@ -68,6 +68,8 @@ export function renderGeometryStage(result: GeometryPipelineResult, stage: Geome
       return renderSegments(result);
     case 'strokes':
       return renderStrokes(result);
+    case 'order':
+      return renderOrder(result);
   }
 }
 
@@ -172,6 +174,118 @@ function renderStrokes(result: GeometryPipelineResult): string {
       `  <path d="${d}" fill="none" stroke="${color}" stroke-width="${(vb.u * 0.9).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"/>`,
     );
     const start = stroke.points[0]!;
+    parts.push(`  <circle cx="${start.x.toFixed(2)}" cy="${start.y.toFixed(2)}" r="${(vb.u * 8).toFixed(2)}" fill="${color}"/>`);
+    parts.push(
+      `  <text x="${start.x.toFixed(2)}" y="${(start.y + vb.u * 4).toFixed(2)}" text-anchor="middle" font-size="${(vb.u * 11).toFixed(2)}" fill="white" font-family="sans-serif">${i + 1}</text>`,
+    );
+  });
+  return svgWrap(vb, parts.join('\n'));
+}
+
+/**
+ * Draw-order ramp: first stroke is deep blue, last is warm orange-red, so the
+ * pen's progress through the glyph reads at a glance without counting badges.
+ * A single-stroke glyph gets the ramp start.
+ */
+function orderColor(index: number, count: number): string {
+  const t = count > 1 ? index / (count - 1) : 0;
+  const hue = 225 - t * 205; // 225 (blue) -> 20 (orange-red)
+  return `hsl(${hue.toFixed(0)}, 75%, 45%)`;
+}
+
+/** A triangle arrowhead centered at `p`, pointing along unit tangent `t`. */
+function arrowAt(p: Point, t: Point, size: number, color: string, opacity = 0.9): string {
+  const tip = `${(p.x + t.x * size).toFixed(2)},${(p.y + t.y * size).toFixed(2)}`;
+  const left = `${(p.x - t.x * size + t.y * size * 0.6).toFixed(2)},${(p.y - t.y * size - t.x * size * 0.6).toFixed(2)}`;
+  const right = `${(p.x - t.x * size - t.y * size * 0.6).toFixed(2)},${(p.y - t.y * size + t.x * size * 0.6).toFixed(2)}`;
+  return `  <polygon points="${tip} ${left} ${right}" fill="${color}" opacity="${opacity}"/>`;
+}
+
+/** Point and unit tangent at arc length `s` along an open polyline. */
+function pointAtArcLength(pts: Point[], s: number): { point: Point; tangent: Point } | null {
+  let cum = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]!;
+    const b = pts[i]!;
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (len < 1e-9) continue;
+    if (cum + len >= s) {
+      const f = (s - cum) / len;
+      return {
+        point: { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f },
+        tangent: { x: (b.x - a.x) / len, y: (b.y - a.y) / len },
+      };
+    }
+    cum += len;
+  }
+  return null;
+}
+
+/** Pen-direction arrowheads spaced evenly by arc length along a stroke axis. */
+function penDirectionArrows(pts: Point[], u: number, color: string): string {
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y);
+  if (total < u * 16) return ''; // too short for a legible arrow (dots, flicks)
+  const count = Math.min(5, Math.max(1, Math.floor(total / (u * 45))));
+  const arrows: string[] = [];
+  for (let k = 1; k <= count; k++) {
+    const at = pointAtArcLength(pts, total * (k / (count + 1)));
+    if (at) arrows.push(arrowAt(at.point, at.tangent, u * 4, color));
+  }
+  return arrows.join('\n');
+}
+
+/**
+ * Order/direction view: strokes tinted by a first→last color ramp, arc-length
+ * arrowheads showing pen direction, numbered start badges, hollow end rings,
+ * and dashed pen-travel connectors from each stroke's end to the next start.
+ * This is the observability surface for stroke ordering — today's heuristic
+ * and, later, dataset-driven order render through the same view.
+ */
+function renderOrder(result: GeometryPipelineResult): string {
+  const vb = viewBox(result);
+  const parts = [outlinePaths(result, vb.u, 'rgba(0,0,0,0.04)')];
+  const strokes = result.strokesFontUnits;
+  const n = strokes.length;
+
+  // Pen travel underneath the strokes so connectors never obscure ink.
+  for (let i = 1; i < n; i++) {
+    const from = strokes[i - 1]!.points[strokes[i - 1]!.points.length - 1]!;
+    const to = strokes[i]!.points[0]!;
+    const len = Math.hypot(to.x - from.x, to.y - from.y);
+    if (len < 1e-6) continue;
+    parts.push(
+      `  <line x1="${from.x.toFixed(2)}" y1="${from.y.toFixed(2)}" x2="${to.x.toFixed(2)}" y2="${to.y.toFixed(2)}" stroke="#999" stroke-width="${(vb.u * 0.8).toFixed(2)}" stroke-dasharray="${(vb.u * 3).toFixed(2)} ${(vb.u * 3).toFixed(2)}" opacity="0.6"/>`,
+    );
+    const t = { x: (to.x - from.x) / len, y: (to.y - from.y) / len };
+    const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+    parts.push(arrowAt(mid, t, vb.u * 3, '#999', 0.6));
+  }
+
+  strokes.forEach((stroke, i) => {
+    const color = orderColor(i, n);
+    const pts = stroke.points;
+    const meanW = pts.reduce((s, p) => s + p.width, 0) / pts.length;
+    if (pts.length === 1) {
+      parts.push(
+        `  <circle cx="${pts[0]!.x.toFixed(2)}" cy="${pts[0]!.y.toFixed(2)}" r="${Math.max(meanW / 2, vb.u).toFixed(2)}" fill="${color}" opacity="0.5"/>`,
+      );
+    } else {
+      const d = polyD(pts);
+      parts.push(
+        `  <path d="${d}" fill="none" stroke="${color}" stroke-width="${Math.max(meanW, vb.u).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" opacity="0.25"/>`,
+      );
+      parts.push(
+        `  <path d="${d}" fill="none" stroke="${color}" stroke-width="${(vb.u * 1.2).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"/>`,
+      );
+      parts.push(penDirectionArrows(pts, vb.u, color));
+      // Hollow ring marks where the pen lifts.
+      const end = pts[pts.length - 1]!;
+      parts.push(
+        `  <circle cx="${end.x.toFixed(2)}" cy="${end.y.toFixed(2)}" r="${(vb.u * 3.5).toFixed(2)}" fill="white" stroke="${color}" stroke-width="${(vb.u * 1.2).toFixed(2)}"/>`,
+      );
+    }
+    const start = pts[0]!;
     parts.push(`  <circle cx="${start.x.toFixed(2)}" cy="${start.y.toFixed(2)}" r="${(vb.u * 8).toFixed(2)}" fill="${color}"/>`);
     parts.push(
       `  <text x="${start.x.toFixed(2)}" y="${(start.y + vb.u * 4).toFixed(2)}" text-anchor="middle" font-size="${(vb.u * 11).toFixed(2)}" fill="white" font-family="sans-serif">${i + 1}</text>`,
