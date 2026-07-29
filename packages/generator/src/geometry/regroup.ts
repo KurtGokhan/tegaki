@@ -29,6 +29,12 @@
 //   no tail-append join can produce. Absorption yields an ALTERNATIVE piece
 //   set; both sets feed the portfolio, so a wrong absorption never displaces
 //   a working proposal.
+// - DEDUP (pre-pass): drop ink that re-travels a corridor the group already
+//   covers. A heuristic stroke that wanders a fat or looped region (ね's
+//   knot, ゅ's loop wrapping its own stem) carries the same corridor two or
+//   three times as parallel spans — no chain order avoids re-drawing them,
+//   so the duplicated ink itself goes (see dedupOverlap for the topological
+//   redundancy test). Also an alternative piece set in the portfolio.
 //
 // Edge labels use nearest-reference distance plus a DIRECTION penalty: where
 // a stroke crosses another, its points pass within half a width of the other
@@ -47,6 +53,10 @@ import type { Point } from 'tegaki';
 import { matchStrokes, resamplePolyline } from '../stroke-order/match.ts';
 import { dist } from './primitives.ts';
 import type { AxisPoint, GeoStroke } from './types.ts';
+
+// Env-gated diagnostics (CLI only — this module also runs in the browser,
+// where `process` does not exist).
+const DEBUG = typeof process !== 'undefined' && !!process.env?.TEGAKI_REGROUP_DEBUG;
 
 export interface RegroupOptions {
   /** Densification spacing for edge labeling (≈ the pipeline's resample spacing). */
@@ -71,6 +81,8 @@ export interface RegroupResult {
   merges: number;
   /** Of merges: links that re-travel a piece's own polyline (fused corridors, stub excursions). */
   retraces: number;
+  /** Arc length of duplicated (re-traveled corridor) ink dropped by the overlap dedup. */
+  pruned: number;
 }
 
 interface RefIndex {
@@ -434,6 +446,8 @@ interface PieceInfo {
   /** Projected t of the first/last point (after any orientation flip). */
   tStart: number;
   tEnd: number;
+  /** Mean sample distance to the assigned reference — how well the piece hugs it. */
+  meanD: number;
 }
 
 /** Assign a whole piece to its nearest reference and orient it along increasing reference t. */
@@ -467,7 +481,147 @@ function labelPiece(piece: GeoStroke, refs: (RefIndex | null)[]): PieceInfo | nu
     piece.points = [...piece.points].reverse();
     [tStart, tEnd] = [tEnd, tStart];
   }
-  return { piece, label: best, tMean: bestT, tStart, tEnd };
+  return { piece, label: best, tMean: bestT, tStart, tEnd, meanD: bestD / samples.length };
+}
+
+/** An edge kept by the overlap dedup, with enough context for coverage tests. */
+interface KeptEdge {
+  mid: Point;
+  dir: Point;
+  width: number;
+  pieceIdx: number;
+  edgeIdx: number;
+}
+
+/**
+ * Drop ink that re-travels a corridor the group already covers. A heuristic
+ * stroke that wanders a fat or looped region (ね's knot, ゅ's loop wrapping
+ * its own stem) carries the same corridor two or three times as PARALLEL
+ * polyline spans — no chain order can avoid re-drawing them, the duplicated
+ * ink itself has to go. Within each reference group, pieces are processed
+ * best-hugging-first (dataset-guided: the span that stays closest to the
+ * reference is the one that survives). Redundancy is TOPOLOGICAL, not local:
+ * a continuation edge just past a split seam looks exactly like a duplicate
+ * (same corridor, a width away), but it advances to a NEW interval of the
+ * reference's arc length — so an edge is dropped only when its reference
+ * arc interval is already covered by kept ink AND a kept edge runs alongside
+ * it (within the local ink width, roughly parallel or antiparallel). Pieces
+ * are cut at the drop boundaries and the chaining phase reconnects what
+ * remains. Legitimate prescribed doubling (れ's corridor) is protected by
+ * the portfolio: dedup only ADDS a piece-set variant, and the re-match
+ * arbitrates. Returns null when nothing drops.
+ */
+function dedupOverlap(
+  pieces: GeoStroke[],
+  refs: (RefIndex | null)[],
+  options: RegroupOptions,
+): { pieces: GeoStroke[]; dropped: number } | null {
+  const infos: (PieceInfo | null)[] = pieces.map((p) =>
+    labelPiece({ points: [...p.points], isLoop: p.isLoop, segmentIndices: [...p.segmentIndices] }, refs),
+  );
+  const byGroup = new Map<number, number[]>();
+  infos.forEach((info, i) => {
+    if (!info) return;
+    const list = byGroup.get(info.label);
+    if (list) list.push(i);
+    else byGroup.set(info.label, [i]);
+  });
+
+  const out: GeoStroke[] = [];
+  let dropped = 0;
+  for (let i = 0; i < pieces.length; i++) if (!infos[i]) out.push(pieces[i]!); // loops and degenerates pass through
+
+  for (const [label, indices] of byGroup) {
+    const ref = refs[label];
+    if (!ref) {
+      for (const idx of indices) out.push(pieces[idx]!);
+      continue;
+    }
+    // Arc-length coverage of the reference, in spacing-sized buckets.
+    const bucketCount = Math.max(1, Math.ceil(ref.total / options.spacing));
+    const coveredBuckets = new Array<boolean>(bucketCount).fill(false);
+    const bucketRange = (tMid: number, len: number): [number, number] => {
+      const arc = tMid * ref.total;
+      const b0 = Math.max(0, Math.min(bucketCount - 1, Math.floor((arc - len / 2) / options.spacing)));
+      const b1 = Math.max(0, Math.min(bucketCount - 1, Math.floor((arc + len / 2) / options.spacing)));
+      return [b0, b1];
+    };
+    // Best-hugging piece first: its spans become the kept baseline.
+    indices.sort((a, b) => infos[a]!.meanD - infos[b]!.meanD);
+    const kept: KeptEdge[] = [];
+    for (const idx of indices) {
+      const piece = infos[idx]!.piece;
+      const pts = densify(piece.points, options.spacing);
+      const keepEdge: boolean[] = [];
+      for (let e = 0; e < pts.length - 1; e++) {
+        const a = pts[e]!;
+        const b = pts[e + 1]!;
+        const len = dist(a, b);
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const dir = len > 0 ? { x: (b.x - a.x) / len, y: (b.y - a.y) / len } : { x: 0, y: 0 };
+        const w = (a.width + b.width) / 2;
+        const [b0, b1] = bucketRange(projectToRef(mid, ref).t, len);
+        let covered = true;
+        for (let bi = b0; bi <= b1; bi++) if (!coveredBuckets[bi]) covered = false;
+        if (covered) {
+          // The reference arc here is covered — but only alongside kept ink
+          // is this edge a re-travel (far-away same-t ink stays).
+          covered = false;
+          for (const k of kept) {
+            // A hairpin's own turn is not duplication — skip immediate neighbours.
+            if (k.pieceIdx === idx && Math.abs(k.edgeIdx - e) <= 2) continue;
+            if (Math.abs(dir.x * k.dir.x + dir.y * k.dir.y) < 0.7) continue;
+            if (dist(mid, k.mid) <= Math.max(w, k.width)) {
+              covered = true;
+              break;
+            }
+          }
+        }
+        keepEdge.push(!covered);
+        if (!covered) {
+          for (let bi = b0; bi <= b1; bi++) coveredBuckets[bi] = true;
+          kept.push({ mid, dir, width: w, pieceIdx: idx, edgeIdx: e });
+        } else {
+          dropped += len;
+        }
+      }
+      if (DEBUG) {
+        const spans: string[] = [];
+        let from = -1;
+        for (let e = 0; e <= keepEdge.length; e++) {
+          const drop = e < keepEdge.length && !keepEdge[e];
+          if (drop && from < 0) from = e;
+          if (!drop && from >= 0) {
+            spans.push(`(${pts[from]!.x.toFixed(0)},${pts[from]!.y.toFixed(0)})..(${pts[e]!.x.toFixed(0)},${pts[e]!.y.toFixed(0)})`);
+            from = -1;
+          }
+        }
+        if (spans.length > 0) {
+          console.log(
+            `[dedup] piece ${idx} label ${infos[idx]!.label} meanD ${infos[idx]!.meanD.toFixed(0)} len ${polylineLength(piece.points).toFixed(0)}: dropped ${spans.join(' ')}`,
+          );
+        }
+      }
+      // Cut into sub-pieces at drop boundaries; slivers dissolve.
+      let run: AxisPoint[] = [];
+      const flush = () => {
+        if (run.length >= 2 && polylineLength(run) >= options.spacing) {
+          out.push({ points: run, isLoop: false, segmentIndices: [...piece.segmentIndices] });
+        }
+        run = [];
+      };
+      for (let e = 0; e < pts.length - 1; e++) {
+        if (keepEdge[e]) {
+          if (run.length === 0) run.push({ ...pts[e]! });
+          run.push({ ...pts[e + 1]! });
+        } else {
+          flush();
+        }
+      }
+      flush();
+    }
+  }
+  return dropped > 0 ? { pieces: out, dropped } : null;
 }
 
 /**
@@ -479,16 +633,154 @@ function labelPiece(piece: GeoStroke, refs: (RefIndex | null)[]): PieceInfo | nu
  *   reference passes back over itself and projected t's turn ambiguous
  *   (ね's sweep crosses its own descent) — strict t-order there stitches
  *   non-adjacent pieces with glyph-spanning retraces.
- * Neither dominates, so the caller builds BOTH and keeps whichever re-matches
+ * - 'global': subset-DP (Held-Karp) over the pairwise join-cost matrix —
+ *   the cheapest order over the WHOLE group. Greedy locks in a cheap first
+ *   join and then strands the dense self-crossing tail pieces of ね/ゅ into
+ *   back-and-forth bounces; the DP pays a little more early to avoid a lot
+ *   later.
+ * None dominates, so the caller builds ALL and keeps whichever re-matches
  * the reference better.
  */
-type ChainStrategy = 'reference' | 'continuity';
+type ChainStrategy = 'reference' | 'continuity' | 'global';
 
 /** How the winning candidate attaches to the chain. */
 type Join =
   | { kind: 'plain' }
   | { kind: 'retrace'; pair: PairHit }
   | { kind: 'via'; corridor: AxisPoint[]; entry: PolylineHit; pair: PairHit };
+
+/**
+ * Cheapest feasible join attaching `cand` after `current`'s tail. Three join
+ * kinds, all font ink only — the re-match decides whether the doubled travel
+ * is what the reference actually prescribes:
+ * - PLAIN: end-to-end, costs its hop.
+ * - RETRACE: the pieces touch at their interiors — connect at the nearest
+ *   pair of points by re-traveling their own ink (れ's descent and ascent
+ *   share ONE extracted diagonal; わ's crossing spur backs out the way it
+ *   came). Pays half the doubled travel, so a short corridor beats a
+ *   glyph-spanning back-walk. Every vertex-projection meeting pair is
+ *   considered and the full cost minimized, not just the closest pair — a
+ *   marginally farther meeting with far shorter walks is the better pen path
+ *   (and the endpoint-anchored joins are always in this candidate set).
+ * - VIA: the connection runs through a THIRD piece's polyline — わ's second
+ *   stroke reaches its descent by riding the crossing blob, ink the matcher
+ *   assigned to the STEM. Hop onto the corridor, walk it to where the next
+ *   piece touches, then enter as a retrace.
+ */
+function findJoin(
+  current: AxisPoint[],
+  cand: AxisPoint[],
+  corridors: GeoStroke[],
+  glyphDiag: number,
+  allowVia: boolean,
+): { cost: number; join: Join } | null {
+  const tail = current[current.length - 1]!;
+  const head = cand[0]!;
+  let bestCost = Infinity;
+  let bestJoin: Join | null = null;
+  const hop = dist(tail, head);
+  if (hop <= joinTolerance(tail, head, glyphDiag)) {
+    bestCost = hop;
+    bestJoin = { kind: 'plain' };
+  } else {
+    const meetings: PairHit[] = [];
+    for (let vi = 0; vi < current.length; vi++) {
+      const hit = projectOntoPolyline(cand, current[vi]!);
+      if (hit) meetings.push({ d: hit.d, qa: current[vi]!, segA: Math.min(vi, current.length - 2), qb: hit.q, segB: hit.seg });
+    }
+    for (let vj = 0; vj < cand.length; vj++) {
+      const hit = projectOntoPolyline(current, cand[vj]!);
+      if (hit) meetings.push({ d: hit.d, qa: hit.q, segA: hit.seg, qb: cand[vj]!, segB: Math.min(vj, cand.length - 2) });
+    }
+    for (const pair of meetings) {
+      if (pair.d > joinTolerance(pair.qa, pair.qb, glyphDiag)) continue;
+      const cost = pair.d + 0.5 * (lengthFromHitToTail(current, pair.segA, pair.qa) + lengthFromHeadToHit(cand, pair.segB, pair.qb));
+      if (cost < bestCost) {
+        bestCost = cost;
+        bestJoin = { kind: 'retrace', pair };
+      }
+    }
+    if (allowVia) {
+      for (const via of corridors) {
+        const corridor = via.points;
+        if (corridor.length < 2 || corridor === current || corridor === cand) continue;
+        const entry = projectOntoPolyline(corridor, tail);
+        if (!entry || entry.d > joinTolerance(tail, entry.q, glyphDiag)) continue;
+        const exitPair = nearestPolylinePair(corridor, cand);
+        if (!exitPair || exitPair.d > joinTolerance(exitPair.qa, exitPair.qb, glyphDiag)) continue;
+        const walk = Math.abs(
+          lengthFromHeadToHit(corridor, entry.seg, entry.q) - lengthFromHeadToHit(corridor, exitPair.segA, exitPair.qa),
+        );
+        const cost = entry.d + exitPair.d + 0.5 * (walk + lengthFromHeadToHit(cand, exitPair.segB, exitPair.qb));
+        if (cost < bestCost) {
+          bestCost = cost;
+          bestJoin = { kind: 'via', corridor, entry, pair: exitPair };
+        }
+      }
+    }
+  }
+  return bestJoin ? { cost: bestCost, join: bestJoin } : null;
+}
+
+/** Groups larger than this skip the DP (2^n states) and keep greedy orders. */
+const GLOBAL_DP_MAX = 12;
+/** Cost of an infeasible adjacency: forces a chain break only when unavoidable. */
+const INFEASIBLE = 1e9;
+
+/**
+ * Cheapest chain order over the WHOLE group: Held-Karp subset DP over the
+ * pairwise join-cost matrix (directed — pieces are already oriented along
+ * the reference), free choice of starting piece. Pairwise costs approximate
+ * the real splice (which joins from the accumulated chain's tail), but the
+ * approximation is exact precisely for the good orders — the ones whose
+ * joins stay local. Returns null when the group is trivial or too large.
+ */
+function orderGlobally(infos: PieceInfo[], corridors: GeoStroke[], glyphDiag: number, allowVia: boolean): PieceInfo[] | null {
+  const n = infos.length;
+  if (n < 2 || n > GLOBAL_DP_MAX) return null;
+  const cost: number[][] = infos.map(() => new Array(n).fill(INFEASIBLE));
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue;
+      const found = findJoin(infos[i]!.piece.points, infos[j]!.piece.points, corridors, glyphDiag, allowVia);
+      if (found) cost[i]![j] = found.cost;
+    }
+  }
+  const size = 1 << n;
+  const dp: Float64Array[] = Array.from({ length: size }, () => new Float64Array(n).fill(Infinity));
+  const parent: Int8Array[] = Array.from({ length: size }, () => new Int8Array(n).fill(-1));
+  for (let i = 0; i < n; i++) dp[1 << i]![i] = 0;
+  for (let mask = 1; mask < size; mask++) {
+    for (let last = 0; last < n; last++) {
+      const base = dp[mask]![last]!;
+      if (!Number.isFinite(base) || (mask & (1 << last)) === 0) continue;
+      for (let next = 0; next < n; next++) {
+        if (mask & (1 << next)) continue;
+        const total = base + cost[last]![next]!;
+        const to = mask | (1 << next);
+        if (total < dp[to]![next]!) {
+          dp[to]![next] = total;
+          parent[to]![next] = last;
+        }
+      }
+    }
+  }
+  const full = size - 1;
+  let end = 0;
+  for (let i = 1; i < n; i++) if (dp[full]![i]! < dp[full]![end]!) end = i;
+  if (!Number.isFinite(dp[full]![end]!)) return null;
+  const order: number[] = [];
+  let mask = full;
+  let at = end;
+  while (at >= 0) {
+    order.push(at);
+    const prev = parent[mask]![at]!;
+    mask &= ~(1 << at);
+    at = prev;
+  }
+  order.reverse();
+  return order.map((i) => infos[i]!);
+}
 
 /** Merge phase for one strategy: label + orient piece clones, chain per group. */
 function chainPieces(
@@ -516,10 +808,13 @@ function chainPieces(
 
   let merges = 0;
   let retraces = 0;
-  const tolerance = (a: AxisPoint, b: AxisPoint) => joinTolerance(a, b, options.glyphDiag);
 
   for (const infos of groups.values()) {
-    const pending = [...infos].sort((a, b) => a.tMean - b.tMean);
+    let pending = [...infos].sort((a, b) => a.tMean - b.tMean);
+    if (strategy === 'global') {
+      const ordered = orderGlobally(pending, pieces, options.glyphDiag, allowVia);
+      if (ordered) pending = ordered;
+    }
     let current: GeoStroke | null = null;
     while (pending.length > 0 || current) {
       if (!current) {
@@ -531,77 +826,19 @@ function chainPieces(
         current = null;
         continue;
       }
-      // Cheapest feasible continuation among the scanned candidates. Three
-      // join kinds, all font ink only — the re-match decides whether the
-      // doubled travel is what the reference actually prescribes:
-      // - PLAIN: end-to-end, costs its hop.
-      // - RETRACE: the pieces touch at their interiors — connect at the
-      //   nearest pair of points by re-traveling their own ink (れ's descent
-      //   and ascent share ONE extracted diagonal; わ's crossing spur backs
-      //   out the way it came). Pays half the doubled travel, so a short
-      //   corridor beats a glyph-spanning back-walk.
-      // - VIA: the connection runs through a THIRD piece's polyline — わ's
-      //   second stroke reaches its descent by riding the crossing blob,
-      //   ink the matcher assigned to the STEM. Hop onto the corridor, walk
-      //   it to where the next piece touches, then enter as a retrace.
-      const scan = strategy === 'reference' ? 1 : pending.length;
-      const tail = current.points[current.points.length - 1]!;
+      // Cheapest feasible continuation among the scanned candidates —
+      // 'continuity' scans everything pending, the fixed-order strategies
+      // only the prescribed next piece (see findJoin for the join kinds).
+      const scan = strategy === 'continuity' ? pending.length : 1;
       let bestIdx = -1;
       let bestJoin: Join | null = null;
       let bestCost = Infinity;
       for (let i = 0; i < scan; i++) {
-        const cand = pending[i]!.piece;
-        const head = cand.points[0]!;
-        const hop = dist(tail, head);
-        if (hop <= tolerance(tail, head)) {
-          if (hop < bestCost) {
-            bestCost = hop;
-            bestIdx = i;
-            bestJoin = { kind: 'plain' };
-          }
-          continue;
-        }
-        // Direct retrace: consider EVERY vertex-projection meeting pair and
-        // minimize the full cost, not just the closest pair — a marginally
-        // farther meeting with far shorter walks is the better pen path (and
-        // the endpoint-anchored joins are always in this candidate set).
-        const meetings: PairHit[] = [];
-        for (let vi = 0; vi < current.points.length; vi++) {
-          const hit = projectOntoPolyline(cand.points, current.points[vi]!);
-          if (hit)
-            meetings.push({ d: hit.d, qa: current.points[vi]!, segA: Math.min(vi, current.points.length - 2), qb: hit.q, segB: hit.seg });
-        }
-        for (let vj = 0; vj < cand.points.length; vj++) {
-          const hit = projectOntoPolyline(current.points, cand.points[vj]!);
-          if (hit) meetings.push({ d: hit.d, qa: hit.q, segA: hit.seg, qb: cand.points[vj]!, segB: Math.min(vj, cand.points.length - 2) });
-        }
-        for (const pair of meetings) {
-          if (pair.d > tolerance(pair.qa, pair.qb)) continue;
-          const cost =
-            pair.d + 0.5 * (lengthFromHitToTail(current.points, pair.segA, pair.qa) + lengthFromHeadToHit(cand.points, pair.segB, pair.qb));
-          if (cost < bestCost) {
-            bestCost = cost;
-            bestIdx = i;
-            bestJoin = { kind: 'retrace', pair };
-          }
-        }
-        if (!allowVia) continue;
-        for (const via of pieces) {
-          const corridor = via.points;
-          if (corridor.length < 2) continue;
-          const entry = projectOntoPolyline(corridor, tail);
-          if (!entry || entry.d > tolerance(tail, entry.q)) continue;
-          const exitPair = nearestPolylinePair(corridor, cand.points);
-          if (!exitPair || exitPair.d > tolerance(exitPair.qa, exitPair.qb)) continue;
-          const walk = Math.abs(
-            lengthFromHeadToHit(corridor, entry.seg, entry.q) - lengthFromHeadToHit(corridor, exitPair.segA, exitPair.qa),
-          );
-          const cost = entry.d + exitPair.d + 0.5 * (walk + lengthFromHeadToHit(cand.points, exitPair.segB, exitPair.qb));
-          if (cost < bestCost) {
-            bestCost = cost;
-            bestIdx = i;
-            bestJoin = { kind: 'via', corridor, entry, pair: exitPair };
-          }
+        const found = findJoin(current.points, pending[i]!.piece.points, pieces, options.glyphDiag, allowVia);
+        if (found && found.cost < bestCost) {
+          bestCost = found.cost;
+          bestIdx = i;
+          bestJoin = found.join;
         }
       }
       if (bestIdx < 0 || !bestJoin) {
@@ -661,14 +898,31 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
   // mean cost. The raw no-via reference combination reproduces plain
   // consecutive chaining exactly, so richer joins can only ever add
   // adoptable proposals, never lose one.
-  const pieceSets: { pieces: GeoStroke[]; absorbed: number }[] = [{ pieces, absorbed: 0 }];
+  if (DEBUG) {
+    for (const p of pieces) {
+      const first = p.points[0]!;
+      const last = p.points[p.points.length - 1]!;
+      console.log(
+        `[regroup] piece: len ${polylineLength(p.points).toFixed(0)} loop=${p.isLoop} (${first.x.toFixed(0)},${first.y.toFixed(0)}) -> (${last.x.toFixed(0)},${last.y.toFixed(0)})`,
+      );
+    }
+  }
+  const pieceSets: { name: string; pieces: GeoStroke[]; absorbed: number; pruned: number }[] = [
+    { name: 'raw', pieces, absorbed: 0, pruned: 0 },
+  ];
   const absorbedSet = absorbStubs(pieces, options);
-  if (absorbedSet) pieceSets.push(absorbedSet);
+  if (absorbedSet) pieceSets.push({ name: 'absorb', ...absorbedSet, pruned: 0 });
+  // Dedup applies to the RAW pieces only: absorption splices out-and-back
+  // excursions on purpose, and dedup would immediately unpick them.
+  const deduped = dedupOverlap(pieces, refs, options);
+  if (deduped) pieceSets.push({ name: 'dedup', pieces: deduped.pieces, absorbed: 0, pruned: deduped.dropped });
   const combos: [ChainStrategy, boolean][] = [
     ['reference', false],
     ['reference', true],
     ['continuity', false],
     ['continuity', true],
+    ['global', false],
+    ['global', true],
   ];
   const scored = pieceSets.flatMap((set) =>
     combos.map(([strategy, allowVia]) => {
@@ -683,10 +937,23 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
         options.glyphDiag,
       );
       const countsAgree = match.extractedCount === match.referenceCount;
+      if (DEBUG) {
+        const ends = chained.strokes
+          .map((s) => {
+            const f = s.points[0]!;
+            const l = s.points[s.points.length - 1]!;
+            return `[len ${polylineLength(s.points).toFixed(0)} (${f.x.toFixed(0)},${f.y.toFixed(0)})->(${l.x.toFixed(0)},${l.y.toFixed(0)})]`;
+          })
+          .join(' ');
+        console.log(
+          `[regroup] ${set.name}/${strategy}${allowVia ? '+via' : ''}: ${chained.strokes.length} strokes, mean ${match.meanCost.toFixed(3)}, pairs ${match.pairs.map((p) => p.cost.toFixed(3)).join('/')} ${ends}`,
+        );
+      }
       return {
         strokes: chained.strokes,
         merges,
         retraces,
+        pruned: set.pruned,
         countsAgree,
         adoptable: countsAgree && match.meanCost <= options.maxMeanCost,
         meanCost: match.meanCost,
@@ -698,6 +965,6 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
   );
   const best = scored[0]!;
 
-  if (splits === 0 && best.merges === 0) return null;
-  return { strokes: best.strokes, splits, merges: best.merges, retraces: best.retraces };
+  if (splits === 0 && best.merges === 0 && best.pruned === 0) return null;
+  return { strokes: best.strokes, splits, merges: best.merges, retraces: best.retraces, pruned: best.pruned };
 }
