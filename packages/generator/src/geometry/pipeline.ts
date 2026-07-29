@@ -519,6 +519,7 @@ export function runGeometryPipeline(
           spacing: resolved.resampleSpacing,
           minRunLength: resolved.resampleSpacing * 3,
           glyphDiag,
+          maxMeanCost: AUTO_MAX_MEAN_COST,
         });
         if (proposal) {
           const candidate = proposal.strokes.map((gs) => ({ ...gs, points: simplifyStroke(gs.points, simplifyEps) }));

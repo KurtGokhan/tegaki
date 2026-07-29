@@ -7,7 +7,7 @@ const pts = (coords: [number, number][], width = 40): AxisPoint[] => coords.map(
 const stroke = (points: AxisPoint[], isLoop = false): GeoStroke => ({ points, isLoop, segmentIndices: [0] });
 const ref = (coords: [number, number][]): Point[] => coords.map(([x, y]) => ({ x, y }));
 
-const OPTIONS = { spacing: 20, minRunLength: 60, glyphDiag: 800 };
+const OPTIONS = { spacing: 20, minRunLength: 60, glyphDiag: 800, maxMeanCost: 0.15 };
 
 const xs = (s: GeoStroke) => s.points.map((p) => p.x);
 const ys = (s: GeoStroke) => s.points.map((p) => p.y);
@@ -256,6 +256,117 @@ describe('regroupStrokesByReference — merging', () => {
     expect(bottomIdx).toBeGreaterThan(0);
     expect(bottomIdx).toBeLessThan(merged.points.length - 1);
     expect(merged.points[merged.points.length - 1]!.x).toBe(300);
+  });
+
+  test('double-sided retrace: a stranded spur backs out to meet the next piece mid-corridor (わ crossing)', () => {
+    // Piece A ends on a short spur away from the corridor; piece B starts at
+    // the corridor's far end. Neither endpoint reaches the other piece, but
+    // the two INTERIORS meet near the corridor mouth — the pen must back out
+    // of the spur, then enter the corridor and traverse it both ways.
+    const a = stroke(
+      pts(
+        [
+          [0, 0],
+          [95, 0],
+          [110, -60],
+        ],
+        30,
+      ),
+    );
+    const b = stroke(
+      pts(
+        [
+          [100, 200],
+          [100, 5],
+          [300, 5],
+        ],
+        30,
+      ),
+    );
+    const refs = [
+      ref([
+        [0, 0],
+        [100, 0],
+        [100, 200],
+        [100, 0],
+        [300, 0],
+      ]),
+    ];
+    const result = regroupStrokesByReference([a, b], refs, OPTIONS);
+    expect(result).not.toBeNull();
+    expect(result!.merges).toBe(1);
+    expect(result!.retraces).toBe(1);
+    expect(result!.strokes.length).toBe(1);
+    const merged = result!.strokes[0]!;
+    // The spur is drawn out and back...
+    const spurIdx = merged.points.findIndex((p) => p.y === -60);
+    expect(spurIdx).toBeGreaterThan(0);
+    expect(merged.points[spurIdx + 1]!.y).toBeGreaterThan(-60);
+    // ...then the corridor bottom is reached mid-path and the stroke exits right.
+    const bottomIdx = merged.points.findIndex((p) => p.y === 200);
+    expect(bottomIdx).toBeGreaterThan(spurIdx);
+    expect(bottomIdx).toBeLessThan(merged.points.length - 1);
+    expect(merged.points[merged.points.length - 1]!.x).toBe(300);
+  });
+
+  test('via join: the connection rides a THIRD piece assigned to another reference (わ corridor)', () => {
+    // The prescribed second stroke runs down the stem corridor between its
+    // entry and its bottom sweep — ink the matcher assigns to the STEM
+    // reference. The chain must hop onto the stem piece, walk it down, and
+    // exit into the sweep.
+    const entry = stroke(
+      pts(
+        [
+          [0, 0],
+          [95, 0],
+        ],
+        30,
+      ),
+    );
+    const stem = stroke(
+      pts(
+        [
+          [100, 10],
+          [100, 300],
+        ],
+        30,
+      ),
+    );
+    const sweep = stroke(
+      pts(
+        [
+          [110, 305],
+          [300, 305],
+        ],
+        30,
+      ),
+    );
+    const refs = [
+      // Stem reference.
+      ref([
+        [100, 0],
+        [100, 300],
+      ]),
+      // Second stroke: enters, rides the stem down, sweeps right.
+      ref([
+        [0, 0],
+        [100, 0],
+        [100, 300],
+        [300, 300],
+      ]),
+    ];
+    const result = regroupStrokesByReference([entry, stem, sweep], refs, OPTIONS);
+    expect(result).not.toBeNull();
+    expect(result!.strokes.length).toBe(2);
+    expect(result!.retraces).toBe(1);
+    // The merged second stroke travels down the corridor to y≈300 mid-path.
+    const merged = result!.strokes.find((s) => s.points[0]!.x === 0)!;
+    expect(merged).toBeDefined();
+    const bottomIdx = merged.points.findIndex((p) => p.y === 300);
+    expect(bottomIdx).toBeGreaterThan(0);
+    expect(merged.points[merged.points.length - 1]!.x).toBe(300);
+    // The stem itself stays a separate stroke.
+    expect(result!.strokes.some((s) => s.points.length === 2 && s.points[0]!.y === 10)).toBe(true);
   });
 
   test('rejected proposals leave the input strokes untouched', () => {
