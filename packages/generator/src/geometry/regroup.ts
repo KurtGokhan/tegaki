@@ -20,6 +20,15 @@
 //   point sits on a piece's INTERIOR rather than an endpoint, the chain
 //   RETRACES that piece's own polyline (see the retrace note in the merge
 //   phase) — the pen legitimately travels a fused corridor twice.
+// - ABSORB (pre-pass): a short stub whose endpoint touches the INTERIOR of a
+//   longer piece splices into that piece as an out-and-back excursion. Where
+//   a long stroke overlaps itself (そ's second bar under its descending
+//   curve, ん's descent under its loop), the skeleton branches: the main
+//   path runs through the fused corridor and the stroke's real tip survives
+//   only as a spur. The pen visits that tip MID-path — out and back — which
+//   no tail-append join can produce. Absorption yields an ALTERNATIVE piece
+//   set; both sets feed the portfolio, so a wrong absorption never displaces
+//   a working proposal.
 //
 // Edge labels use nearest-reference distance plus a DIRECTION penalty: where
 // a stroke crosses another, its points pass within half a width of the other
@@ -58,9 +67,9 @@ export interface RegroupResult {
   strokes: GeoStroke[];
   /** Extracted strokes that were split at label seams. */
   splits: number;
-  /** End-to-end links applied between same-reference pieces. */
+  /** Links applied between same-reference pieces (including absorbed stubs). */
   merges: number;
-  /** Of merges: links that re-travel a piece's own polyline (fused corridors). */
+  /** Of merges: links that re-travel a piece's own polyline (fused corridors, stub excursions). */
   retraces: number;
 }
 
@@ -190,6 +199,86 @@ function nearestPolylinePair(a: AxisPoint[], b: AxisPoint[]): PairHit | null {
     }
   }
   return best;
+}
+
+// A join gap spans at most the junction ink between the two pieces (~ a
+// stroke width where they cross another stroke); anything larger means the
+// reference genuinely lifts the pen or the assignment is off.
+function joinTolerance(a: AxisPoint, b: AxisPoint, glyphDiag: number): number {
+  return Math.max(2 * Math.max(a.width, b.width), glyphDiag * 0.05);
+}
+
+function appendDedup(dst: AxisPoint[], src: AxisPoint[]): void {
+  for (const p of src) {
+    const last = dst[dst.length - 1];
+    if (last && dist(last, p) < 1e-6) continue;
+    dst.push({ ...p });
+  }
+}
+
+function polylineLength(pts: AxisPoint[]): number {
+  let len = 0;
+  for (let i = 1; i < pts.length; i++) len += dist(pts[i - 1]!, pts[i]!);
+  return len;
+}
+
+/**
+ * Absorb excursion stubs: a piece much shorter than a neighbour, one endpoint
+ * touching that neighbour's INTERIOR (clear of both ends — endpoint-adjacent
+ * contacts are the chaining phase's job), splices in as an out-and-back
+ * excursion at the touch point. This is the skeleton-branch signature of a
+ * stroke overlapping itself: the surviving spur is the stroke's real tip and
+ * the pen visits it mid-path. Returns null when nothing absorbs.
+ */
+function absorbStubs(pieces: GeoStroke[], options: RegroupOptions): { pieces: GeoStroke[]; absorbed: number } | null {
+  const work = pieces.map((p) => ({ points: p.points.map((q) => ({ ...q })), isLoop: p.isLoop, segmentIndices: [...p.segmentIndices] }));
+  let absorbed = 0;
+  for (;;) {
+    let bestStub = -1;
+    let bestHost = -1;
+    let bestHit: PolylineHit | null = null;
+    let bestFromHead = true;
+    for (let s = 0; s < work.length; s++) {
+      const stub = work[s]!;
+      if (stub.isLoop || stub.points.length < 2) continue;
+      const stubLen = polylineLength(stub.points);
+      for (let h = 0; h < work.length; h++) {
+        if (h === s) continue;
+        const host = work[h]!;
+        if (host.points.length < 2 || polylineLength(host.points) <= stubLen * 2) continue;
+        for (const fromHead of [true, false]) {
+          const end = fromHead ? stub.points[0]! : stub.points[stub.points.length - 1]!;
+          const hit = projectOntoPolyline(host.points, end);
+          if (!hit) continue;
+          const tol = joinTolerance(end, hit.q, options.glyphDiag);
+          if (hit.d > tol) continue;
+          // Interior only: near the host's ends, plain/retrace chaining
+          // already models the connection.
+          if (lengthFromHeadToHit(host.points, hit.seg, hit.q) <= tol) continue;
+          if (lengthFromHitToTail(host.points, hit.seg, hit.q) <= tol) continue;
+          if (!bestHit || hit.d < bestHit.d) {
+            bestStub = s;
+            bestHost = h;
+            bestHit = hit;
+            bestFromHead = fromHead;
+          }
+        }
+      }
+    }
+    if (!bestHit) break;
+    const stub = work[bestStub]!;
+    const host = work[bestHost]!;
+    const outbound = bestFromHead ? stub.points : [...stub.points].reverse();
+    const spliced: AxisPoint[] = host.points.slice(0, bestHit.seg + 1).map((p) => ({ ...p }));
+    appendDedup(spliced, [bestHit.q, ...outbound]);
+    appendDedup(spliced, [...outbound].reverse().slice(1));
+    appendDedup(spliced, [bestHit.q, ...host.points.slice(bestHit.seg + 1)]);
+    host.points = spliced;
+    host.segmentIndices = [...host.segmentIndices, ...stub.segmentIndices];
+    work.splice(bestStub, 1);
+    absorbed++;
+  }
+  return absorbed > 0 ? { pieces: work, absorbed } : null;
 }
 
 /** Insert interpolated points so no edge exceeds `spacing` (labels need granularity). */
@@ -427,17 +516,7 @@ function chainPieces(
 
   let merges = 0;
   let retraces = 0;
-  // A join gap spans at most the junction ink between the two pieces (~ a
-  // stroke width where they cross another stroke); anything larger means the
-  // reference genuinely lifts the pen or the assignment is off.
-  const tolerance = (a: AxisPoint, b: AxisPoint) => Math.max(2 * Math.max(a.width, b.width), options.glyphDiag * 0.05);
-  const appendDedup = (dst: AxisPoint[], src: AxisPoint[]) => {
-    for (const p of src) {
-      const last = dst[dst.length - 1];
-      if (last && dist(last, p) < 1e-6) continue;
-      dst.push({ ...p });
-    }
-  };
+  const tolerance = (a: AxisPoint, b: AxisPoint) => joinTolerance(a, b, options.glyphDiag);
 
   for (const infos of groups.values()) {
     const pending = [...infos].sort((a, b) => a.tMean - b.tMean);
@@ -573,29 +652,47 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
     pieces.push(...parts);
   }
 
-  // MERGE phase, once per (strategy × via) combination; the re-match against
-  // the reference picks the winner. ADOPTABLE candidates (counts agree AND
-  // under the caller's cost gate) outrank everything, so a passing chain from
-  // one combination is never shadowed by a lower-cost chain that fails —
-  // then count agreement, then mean cost. The no-via reference combination
-  // reproduces plain consecutive chaining exactly, so richer joins can only
-  // ever add adoptable proposals, never lose one.
+  // MERGE phase, once per (piece set × strategy × via) combination; the
+  // re-match against the reference picks the winner. Piece sets are the raw
+  // split pieces plus (when any stub absorbs) the stub-absorbed variant.
+  // ADOPTABLE candidates (counts agree AND under the caller's cost gate)
+  // outrank everything, so a passing chain from one combination is never
+  // shadowed by a lower-cost chain that fails — then count agreement, then
+  // mean cost. The raw no-via reference combination reproduces plain
+  // consecutive chaining exactly, so richer joins can only ever add
+  // adoptable proposals, never lose one.
+  const pieceSets: { pieces: GeoStroke[]; absorbed: number }[] = [{ pieces, absorbed: 0 }];
+  const absorbedSet = absorbStubs(pieces, options);
+  if (absorbedSet) pieceSets.push(absorbedSet);
   const combos: [ChainStrategy, boolean][] = [
     ['reference', false],
     ['reference', true],
     ['continuity', false],
     ['continuity', true],
   ];
-  const scored = combos.map(([strategy, allowVia]) => {
-    const chained = chainPieces(pieces, refs, options, strategy, allowVia);
-    const match = matchStrokes(
-      chained.strokes.map((s) => s.points),
-      references,
-      options.glyphDiag,
-    );
-    const countsAgree = match.extractedCount === match.referenceCount;
-    return { ...chained, countsAgree, adoptable: countsAgree && match.meanCost <= options.maxMeanCost, meanCost: match.meanCost };
-  });
+  const scored = pieceSets.flatMap((set) =>
+    combos.map(([strategy, allowVia]) => {
+      const chained = chainPieces(set.pieces, refs, options, strategy, allowVia);
+      // An absorption both merges two extracted strokes and doubles travel,
+      // so it reports as one merge + one retrace.
+      const merges = chained.merges + set.absorbed;
+      const retraces = chained.retraces + set.absorbed;
+      const match = matchStrokes(
+        chained.strokes.map((s) => s.points),
+        references,
+        options.glyphDiag,
+      );
+      const countsAgree = match.extractedCount === match.referenceCount;
+      return {
+        strokes: chained.strokes,
+        merges,
+        retraces,
+        countsAgree,
+        adoptable: countsAgree && match.meanCost <= options.maxMeanCost,
+        meanCost: match.meanCost,
+      };
+    }),
+  );
   scored.sort(
     (a, b) => Number(b.adoptable) - Number(a.adoptable) || Number(b.countsAgree) - Number(a.countsAgree) || a.meanCost - b.meanCost,
   );

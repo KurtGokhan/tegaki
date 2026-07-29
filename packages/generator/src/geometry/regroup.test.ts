@@ -369,6 +369,86 @@ describe('regroupStrokesByReference — merging', () => {
     expect(result!.strokes.some((s) => s.points.length === 2 && s.points[0]!.y === 10)).toBe(true);
   });
 
+  test('stub absorption: a spur touching a longer piece MID-path splices in as an out-and-back excursion (そ/ん self-overlap)', () => {
+    // The reference travels out to a tip and back over the same corridor
+    // mid-stroke; the font fuses the doubled travel, so the skeleton keeps
+    // one through-path plus a spur holding the stroke's real tip. The pen
+    // must visit the tip mid-path — no tail-append join can produce that.
+    const host = stroke(
+      pts(
+        [
+          [0, 0],
+          [500, 0],
+        ],
+        30,
+      ),
+    );
+    const spur = stroke(
+      pts(
+        [
+          [250, 10],
+          [250, 120],
+        ],
+        30,
+      ),
+    );
+    const refs = [
+      ref([
+        [0, 0],
+        [250, 0],
+        [250, 120],
+        [250, 0],
+        [500, 0],
+      ]),
+    ];
+    const result = regroupStrokesByReference([host, spur], refs, OPTIONS);
+    expect(result).not.toBeNull();
+    expect(result!.merges).toBe(1);
+    expect(result!.retraces).toBe(1);
+    expect(result!.strokes.length).toBe(1);
+    const merged = result!.strokes[0]!;
+    // Starts at the host's head, dips to the tip mid-path, ends at the host's tail.
+    expect(merged.points[0]!.x).toBe(0);
+    const tipIdx = merged.points.findIndex((p) => p.y === 120);
+    expect(tipIdx).toBeGreaterThan(0);
+    expect(tipIdx).toBeLessThan(merged.points.length - 1);
+    expect(merged.points[merged.points.length - 1]!.x).toBe(500);
+  });
+
+  test('a stub touching near the host END chains plainly instead of splicing an excursion', () => {
+    const host = stroke(
+      pts(
+        [
+          [0, 0],
+          [500, 0],
+        ],
+        30,
+      ),
+    );
+    const tail = stroke(
+      pts(
+        [
+          [510, 0],
+          [620, 0],
+        ],
+        30,
+      ),
+    );
+    const refs = [
+      ref([
+        [0, 0],
+        [620, 0],
+      ]),
+    ];
+    const result = regroupStrokesByReference([host, tail], refs, OPTIONS);
+    expect(result).not.toBeNull();
+    expect(result!.merges).toBe(1);
+    expect(result!.retraces).toBe(0);
+    expect(result!.strokes.length).toBe(1);
+    const merged = result!.strokes[0]!;
+    expect(merged.points[merged.points.length - 1]!.x).toBe(620);
+  });
+
   test('rejected proposals leave the input strokes untouched', () => {
     const a = stroke(
       pts(
