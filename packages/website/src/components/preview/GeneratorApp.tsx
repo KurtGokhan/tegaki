@@ -19,8 +19,7 @@ import {
   parseFont,
   processGlyph,
   processGlyphGeometry,
-  type RegisteredReference,
-  registerReference,
+  type ReferenceGlyph,
   type SkeletonMethod,
 } from 'tegaki-generator';
 import { ZoomCanvas } from '../reactive-canvas.tsx';
@@ -121,7 +120,10 @@ export function GeneratorApp() {
   const [geometryOptions, setGeometryOptions] = useState<GeometryOptions>(initialUrlState.geometryOptions);
   const [geoResult, setGeoResult] = useState<GeometryPipelineResult | null>(null);
   const geoResultsCache = useRef(new Map<string, GeometryPipelineResult>());
-  const [geoReference, setGeoReference] = useState<RegisteredReference | null>(null);
+  // Stroke-order reference for the selected char: undefined = fetch in flight,
+  // null = dataset has no entry (or fetch failed). Fetched BEFORE the pipeline
+  // runs so the (synchronous) pipeline can register + match it.
+  const [refGlyph, setRefGlyph] = useState<ReferenceGlyph | null | undefined>(undefined);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>(initialUrlState.previewMode);
   const [previewText, setPreviewText] = useState(initialUrlState.previewText);
@@ -241,16 +243,42 @@ export function GeneratorApp() {
     return () => clearTimeout(id);
   }, [fontInfo, selectedChar, options]);
 
+  // Fetch the stroke-order reference for the selected char (memoized per
+  // character by the provider). Failures (offline, rate limit) degrade to
+  // "no reference" and the pipeline falls back to heuristic ordering.
+  useEffect(() => {
+    if (pipeline !== 'geometry' || previewMode !== 'glyph' || !selectedChar) return;
+    let cancelled = false;
+    setRefGlyph(undefined);
+    kanjiVGProvider
+      .get(selectedChar)
+      .then((ref) => {
+        if (!cancelled) setRefGlyph(ref);
+      })
+      .catch(() => {
+        if (!cancelled) setRefGlyph(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pipeline, previewMode, selectedChar]);
+
   // Process glyph through the geometry pipeline (only when that pipeline is active)
   useEffect(() => {
     if (pipeline !== 'geometry' || previewMode !== 'glyph' || !fontInfo || !selectedChar) {
       setGeoResult(null);
       return;
     }
-    const cacheKey = `${selectedChar}:${options.bezierTolerance}:${JSON.stringify(geometryOptions)}`;
+    // Wait for the reference fetch to settle so a single pipeline run sees it.
+    if (refGlyph === undefined) {
+      setProcessing(true);
+      return;
+    }
+    const cacheKey = `${selectedChar}:${options.bezierTolerance}:${JSON.stringify(geometryOptions)}:${refGlyph ? 'ref' : 'noref'}`;
     const cached = geoResultsCache.current.get(cacheKey);
     if (cached) {
       setGeoResult(cached);
+      setProcessing(false);
       return;
     }
     setProcessing(true);
@@ -260,7 +288,7 @@ export function GeneratorApp() {
       // the (synchronous) pipeline can use it.
       if (geometryOptions.medialMethod === 'straight-skeleton') await initStraightSkeleton();
       if (cancelled) return;
-      const res = processGlyphGeometry(fontInfo, selectedChar, geometryOptions, options.bezierTolerance);
+      const res = processGlyphGeometry(fontInfo, selectedChar, geometryOptions, options.bezierTolerance, refGlyph);
       if (res) geoResultsCache.current.set(cacheKey, res);
       setGeoResult(res);
       setProcessing(false);
@@ -269,36 +297,7 @@ export function GeneratorApp() {
       cancelled = true;
       clearTimeout(id);
     };
-  }, [pipeline, previewMode, fontInfo, selectedChar, geometryOptions, options.bezierTolerance]);
-
-  // Fetch + register the stroke-order reference for the current geometry
-  // result. Registration is cheap; the network hit is memoized per character
-  // by the provider. Failures (offline, rate limit) degrade to "no reference".
-  useEffect(() => {
-    if (!geoResult) {
-      setGeoReference(null);
-      return;
-    }
-    let cancelled = false;
-    kanjiVGProvider
-      .get(geoResult.char)
-      .then((ref) => {
-        if (!cancelled) setGeoReference(ref ? registerReference(ref, geoResult.pathBBox) : null);
-      })
-      .catch(() => {
-        if (!cancelled) setGeoReference(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [geoResult]);
-
-  // The reference rides on the result object so renderGeometryStage stays a
-  // single-signature (result, stage) renderer.
-  const geoResultWithReference = useMemo(
-    () => (geoResult && geoReference ? { ...geoResult, reference: geoReference } : geoResult),
-    [geoResult, geoReference],
-  );
+  }, [pipeline, previewMode, fontInfo, selectedChar, geometryOptions, options.bezierTolerance, refGlyph]);
 
   // The result whose strokes drive the animation controls / loop for the active pipeline.
   const animResult: PipelineResult | GeometryPipelineResult | null = pipeline === 'geometry' ? geoResult : result;
@@ -865,6 +864,23 @@ export function GeneratorApp() {
                   ))}
                 </div>
               </div>
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-gray-600">Stroke order</span>
+                <div className="flex rounded overflow-hidden border border-gray-300">
+                  {(['auto', 'dataset', 'heuristic'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={`px-2 py-1 text-xs cursor-pointer ${
+                        geometryOptions.strokeOrder === mode ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                      }`}
+                      onClick={() => updateGeometryOption('strokeOrder', mode)}
+                    >
+                      {mode === 'auto' ? 'Auto' : mode === 'dataset' ? 'Dataset' : 'Heuristic'}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <SliderOption
                 label="Corner angle (deg)"
                 value={geometryOptions.cornerAngleThresholdDeg}
@@ -1044,9 +1060,7 @@ export function GeneratorApp() {
                   ) : (
                     <>
                       {!processing && !geoResult && fontInfo && <p className="text-gray-400">No glyph data for "{selectedChar}"</p>}
-                      {!processing && geoResultWithReference && (
-                        <GeometryStageRenderer result={geoResultWithReference} stage={geometryStage} animTime={animTime} />
-                      )}
+                      {!processing && geoResult && <GeometryStageRenderer result={geoResult} stage={geometryStage} animTime={animTime} />}
                     </>
                   )}
                 </div>

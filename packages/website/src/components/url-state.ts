@@ -154,9 +154,11 @@ const GEO_OPTION_KEYS: Record<keyof GeometryOptions, string> = {
   continuationMaxBendDeg: 'gcb',
   resampleSpacingRatio: 'grs',
   medialMethod: 'gmm',
+  strokeOrder: 'gso',
 };
 
 const MEDIAL_METHODS: readonly GeometryOptions['medialMethod'][] = ['chain', 'voronoi', 'straight-skeleton'];
+const STROKE_ORDER_MODES: readonly GeometryOptions['strokeOrder'][] = ['auto', 'dataset', 'heuristic'];
 
 const REVERSE_GEO_OPTION_KEYS = Object.fromEntries(Object.entries(GEO_OPTION_KEYS).map(([k, v]) => [v, k])) as Record<
   string,
@@ -245,12 +247,17 @@ export function parseUrlState(search: string | URLSearchParams = window.location
     }
   }
 
-  // Geometry options — numeric, except the enum-valued medialMethod.
+  // Geometry options — numeric, except the enum-valued medialMethod / strokeOrder.
   for (const [short, long] of Object.entries(REVERSE_GEO_OPTION_KEYS)) {
     if (!p.has(short)) continue;
     const raw = p.get(short)!;
     if (long === 'medialMethod') {
       if ((MEDIAL_METHODS as readonly string[]).includes(raw)) state.geometryOptions.medialMethod = raw as GeometryOptions['medialMethod'];
+      continue;
+    }
+    if (long === 'strokeOrder') {
+      if ((STROKE_ORDER_MODES as readonly string[]).includes(raw))
+        state.geometryOptions.strokeOrder = raw as GeometryOptions['strokeOrder'];
       continue;
     }
     const v = Number(raw);

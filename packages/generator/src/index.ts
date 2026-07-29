@@ -45,6 +45,7 @@ export {
   kanjiVGUrl,
   parseKanjiVGSvg,
 } from './stroke-order/kanjivg.ts';
+export { matchStrokes, type StrokeMatchPair, type StrokeMatchResult } from './stroke-order/match.ts';
 export { referenceBBox, registerReference } from './stroke-order/register.ts';
 export type {
   ReferenceGlyph,

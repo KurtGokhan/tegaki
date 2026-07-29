@@ -11,6 +11,9 @@ import type { BBox } from 'tegaki';
 import { DRAWING_SPEED, STROKE_PAUSE } from '../constants.ts';
 import type { RawGlyphData } from '../font/parse.ts';
 import { computePathBBox, flattenPath } from '../processing/bezier.ts';
+import { matchStrokes } from '../stroke-order/match.ts';
+import { registerReference } from '../stroke-order/register.ts';
+import type { ReferenceGlyph } from '../stroke-order/types.ts';
 import { buildContours, findContourOverlaps } from './contours.ts';
 import { detectCorners } from './corners.ts';
 import { generateCuts } from './cuts.ts';
@@ -19,7 +22,7 @@ import { mergeSegmentFaces } from './face-merge.ts';
 import { straightSkeletonFaceAxes, straightSkeletonStrokeAxis } from './face-straight-skeleton.ts';
 import { extendUnpairedEnds, routeJunctionPaths } from './junction-routing.ts';
 import { clampWidthsToBoundary, computeSegmentAxes } from './medial.ts';
-import { orderAndTimeStrokes } from './ordering.ts';
+import { type OrderPlan, orderAndTimeStrokes } from './ordering.ts';
 import { classifyFaces, dissolvePartitionDebris, partitionFaces } from './partition.ts';
 import { dist, pointInPolygon, sub } from './primitives.ts';
 import { partitionRegions } from './regions.ts';
@@ -44,6 +47,13 @@ export interface GeometryPipelineInput {
   descender: number;
   unitsPerEm: number;
   rtl?: boolean;
+  /**
+   * Stroke-order reference for this character (raw dataset frame), fetched by
+   * the caller — providers are async, the pipeline is not. The pipeline
+   * registers it onto the glyph ink and, per `GeometryOptions.strokeOrder`,
+   * lets it decide draw order and pen direction.
+   */
+  reference?: ReferenceGlyph;
 }
 
 /** Union-find helper for grouping adjacent junction faces. */
@@ -476,13 +486,60 @@ export function runGeometryPipeline(
     }
   }
 
-  // Stage 7: order + timing across all regions at once.
-  const strokesFontUnits = orderAndTimeStrokes(geoStrokes, {
-    drawingSpeed: DRAWING_SPEED,
-    strokePause: STROKE_PAUSE,
-    rtl: input.rtl ?? false,
-    yTolerance: input.unitsPerEm * 0.02,
-  });
+  // Stage 7: order + timing across all regions at once. When a stroke-order
+  // reference is present (and not disabled), a clean match REPLACES the
+  // heuristic order/orientation; anything unclean degrades per mode so
+  // dataset ordering is never worse than the heuristic baseline.
+  let reference: GeometryPipelineResult['reference'];
+  let plan: OrderPlan | undefined;
+  let strokeOrderSource: GeometryPipelineResult['strokeOrderSource'] = 'heuristic';
+  if (input.reference) {
+    reference = registerReference(input.reference, pathBBox);
+    if (geometryOptions.strokeOrder !== 'heuristic' && geoStrokes.length > 0) {
+      const glyphDiag = Math.hypot(pathBBox.x2 - pathBBox.x1, pathBBox.y2 - pathBBox.y1);
+      const match = matchStrokes(
+        geoStrokes.map((g) => g.points),
+        reference.strokes.map((s) => s.points),
+        glyphDiag,
+      );
+      // Matched pairs (0.01–0.06 measured on Klee One) sit far below
+      // wrong-stroke assignments (≥ ~0.15); between them a generous margin.
+      const AUTO_MAX_MEAN_COST = 0.15;
+      const countsAgree = match.extractedCount === match.referenceCount;
+      const clean = countsAgree && match.meanCost <= AUTO_MAX_MEAN_COST;
+      if (clean || geometryOptions.strokeOrder === 'dataset') {
+        const sequence = [...match.pairs].sort((a, b) => a.reference - b.reference).map((p) => p.extracted);
+        // Forced partial match: unmatched extras draw after the prescribed strokes.
+        for (let i = 0; i < geoStrokes.length; i++) if (!sequence.includes(i)) sequence.push(i);
+        const reverse = geoStrokes.map(() => false);
+        for (const pair of match.pairs) reverse[pair.extracted] = pair.reversed;
+        plan = { sequence, reverse };
+        strokeOrderSource = 'dataset';
+        if (!countsAgree) {
+          warnings.push(
+            `stroke order: forced dataset match with ${match.referenceCount} reference vs ${match.extractedCount} extracted strokes`,
+          );
+        }
+      } else if (!countsAgree) {
+        warnings.push(
+          `stroke order: ${match.referenceCount} reference vs ${match.extractedCount} extracted strokes — heuristic order kept`,
+        );
+      } else {
+        warnings.push(`stroke order: match cost ${match.meanCost.toFixed(3)} above ${AUTO_MAX_MEAN_COST} — heuristic order kept`);
+      }
+    }
+  }
+
+  const strokesFontUnits = orderAndTimeStrokes(
+    geoStrokes,
+    {
+      drawingSpeed: DRAWING_SPEED,
+      strokePause: STROKE_PAUSE,
+      rtl: input.rtl ?? false,
+      yTolerance: input.unitsPerEm * 0.02,
+    },
+    plan,
+  );
 
   return {
     char: input.char,
@@ -502,5 +559,7 @@ export function runGeometryPipeline(
     geoStrokes,
     strokesFontUnits,
     warnings,
+    ...(reference ? { reference } : {}),
+    strokeOrderSource,
   };
 }

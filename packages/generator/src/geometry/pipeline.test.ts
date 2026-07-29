@@ -222,3 +222,132 @@ describe('geometry pipeline — junctions', () => {
     expect(minY).toBeLessThan(260);
   });
 });
+
+describe('geometry pipeline — dataset stroke order', () => {
+  // Two disjoint vertical bars. Heuristic order: left first, both top-to-bottom.
+  const twoBars = () => commandsFromPolygons(rect(200, 100, 320, 900), rect(600, 100, 720, 900));
+
+  /**
+   * Reference in a 109x109 dataset frame prescribing the OPPOSITE of the
+   * heuristic: right bar first, both drawn bottom-to-top. Centerlines at
+   * x=30/x=90 spanning y=10..90 register close to the extracted axes.
+   */
+  const reversedReference = () => ({
+    char: 'Ⅱ',
+    strokes: [
+      {
+        points: [
+          { x: 90, y: 90 },
+          { x: 90, y: 10 },
+        ],
+      },
+      {
+        points: [
+          { x: 30, y: 90 },
+          { x: 30, y: 10 },
+        ],
+      },
+    ],
+    viewBox: { width: 109, height: 109 },
+    source: 'test',
+    license: 'test',
+  });
+
+  function runWithReference(reference: ReturnType<typeof reversedReference> | undefined, strokeOrder: 'auto' | 'dataset' | 'heuristic') {
+    const input: GeometryPipelineInput = {
+      char: 'Ⅱ',
+      unicode: 0x2161,
+      advanceWidth: UPM,
+      boundingBox: { x1: 0, y1: 0, x2: UPM, y2: UPM },
+      pathString: '',
+      ascender: 800,
+      descender: -200,
+      unitsPerEm: UPM,
+      ...(reference ? { reference } : {}),
+    };
+    return runGeometryPipeline(input, { commands: twoBars() }, { ...DEFAULT_GEOMETRY_OPTIONS, strokeOrder });
+  }
+
+  test('auto: a clean match applies dataset order and direction', () => {
+    const r = runWithReference(reversedReference(), 'auto');
+    expect(r.strokeOrderSource).toBe('dataset');
+    expect(r.reference).toBeDefined();
+    expect(r.strokesFontUnits.length).toBe(2);
+    // Right bar drawn first…
+    expect(r.strokesFontUnits[0]!.points[0]!.x).toBeGreaterThan(500);
+    expect(r.strokesFontUnits[1]!.points[0]!.x).toBeLessThan(500);
+    // …and both strokes travel bottom-to-top as the reference prescribes.
+    for (const stroke of r.strokesFontUnits) {
+      expect(stroke.points[0]!.y).toBeGreaterThan(stroke.points[stroke.points.length - 1]!.y);
+    }
+  });
+
+  test('heuristic: the reference is registered for display but never applied', () => {
+    const r = runWithReference(reversedReference(), 'heuristic');
+    expect(r.strokeOrderSource).toBe('heuristic');
+    expect(r.reference).toBeDefined();
+    // Heuristic order: left bar first, top-to-bottom.
+    expect(r.strokesFontUnits[0]!.points[0]!.x).toBeLessThan(500);
+    for (const stroke of r.strokesFontUnits) {
+      expect(stroke.points[0]!.y).toBeLessThan(stroke.points[stroke.points.length - 1]!.y);
+    }
+  });
+
+  test('auto: count mismatch falls back to heuristic with a warning', () => {
+    const ref = reversedReference();
+    ref.strokes.push({
+      points: [
+        { x: 60, y: 10 },
+        { x: 60, y: 90 },
+      ],
+    });
+    const r = runWithReference(ref, 'auto');
+    expect(r.strokeOrderSource).toBe('heuristic');
+    expect(r.warnings.some((w) => w.includes('3 reference vs 2 extracted'))).toBe(true);
+    expect(r.strokesFontUnits[0]!.points[0]!.x).toBeLessThan(500);
+  });
+
+  test('dataset: count mismatch is forced with a warning', () => {
+    const ref = reversedReference();
+    ref.strokes.push({
+      points: [
+        { x: 60, y: 10 },
+        { x: 60, y: 90 },
+      ],
+    });
+    const r = runWithReference(ref, 'dataset');
+    expect(r.strokeOrderSource).toBe('dataset');
+    expect(r.warnings.some((w) => w.includes('forced dataset match'))).toBe(true);
+    // The matched ordering still puts the right bar first.
+    expect(r.strokesFontUnits[0]!.points[0]!.x).toBeGreaterThan(500);
+  });
+
+  test('auto: a wildly different reference is rejected on cost, not applied', () => {
+    // Horizontal reference strokes against vertical bars.
+    const ref = reversedReference();
+    ref.strokes = [
+      {
+        points: [
+          { x: 10, y: 30 },
+          { x: 100, y: 30 },
+        ],
+      },
+      {
+        points: [
+          { x: 10, y: 90 },
+          { x: 100, y: 90 },
+        ],
+      },
+    ];
+    const r = runWithReference(ref, 'auto');
+    expect(r.strokeOrderSource).toBe('heuristic');
+    expect(r.warnings.some((w) => w.includes('match cost'))).toBe(true);
+  });
+
+  test('no reference: all modes behave identically (heuristic)', () => {
+    const r = runWithReference(undefined, 'auto');
+    expect(r.strokeOrderSource).toBe('heuristic');
+    expect(r.reference).toBeUndefined();
+    expect(r.warnings).toEqual([]);
+  });
+});

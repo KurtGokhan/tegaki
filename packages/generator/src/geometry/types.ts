@@ -179,6 +179,18 @@ export interface GeometryOptions {
    * kept as a debugging comparison).
    */
   medialMethod: 'chain' | 'voronoi' | 'straight-skeleton';
+  /**
+   * How draw order and pen direction are decided when a stroke-order
+   * reference is supplied on the pipeline input:
+   * - 'auto' (default): dataset order when the match is clean (counts agree,
+   *   cost under threshold), heuristic otherwise — never worse than today.
+   * - 'dataset': force the best dataset match, partial on count mismatch.
+   *   Debugging the matcher itself.
+   * - 'heuristic': the control group — reference is registered for display
+   *   but never consulted for ordering.
+   * Without a reference all three behave identically (heuristic).
+   */
+  strokeOrder: 'auto' | 'dataset' | 'heuristic';
 }
 
 export const DEFAULT_GEOMETRY_OPTIONS: GeometryOptions = {
@@ -198,6 +210,7 @@ export const DEFAULT_GEOMETRY_OPTIONS: GeometryOptions = {
   // has neither problem and is what the merged-shape trial join (strokes.ts)
   // measures against, so defaults stay consistent with the join ranking.
   medialMethod: 'straight-skeleton',
+  strokeOrder: 'auto',
 };
 
 /** Options resolved to absolute font units / radians for the core algorithms. */
@@ -248,9 +261,12 @@ export interface GeometryPipelineResult {
   /** Non-fatal issues encountered (e.g. overlapping contours). */
   warnings: string[];
   /**
-   * Dataset stroke-order reference registered onto this glyph, attached by the
-   * caller after the (synchronous) pipeline runs — providers are async. Feeds
-   * the 'reference' visualization stage and, later, dataset-driven ordering.
+   * Dataset stroke-order reference registered onto this glyph. The pipeline
+   * registers it when a raw reference rides on the input (providers are
+   * async, so fetching happens before the synchronous pipeline runs). Feeds
+   * the 'reference' visualization stage and dataset-driven ordering.
    */
   reference?: RegisteredReference;
+  /** Whether the final draw order/direction came from the dataset or the heuristics. */
+  strokeOrderSource: 'dataset' | 'heuristic';
 }

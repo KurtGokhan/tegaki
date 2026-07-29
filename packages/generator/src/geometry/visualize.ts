@@ -344,7 +344,8 @@ function renderReference(result: GeometryPipelineResult): string {
     );
   });
 
-  const counts = `${result.strokesFontUnits.length} extracted / ${n} reference`;
+  const applied = result.strokeOrderSource === 'dataset' ? ' · dataset order applied' : '';
+  const counts = `${result.strokesFontUnits.length} extracted / ${n} reference${applied}`;
   const countColor = result.strokesFontUnits.length === n ? '#3a7d44' : '#c0392b';
   parts.push(
     `  <text x="${(vb.vx + vb.u * 4).toFixed(2)}" y="${(vb.vy + vb.u * 14).toFixed(2)}" font-size="${(vb.u * 11).toFixed(2)}" fill="${countColor}" font-family="sans-serif">${counts}</text>`,

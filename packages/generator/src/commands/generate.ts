@@ -31,6 +31,7 @@ import { isRtlChar } from '../processing/rtl.ts';
 import { skeletonize } from '../processing/skeletonize/index.ts';
 import { orderStrokes } from '../processing/stroke-order.ts';
 import { computeInverseDistanceTransform } from '../processing/width.ts';
+import type { ReferenceGlyph } from '../stroke-order/types.ts';
 
 // ── Pipeline option schema ─────────────────────────────────────────────────
 // `PipelineOptions` and `DEFAULT_OPTIONS` are derived from this schema so the
@@ -246,6 +247,7 @@ export function processGlyphGeometry(
   char: string,
   geometryOptions?: GeometryOptions,
   bezierTolerance?: number,
+  reference?: ReferenceGlyph | null,
 ): GeometryPipelineResult | null {
   const rawGlyph = extractGlyph(fontInfo.font, char, fontInfo.extraFonts);
   if (!rawGlyph) return null;
@@ -260,6 +262,7 @@ export function processGlyphGeometry(
       descender: fontInfo.descender,
       unitsPerEm: fontInfo.unitsPerEm,
       rtl: isRtlChar(char),
+      ...(reference ? { reference } : {}),
     },
     rawGlyph,
     geometryOptions,

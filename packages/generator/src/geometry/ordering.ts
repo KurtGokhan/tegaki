@@ -125,28 +125,46 @@ export interface OrderTimingParams {
   yTolerance: number;
 }
 
+/**
+ * Externally decided order + orientation (e.g. from a stroke-order dataset).
+ * When present it replaces the heuristics entirely: no entry-point orient, no
+ * dots-last reclassification — the plan is prescriptive.
+ */
+export interface OrderPlan {
+  /** Draw sequence: a permutation of stroke indices. */
+  sequence: number[];
+  /** Per stroke index: reverse the polyline before timing. */
+  reverse: boolean[];
+}
+
 /** Order + time geometry strokes into the renderer's Stroke shape (font units). */
-export function orderAndTimeStrokes(strokes: GeoStroke[], params: OrderTimingParams): TimedGeoStroke[] {
+export function orderAndTimeStrokes(strokes: GeoStroke[], params: OrderTimingParams, plan?: OrderPlan): TimedGeoStroke[] {
   if (strokes.length === 0) return [];
   const { drawingSpeed, strokePause, rtl, yTolerance } = params;
 
-  const oriented = strokes.map((s) => orient(s.points, s.isLoop, rtl));
+  const oriented = plan
+    ? strokes.map((s, i) => (plan.reverse[i] ? [...s.points].reverse() : s.points))
+    : strokes.map((s) => orient(s.points, s.isLoop, rtl));
   const priorities = oriented.map(() => 0);
-  classifyDots(oriented, priorities);
-
-  // Draw-order sort: dots last (priority), then top-to-bottom with a row band,
-  // then left-to-right (right-to-left for RTL).
-  const order = oriented.map((_, i) => i);
-  const boxes = oriented.map(bbox);
-  order.sort((a, b) => {
-    if (priorities[b]! !== priorities[a]!) return priorities[b]! - priorities[a]!;
-    const ay = boxes[a]!.minY;
-    const by = boxes[b]!.minY;
-    if (Math.abs(ay - by) > yTolerance) return ay - by;
-    const ax = boxes[a]!.minX;
-    const bx = boxes[b]!.minX;
-    return rtl ? bx - ax : ax - bx;
-  });
+  let order: number[];
+  if (plan) {
+    order = plan.sequence;
+  } else {
+    classifyDots(oriented, priorities);
+    // Draw-order sort: dots last (priority), then top-to-bottom with a row
+    // band, then left-to-right (right-to-left for RTL).
+    order = oriented.map((_, i) => i);
+    const boxes = oriented.map(bbox);
+    order.sort((a, b) => {
+      if (priorities[b]! !== priorities[a]!) return priorities[b]! - priorities[a]!;
+      const ay = boxes[a]!.minY;
+      const by = boxes[b]!.minY;
+      if (Math.abs(ay - by) > yTolerance) return ay - by;
+      const ax = boxes[a]!.minX;
+      const bx = boxes[b]!.minX;
+      return rtl ? bx - ax : ax - bx;
+    });
+  }
 
   const result: TimedGeoStroke[] = [];
   let timeOffset = 0;
