@@ -782,6 +782,40 @@ function orderGlobally(infos: PieceInfo[], corridors: GeoStroke[], glyphDiag: nu
   return order.map((i) => infos[i]!);
 }
 
+/** Concatenate `b` after `a` per the join's prescription (see findJoin). */
+function spliceJoin(a: AxisPoint[], b: AxisPoint[], join: Join): AxisPoint[] {
+  const joined = a.map((p) => ({ ...p }));
+  if (join.kind === 'retrace') {
+    appendDedup(joined, [...a.slice(join.pair.segA + 1, a.length - 1).reverse(), join.pair.qa]);
+    appendDedup(joined, [join.pair.qb, ...b.slice(0, join.pair.segB + 1).reverse()]);
+  } else if (join.kind === 'via') {
+    appendDedup(joined, walkBetween(join.corridor, join.entry.seg, join.entry.q, join.pair.segA, join.pair.qa));
+    appendDedup(joined, [join.pair.qb, ...b.slice(0, join.pair.segB + 1).reverse()]);
+  }
+  appendDedup(joined, b);
+  return joined;
+}
+
+/**
+ * Corrective moves for proportion drift between the dataset and the font.
+ * Both are consulted only in the caller's SECOND portfolio phase (when the
+ * plain portfolio produced nothing adoptable), so passing glyphs never see
+ * them:
+ * - fillEmpty: KanjiVG draws components wider/narrower than the font, so a
+ *   whole reference stroke can land off-ink and win NO pieces — its real ink
+ *   labels to whatever it crosses (星's 日-left vertical, 歌's 口-left, 歩's
+ *   right dot). Move the nearest spare piece into each empty group.
+ * - rescue: the same drift labels a piece into a group it cannot CHAIN in
+ *   (む's top-bar-left labels the big loop stroke; 船's hook labels a dot).
+ *   A group emitting several chains is a defect — every group is exactly one
+ *   reference stroke — so surplus chains re-attach to whichever chain their
+ *   ink actually touches, either end, reversal allowed.
+ */
+interface ChainExtras {
+  fillEmpty: boolean;
+  rescue: boolean;
+}
+
 /** Merge phase for one strategy: label + orient piece clones, chain per group. */
 function chainPieces(
   pieces: GeoStroke[],
@@ -789,7 +823,8 @@ function chainPieces(
   options: RegroupOptions,
   strategy: ChainStrategy,
   allowVia: boolean,
-): { strokes: GeoStroke[]; merges: number; retraces: number } {
+  extras: ChainExtras,
+): { strokes: GeoStroke[]; merges: number; retraces: number; filled: number } {
   const out: GeoStroke[] = [];
   const groups = new Map<number, PieceInfo[]>();
   for (const piece of pieces) {
@@ -806,10 +841,49 @@ function chainPieces(
     else groups.set(info.label, [info]);
   }
 
+  let filled = 0;
+  if (extras.fillEmpty) {
+    for (let r = 0; r < refs.length; r++) {
+      const ref = refs[r];
+      if (!ref || groups.has(r)) continue;
+      let best: { list: PieceInfo[]; idx: number; d: number; t: number } | null = null;
+      for (const list of groups.values()) {
+        // Taking a group's only piece would just relocate the hole.
+        if (list.length < 2) continue;
+        for (let i = 0; i < list.length; i++) {
+          const samples = resamplePolyline(list[i]!.piece.points, 12);
+          let sum = 0;
+          let tSum = 0;
+          for (const s of samples) {
+            const proj = projectToRef(s, ref);
+            sum += proj.d;
+            tSum += proj.t;
+          }
+          const d = sum / samples.length;
+          if (!best || d < best.d) best = { list, idx: i, d, t: tSum / samples.length };
+        }
+      }
+      // Never conscript ink beyond a quarter-diagonal — the reference stroke
+      // may be genuinely absent from the font.
+      if (!best || best.d > options.glyphDiag * 0.25) continue;
+      const info = best.list.splice(best.idx, 1)[0]!;
+      const piece = info.piece;
+      let tStart = projectToRef(piece.points[0]!, ref).t;
+      let tEnd = projectToRef(piece.points[piece.points.length - 1]!, ref).t;
+      if (tStart > tEnd) {
+        piece.points = [...piece.points].reverse();
+        [tStart, tEnd] = [tEnd, tStart];
+      }
+      groups.set(r, [{ piece, label: r, tMean: best.t, tStart, tEnd, meanD: best.d }]);
+      filled++;
+    }
+  }
+
   let merges = 0;
   let retraces = 0;
+  const chains: { stroke: GeoStroke; label: number }[] = [];
 
-  for (const infos of groups.values()) {
+  for (const [label, infos] of groups) {
     let pending = [...infos].sort((a, b) => a.tMean - b.tMean);
     if (strategy === 'global') {
       const ordered = orderGlobally(pending, pieces, options.glyphDiag, allowVia);
@@ -822,7 +896,7 @@ function chainPieces(
         continue;
       }
       if (pending.length === 0) {
-        out.push(current);
+        chains.push({ stroke: current, label });
         current = null;
         continue;
       }
@@ -842,30 +916,66 @@ function chainPieces(
         }
       }
       if (bestIdx < 0 || !bestJoin) {
-        out.push(current);
+        chains.push({ stroke: current, label });
         current = null;
         continue;
       }
       const piece = pending[bestIdx]!.piece;
       pending.splice(bestIdx, 1);
-      const joined = [...current.points];
-      if (bestJoin.kind === 'retrace') {
-        appendDedup(joined, [...current.points.slice(bestJoin.pair.segA + 1, current.points.length - 1).reverse(), bestJoin.pair.qa]);
-        appendDedup(joined, [bestJoin.pair.qb, ...piece.points.slice(0, bestJoin.pair.segB + 1).reverse()]);
-        retraces++;
-      } else if (bestJoin.kind === 'via') {
-        appendDedup(joined, walkBetween(bestJoin.corridor, bestJoin.entry.seg, bestJoin.entry.q, bestJoin.pair.segA, bestJoin.pair.qa));
-        appendDedup(joined, [bestJoin.pair.qb, ...piece.points.slice(0, bestJoin.pair.segB + 1).reverse()]);
-        retraces++;
-      }
-      appendDedup(joined, piece.points);
-      current.points = joined;
+      if (bestJoin.kind !== 'plain') retraces++;
+      current.points = spliceJoin(current.points, piece.points, bestJoin);
       current.segmentIndices = [...current.segmentIndices, ...piece.segmentIndices];
       merges++;
     }
   }
 
-  return { strokes: out, merges, retraces };
+  if (extras.rescue) {
+    // Every group is exactly one reference stroke, so a group emitting
+    // several chains is a defect. Strands (all but the longest chain per
+    // group) re-attach to whichever chain their ink touches — any group,
+    // either end, reversal allowed.
+    const byLabel = new Map<number, typeof chains>();
+    for (const c of chains) {
+      const list = byLabel.get(c.label);
+      if (list) list.push(c);
+      else byLabel.set(c.label, [c]);
+    }
+    const strands: typeof chains = [];
+    for (const list of byLabel.values()) {
+      if (list.length < 2) continue;
+      const sorted = [...list].sort((a, b) => polylineLength(b.stroke.points) - polylineLength(a.stroke.points));
+      strands.push(...sorted.slice(1));
+    }
+    strands.sort((a, b) => polylineLength(a.stroke.points) - polylineLength(b.stroke.points));
+    for (const strand of strands) {
+      const at = chains.indexOf(strand);
+      if (at < 0) continue; // already consumed by an earlier rescue
+      const fwd = strand.stroke.points;
+      const rev = [...fwd].reverse();
+      let best: { target: (typeof chains)[number]; a: AxisPoint[]; b: AxisPoint[]; join: Join; cost: number } | null = null;
+      for (const target of chains) {
+        if (target === strand) continue;
+        const arrangements: [AxisPoint[], AxisPoint[]][] = [
+          [target.stroke.points, fwd],
+          [target.stroke.points, rev],
+          [fwd, target.stroke.points],
+          [rev, target.stroke.points],
+        ];
+        for (const [a, b] of arrangements) {
+          const found = findJoin(a, b, pieces, options.glyphDiag, allowVia);
+          if (found && (!best || found.cost < best.cost)) best = { target, a, b, join: found.join, cost: found.cost };
+        }
+      }
+      if (!best) continue;
+      if (best.join.kind !== 'plain') retraces++;
+      best.target.stroke.points = spliceJoin(best.a, best.b, best.join);
+      best.target.stroke.segmentIndices = [...best.target.stroke.segmentIndices, ...strand.stroke.segmentIndices];
+      chains.splice(at, 1);
+      merges++;
+    }
+  }
+
+  return { strokes: [...out, ...chains.map((c) => c.stroke)], merges, retraces, filled };
 }
 
 /**
@@ -899,13 +1009,22 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
   // consecutive chaining exactly, so richer joins can only ever add
   // adoptable proposals, never lose one.
   if (DEBUG) {
-    for (const p of pieces) {
+    pieces.forEach((p, i) => {
       const first = p.points[0]!;
       const last = p.points[p.points.length - 1]!;
+      const info = labelPiece({ points: [...p.points], isLoop: p.isLoop, segmentIndices: [] }, refs);
+      const dists = refs
+        .map((ref, r) => {
+          if (!ref) return `${r}:-`;
+          const samples = resamplePolyline(p.points, 12);
+          const mean = samples.reduce((s, q) => s + projectToRef(q, ref).d, 0) / samples.length;
+          return `${r}:${mean.toFixed(0)}`;
+        })
+        .join(' ');
       console.log(
-        `[regroup] piece: len ${polylineLength(p.points).toFixed(0)} loop=${p.isLoop} (${first.x.toFixed(0)},${first.y.toFixed(0)}) -> (${last.x.toFixed(0)},${last.y.toFixed(0)})`,
+        `[regroup] piece ${i}: len ${polylineLength(p.points).toFixed(0)} loop=${p.isLoop} (${first.x.toFixed(0)},${first.y.toFixed(0)}) -> (${last.x.toFixed(0)},${last.y.toFixed(0)}) label=${info ? info.label : 'none'} meanD[${dists}]`,
       );
-    }
+    });
   }
   const pieceSets: { name: string; pieces: GeoStroke[]; absorbed: number; pruned: number }[] = [
     { name: 'raw', pieces, absorbed: 0, pruned: 0 },
@@ -924,47 +1043,61 @@ export function regroupStrokesByReference(strokes: GeoStroke[], references: Poin
     ['global', false],
     ['global', true],
   ];
-  const scored = pieceSets.flatMap((set) =>
-    combos.map(([strategy, allowVia]) => {
-      const chained = chainPieces(set.pieces, refs, options, strategy, allowVia);
-      // An absorption both merges two extracted strokes and doubles travel,
-      // so it reports as one merge + one retrace.
-      const merges = chained.merges + set.absorbed;
-      const retraces = chained.retraces + set.absorbed;
-      const match = matchStrokes(
-        chained.strokes.map((s) => s.points),
-        references,
-        options.glyphDiag,
-      );
-      const countsAgree = match.extractedCount === match.referenceCount;
-      if (DEBUG) {
-        const ends = chained.strokes
-          .map((s) => {
-            const f = s.points[0]!;
-            const l = s.points[s.points.length - 1]!;
-            return `[len ${polylineLength(s.points).toFixed(0)} (${f.x.toFixed(0)},${f.y.toFixed(0)})->(${l.x.toFixed(0)},${l.y.toFixed(0)})]`;
-          })
-          .join(' ');
-        console.log(
-          `[regroup] ${set.name}/${strategy}${allowVia ? '+via' : ''}: ${chained.strokes.length} strokes, mean ${match.meanCost.toFixed(3)}, pairs ${match.pairs.map((p) => p.cost.toFixed(3)).join('/')} ${ends}`,
+  const runPortfolio = (extras: ChainExtras) =>
+    pieceSets.flatMap((set) =>
+      combos.map(([strategy, allowVia]) => {
+        const chained = chainPieces(set.pieces, refs, options, strategy, allowVia, extras);
+        // An absorption both merges two extracted strokes and doubles travel,
+        // so it reports as one merge + one retrace.
+        const merges = chained.merges + set.absorbed;
+        const retraces = chained.retraces + set.absorbed;
+        const match = matchStrokes(
+          chained.strokes.map((s) => s.points),
+          references,
+          options.glyphDiag,
         );
-      }
-      return {
-        strokes: chained.strokes,
-        merges,
-        retraces,
-        pruned: set.pruned,
-        countsAgree,
-        adoptable: countsAgree && match.meanCost <= options.maxMeanCost,
-        meanCost: match.meanCost,
-      };
-    }),
-  );
+        const countsAgree = match.extractedCount === match.referenceCount;
+        if (DEBUG) {
+          const ends = chained.strokes
+            .map((s) => {
+              const f = s.points[0]!;
+              const l = s.points[s.points.length - 1]!;
+              return `[len ${polylineLength(s.points).toFixed(0)} (${f.x.toFixed(0)},${f.y.toFixed(0)})->(${l.x.toFixed(0)},${l.y.toFixed(0)})]`;
+            })
+            .join(' ');
+          const tag = `${extras.fillEmpty ? '+fill' : ''}${extras.rescue ? '+rescue' : ''}`;
+          console.log(
+            `[regroup] ${set.name}/${strategy}${allowVia ? '+via' : ''}${tag}: ${chained.strokes.length} strokes, mean ${match.meanCost.toFixed(3)}, pairs ${match.pairs.map((p) => p.cost.toFixed(3)).join('/')} ${ends}`,
+          );
+        }
+        return {
+          strokes: chained.strokes,
+          merges,
+          retraces,
+          filled: chained.filled,
+          pruned: set.pruned,
+          countsAgree,
+          adoptable: countsAgree && match.meanCost <= options.maxMeanCost,
+          meanCost: match.meanCost,
+        };
+      }),
+    );
+  let scored = runPortfolio({ fillEmpty: false, rescue: false });
+  // Second phase: corrective labeling variants (see ChainExtras). Consulted
+  // only when the plain portfolio has no adoptable proposal, so glyphs that
+  // already pass never change.
+  if (!scored.some((c) => c.adoptable)) {
+    scored = scored.concat(
+      runPortfolio({ fillEmpty: true, rescue: false }),
+      runPortfolio({ fillEmpty: false, rescue: true }),
+      runPortfolio({ fillEmpty: true, rescue: true }),
+    );
+  }
   scored.sort(
     (a, b) => Number(b.adoptable) - Number(a.adoptable) || Number(b.countsAgree) - Number(a.countsAgree) || a.meanCost - b.meanCost,
   );
   const best = scored[0]!;
 
-  if (splits === 0 && best.merges === 0 && best.pruned === 0) return null;
+  if (splits === 0 && best.merges === 0 && best.pruned === 0 && best.filled === 0) return null;
   return { strokes: best.strokes, splits, merges: best.merges, retraces: best.retraces, pruned: best.pruned };
 }

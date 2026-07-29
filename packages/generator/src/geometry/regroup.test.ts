@@ -494,6 +494,96 @@ describe('regroupStrokesByReference — merging', () => {
     // chain end-to-end pieces instead of dropping them.
   });
 
+  test('empty-reference fill: a reference stroke landing off-ink still claims its nearest spare piece (星/歌/歩 proportion drift)', () => {
+    // The dataset draws the component wider than the font, so ref 0 (a
+    // vertical) maps ~150 units left of its real ink — the vertical piece
+    // labels the horizontal reference it approaches, leaving ref 0 with NO
+    // pieces and the proposal one stroke short.
+    const vertical = stroke(
+      pts(
+        [
+          [250, 480],
+          [250, 400],
+        ],
+        30,
+      ),
+    );
+    const horizontal = stroke(
+      pts(
+        [
+          [200, 500],
+          [600, 500],
+        ],
+        30,
+      ),
+    );
+    const refs = [
+      ref([
+        [100, 380],
+        [100, 500],
+      ]),
+      ref([
+        [200, 500],
+        [600, 500],
+      ]),
+    ];
+    const result = regroupStrokesByReference([vertical, horizontal], refs, OPTIONS);
+    expect(result).not.toBeNull();
+    expect(result!.strokes.length).toBe(2);
+    expect(result!.strokes.some((s) => s.points.every((p) => p.x === 250))).toBe(true);
+    expect(result!.strokes.some((s) => s.points.every((p) => p.y === 500))).toBe(true);
+  });
+
+  test('orphan rescue: a chain strand unreachable in its own group attaches to the chain its ink touches (む/船)', () => {
+    // Piece C labels the horizontal reference (it IS bar ink) but cannot
+    // chain to the bar's other piece across the gap; its end touches the
+    // vertical stroke's head, so the pen picks it up there.
+    const a = stroke(
+      pts(
+        [
+          [100, 100],
+          [100, 500],
+        ],
+        10,
+      ),
+    );
+    const b = stroke(
+      pts(
+        [
+          [300, 100],
+          [500, 100],
+        ],
+        10,
+      ),
+    );
+    const c = stroke(
+      pts(
+        [
+          [100, 95],
+          [180, 95],
+        ],
+        10,
+      ),
+    );
+    const refs = [
+      ref([
+        [100, 100],
+        [500, 100],
+      ]),
+      ref([
+        [100, 100],
+        [100, 500],
+      ]),
+    ];
+    const result = regroupStrokesByReference([a, b, c], refs, OPTIONS);
+    expect(result).not.toBeNull();
+    expect(result!.strokes.length).toBe(2);
+    // C's ink rides with the vertical, not as a third stroke.
+    const rescued = result!.strokes.find((s) => s.points.some((p) => p.y === 500))!;
+    expect(rescued).toBeDefined();
+    expect(rescued.points.some((p) => p.x === 180)).toBe(true);
+  });
+
   test('rejected proposals leave the input strokes untouched', () => {
     const a = stroke(
       pts(
